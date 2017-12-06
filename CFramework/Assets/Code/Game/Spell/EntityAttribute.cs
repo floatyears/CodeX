@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class EntityAttribute {
 
@@ -27,10 +28,10 @@ public class EntityAttribute {
 	public int manaRegen;
 
 	//物理攻击
-	public int phyAttack;
+	public int physicAttack;
 
 	//物理防御
-	public float phyArmor;
+	public float physicArmor;
 
 	//魔法攻击
 	public int magicAttack;
@@ -48,7 +49,7 @@ public class EntityAttribute {
 	public int castRange;
 
 	//攻击范围
-	public int atkRange;
+	public int attackRange;
 
 	//移动速度
 	public int moveSpeed;
@@ -114,9 +115,9 @@ public class EntityAttribute {
 			case EntityAttributeType.Intellect:
 				return intellect;
 			case EntityAttributeType.PhyAttack:
-				return phyAttack;
-			case EntityAttributeType.PhyArmor:
-				return phyArmor;
+				return physicAttack;
+			case EntityAttributeType.PhysicArmor:
+				return physicArmor;
 			case EntityAttributeType.MagicResistance:
 				return 0;
 			default:
@@ -183,8 +184,6 @@ public class EntityAttribute {
 		int intValue = 0;
 		float floatVal = 0f;
 
-		
-
 		BaseNPC _source;
 		switch (type)
 		{
@@ -195,7 +194,6 @@ public class EntityAttribute {
 					var tmp = _source.Modifiers;
 					int count = tmp.Count;
 					intValue = _source.BaseAttribute.moveSpeed; //基础值
-					int minVal = -1;
 					int maxVal = -1;
 					int finalVal = -1;
 					
@@ -206,40 +204,51 @@ public class EntityAttribute {
 					{
 						var iter = tmp[i].Properties;
 						AbilitySpecial val;
+						//绝对值的优先级是最高的
 						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_ABSOLUTE, out val)) //速度的绝对值
 						{
-							finalVal = Mathf.Max(val.GetVal<int>(_source.Level), finalVal);
+							finalVal = Math.Max(val.GetVal<int>(_source.Level), finalVal);
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_ABSOLUTE_MIN,out val)) //最小速度的绝对值
 						{
-							minVal = Mathf.Max(val.GetVal<int>(_source.Level), intValue);
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BASE_OVERRIDE, out val))
+							finalVal = Math.Max(val.GetVal<int>(_source.Level), finalVal);
+						}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BASE_OVERRIDE, out val))
 						{
 							intValue = val.GetVal<int>(_source.Level);
-						}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_CONSTANT, out val))
+						}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_CONSTANT, out val)) //基础值的加成
 						{
-
+							baseBonus += val.GetVal<int>(_source.Level);
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE, out val))
 						{
-							baseBonus *= (100 + val.GetVal<int>(_source.Level)) / 100;
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE, out val))
+							perBonus *= (100 + val.GetVal<int>(_source.Level)) / 100;
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE, out val)) //unique表示不可叠加
 						{
-							
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE_2, out val))
+							perBonus *= (100 + val.GetVal<int>(_source.Level)) / 100;
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE_2, out val)) //unique表示不可叠加
 						{
 
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_UNIQUE, out val))
 						{
-
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_UNIQUE_2, out val))
+							baseBonus += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_UNIQUE_2, out val)) //unique表示不可叠加
 						{
 
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_LIMIT, out val))
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_LIMIT, out val)) //最终值达到的上限
 						{
-
+							maxVal = Math.Min(val.GetVal<int>(_source.Level), maxVal);
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_MAX, out val))
 						{
-
+							maxVal = Math.Min(val.GetVal<int>(_source.Level), maxVal);
 						}
+
+						if(finalVal < 0)
+						{
+							intValue = maxVal > 0 ? Math.Min(finalVal, maxVal) : finalVal;
+						}else{
+							intValue = (int)((intValue + baseBonus) * perBonus + extBonus);
+							intValue = maxVal > 0 ? Math.Min(intValue, maxVal) : intValue;
+						}
+
+						_source.Attribute.moveSpeed = intValue;
 					}
 					
 				}
@@ -296,16 +305,66 @@ public class EntityAttribute {
 						}
 					}
 
-					intValue = Mathf.Min(-80,intValue);
-					intValue = Mathf.Max(500,intValue);
+					intValue = Math.Min(-80,intValue);
+					intValue = Math.Max(500,intValue);
 					floatVal = floatVal/((100 + intValue)*0.01f);
 					_source.Attribute.attackSpeed = floatVal; //更新后的数值
 				}
 				else{
-
+					_source.Attribute.attackSpeed = floatVal;
 				}
 				
 				
+				break;
+			case EntityAttributeType.PhysicArmor:	
+				_source = source as BaseNPC;
+				//main armor = base armor + (agility/6);
+				//main armor表示
+				if(_source != null)
+				{
+					//main armor
+					floatVal = _source.BaseAttribute.physicArmor + EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Agility)/6;
+					if(_source != null)
+					{
+						var tmp = _source.Modifiers;
+						int count = tmp.Count;
+						for(int i = 0; i < count; i++)
+						{
+							var iter = tmp[i].Properties;
+							AbilitySpecial val;
+							float finalVal = -1f;
+							//加成值
+							if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS, out val)) 
+							{
+								floatVal += val.GetVal<float>(_source.Level);
+							}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE, out val))
+							{
+								floatVal += val.GetVal<float>(_source.Level);
+							}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE_ACTIVE, out val))
+							{
+								floatVal += val.GetVal<float>(_source.Level);
+							}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_IGNORE_PHYSICAL_ARMOR, out val))
+							{
+								finalVal = 0f;
+								break;
+							}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_TOTAL_CONSTANT_BLOCK_UNAVOIDABLE_PRE_ARMOR, out val))
+							{
+								
+							}
+							
+							if(finalVal < 0)
+							{
+								_source.Attribute.physicArmor = floatVal;
+							}else
+							{
+								_source.Attribute.physicArmor = 0f;
+							}
+						}
+					}
+				}else
+				{
+
+				}
 				break;
 			case EntityAttributeType.Health:
 				intValue = source.Attribute.health;
@@ -368,7 +427,7 @@ public enum EntityAttributeType{
 
 	PhyAttack,
 
-	PhyArmor,
+	PhysicArmor,
 
 	MagicAttack,
 

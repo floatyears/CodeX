@@ -80,7 +80,7 @@ public class CMessageID{
 
 		#elif UNITY_EDITOR_WIN
 			//RunCommand("powershell", "flatc -n" + filePath)
-			RunCommand("powershell", "flatc -n -o" + Applicationd.dataPath + "/Code/Network/Messages/" + sb.ToString());
+			RunCommand("powershell", "flatc -n -o" + Application.dataPath + "/Code/Network/Messages/" + sb.ToString());
 		#endif
 
 		AssetDatabase.Refresh();
