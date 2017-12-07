@@ -27,14 +27,14 @@ public class EntityAttribute {
 	//魔法回复
 	public int manaRegen;
 
-	//物理攻击
-	public int physicAttack;
+	//攻击伤害
+	public int attackDamage;
+
+	//伤害的随机部分
+	public int attackDamageRadom;
 
 	//物理防御
 	public float physicArmor;
-
-	//魔法攻击
-	public int magicAttack;
 
 	//魔法防御
 	public int magicResistance;
@@ -114,8 +114,8 @@ public class EntityAttribute {
 				return agility;
 			case EntityAttributeType.Intellect:
 				return intellect;
-			case EntityAttributeType.PhyAttack:
-				return physicAttack;
+			case EntityAttributeType.AttackDamage:
+				return attackDamage;
 			case EntityAttributeType.PhysicArmor:
 				return physicArmor;
 			case EntityAttributeType.MagicResistance:
@@ -281,45 +281,10 @@ public class EntityAttribute {
 				}
 
 				break;
-			case EntityAttributeType.AttackSpeed:
-				//Attack time = BAT / [(100 + IAS) × 0.01] = 1 / (attacks per second)
-				floatVal = source.BaseAttribute.attackSpeed; //基础攻击速度
-				_source = source as BaseNPC;
-				if(_source != null)
-				{
-					//一点敏捷提高一点攻击速度
-					intValue = EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Agility);
-					var tmp = _source.Modifiers;
-					int count = tmp.Count;
-					for(int i = 0; i < count; i++)
-					{
-						var iter = tmp[i].Properties;
-						AbilitySpecial val;
-						//加成值
-						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACKSPEED_BASE_OVERRIDE, out val)) 
-						{
-							floatVal = val.GetVal<float>(_source.Level);
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACKSPEED_BONUS_CONSTANT, out val))
-						{
-							intValue += val.GetVal<int>(_source.Level);
-						}
-					}
-
-					intValue = Math.Min(-80,intValue);
-					intValue = Math.Max(500,intValue);
-					floatVal = floatVal/((100 + intValue)*0.01f);
-					_source.Attribute.attackSpeed = floatVal; //更新后的数值
-				}
-				else{
-					_source.Attribute.attackSpeed = floatVal;
-				}
-				
-				
-				break;
 			case EntityAttributeType.PhysicArmor:	
 				_source = source as BaseNPC;
 				//main armor = base armor + (agility/6);
-				//main armor表示
+				//illusions能够从unit中继承值了main armor的属性
 				if(_source != null)
 				{
 					//main armor
@@ -366,6 +331,108 @@ public class EntityAttribute {
 
 				}
 				break;
+			case EntityAttributeType.AttackSpeed:
+				//Attack time = BAT / [(100 + IAS) × 0.01] = 1 / (attacks per second)
+				floatVal = source.BaseAttribute.attackSpeed; //基础攻击速度
+				_source = source as BaseNPC;
+				if(_source != null)
+				{
+					//一点敏捷提高一点攻击速度
+					intValue = EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Agility);
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						//加成值
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACKSPEED_BASE_OVERRIDE, out val)) 
+						{
+							floatVal = val.GetVal<float>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACKSPEED_BONUS_CONSTANT, out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}
+					}
+
+					intValue = Math.Min(-80,intValue);
+					intValue = Math.Max(500,intValue);
+					floatVal = floatVal/((100 + intValue)*0.01f);
+					_source.Attribute.attackSpeed = floatVal; //更新后的数值
+				}
+				else{
+					_source.Attribute.attackSpeed = floatVal;
+				}
+				break;
+			case EntityAttributeType.CastRange:
+				_source = source as BaseNPC;
+				intValue = source.BaseAttribute.castRange;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					int stackVal = 0;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_CAST_RANGE_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_CAST_RANGE_BONUS_STACKING,out val)) 
+						{
+
+						}
+
+					}
+				}
+				break;
+			case EntityAttributeType.AttackRange:
+				_source = source as BaseNPC;
+				intValue = source.BaseAttribute.attackRange;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					int maxVal = 0;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACK_RANGE_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACK_RANGE_BONUS_UNIQUE,out val))
+						{
+							//intValue = val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MAX_ATTACK_RANGE,out val)) 
+						{
+							maxVal = Math.Max(maxVal, val.GetVal<int>(_source.Level));
+						}
+
+						intValue = maxVal > 0 ? Math.Min(intValue, maxVal) : intValue;
+					}
+				}
+				break;
+			case EntityAttributeType.AttackDamage:
+				//Damage = { [Main Damage × (1 +   Percentage Bonuses) + FlatBonuses] × Crit Multiplier - Blocked Damage } × Armor Multipliers × General Damage Multipliers
+				_source = source as BaseNPC;
+				intValue = source.BaseAttribute.attackDamage;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_ATTACK_POINT_CONSTANT,out val)) //直接增加力量值
+						{
+
+						}
+					}
+				}
+				break;
 			case EntityAttributeType.Health:
 				intValue = source.Attribute.health;
 				break;
@@ -384,7 +451,7 @@ public class EntityAttribute {
 				//intValue = 
 				_source = source as BaseNPC;
 				//基础的力量值
-				intValue = source.Attribute.strength + source.Attribute.strengthGain * source.Level;
+				intValue = source.BaseAttribute.strength + source.BaseAttribute.strengthGain * source.Level;
 				if(_source != null)
 				{
 					var tmp = _source.Modifiers;
@@ -425,17 +492,18 @@ public enum EntityAttributeType{
 
 	StatusResistance,
 
-	PhyAttack,
+	AttackDamage,
+
+	AttackRange,
+	
+	AttackSpeed,
 
 	PhysicArmor,
-
-	MagicAttack,
 
 	MagicResistance,
 
 	Crit,
 
-	AttackSpeed,
 
 	CastRange,
 
