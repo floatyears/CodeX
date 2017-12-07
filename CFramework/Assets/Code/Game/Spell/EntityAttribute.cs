@@ -72,8 +72,8 @@ public class EntityAttribute {
 	//攻击免疫
 	public int avoidDamage;
 
-	//法术免疫
-	public int avoidSpell;
+	//技能伤害
+	public float spellDamage;
 	
 
 	//每升一级获得的力量
@@ -205,6 +205,7 @@ public class EntityAttribute {
 					
 					int baseBonus = 0;
 					float perBonus = 1f; //百分比的增长值
+					float perBonus1 = 1f; //百分比的增长值
 					int extBonus = 0;
 					for(int i = 0; i < count; i++)
 					{
@@ -228,7 +229,7 @@ public class EntityAttribute {
 							perBonus *= (100 + val.GetVal<int>(_source.Level)) / 100;
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE, out val)) //unique表示不可叠加
 						{
-							perBonus *= (100 + val.GetVal<int>(_source.Level)) / 100;
+							perBonus1 *= (100 + val.GetVal<int>(_source.Level)) / 100;
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MOVESPEED_BONUS_PERCENTAGE_UNIQUE_2, out val)) //unique表示不可叠加
 						{
 
@@ -572,9 +573,9 @@ public class EntityAttribute {
 					var tmp = _source.Modifiers;
 					int count = tmp.Count;
 					int perBonus = 0;
+					int finalPerBonus = 0;
 					int flatBonus = 0;
 					int postCrit = 0;
-					int perOut = 100;
 					for(int i = 0; i < count; i++)
 					{
 						var iter = tmp[i].Properties;
@@ -588,24 +589,18 @@ public class EntityAttribute {
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_BASEATTACK_BONUSDAMAGE, out val)) //基础攻击增加
 						{
 							intValue += val.GetVal<int>(_source.Level);
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PRE_ATTACK, out val)) //这个值增加在哪里？
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_BASEDAMAGEOUTGOING_PERCENTAGE_UNIQUE, out val)) //?难道是在计算基础damage的时候引入
+						{
+							finalPerBonus = Math.Max(finalPerBonus,val.GetVal<int>(_source.Level));
+						}
+						else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_BASEDAMAGEOUTGOING_PERCENTAGE, out val))
+						{
+							perBonus += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PRE_ATTACK, out val)) //这个值增加在哪里，亦或就是基础值
 						{
 
 						}
-						else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_OVERRIDE_ATTACK_MAGICAL, out val))
-						{
-
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_DAMAGEOUTGOING_PERCENTAGE, out val))
-						{
-							perOut += val.GetVal<int>(_source.Level);
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_DAMAGEOUTGOING_PERCENTAGE_ILLUSION, out val))
-						{
-
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_BASEDAMAGEOUTGOING_PERCENTAGE_UNIQUE, out val))
-						{
-
-						}
-						else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_OVERRIDE_ATTACK_MAGICAL, out val)) //覆写魔法攻击?
+						else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_OVERRIDE_ATTACK_MAGICAL, out val)) //?覆写魔法攻击，覆写的是基础值?
 						{
 
 						}
@@ -629,11 +624,11 @@ public class EntityAttribute {
 						}
 						 */
 						
-						
 						 
 					}
 
-					intValue = ((intValue *(1+perBonus/100)) + flatBonus);
+					intValue = (intValue *(1 + Math.Max(perBonus, finalPerBonus)/100) + flatBonus) * EntityAttribute.CalcAndUpdateValue(_source, EntityAttributeType.Crit);
+					return intValue;
 				}
 				break;
 			case EntityAttributeType.AttackIncomeModifier:
@@ -659,9 +654,88 @@ public class EntityAttribute {
 
 						}
 					}
+
+					return intValue;
 				}
 				return intValue;
-						
+			case EntityAttributeType.AttackOutgoModifier:
+				//incomming相关计算，这部分在目标上
+				_source = source as BaseNPC;
+				intValue = 100; //默认没有伤害加深
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_DAMAGEOUTGOING_PERCENTAGE, out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}
+						else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MAGICDAMAGEOUTGOING_PERCENTAGE, out val)) //魔法攻击加成
+						{
+
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_DAMAGEOUTGOING_PERCENTAGE_ILLUSION, out val)) //幻影的加成
+						{
+
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_TOTALDAMAGEOUTGOING_PERCENTAGE, out val)) //?总的加成，好像跟前面的没有区别
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}
+					}
+					return intValue;
+				}
+				return intValue;	
+			case EntityAttributeType.IncomeSpellModifier:
+				_source = source as BaseNPC;
+				floatVal = 1f;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_INCOMING_SPELL_DAMAGE_CONSTANT, out val))
+						{
+							floatVal = (val.GetVal<int>(_source.Level))/100;
+						}
+					}
+
+					_source.Attribute.spellDamage = floatVal;
+				}else
+				{
+
+				}
+				break;
+			case EntityAttributeType.SpellDamage:
+				_source = source as BaseNPC;
+				floatVal = source.BaseAttribute.spellDamage + EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Intellect) / 1400;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+
+					float bonusVal = 1f;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_SPELL_AMPLITY_PERCENTAGE, out val))
+						{
+							bonusVal += val.GetVal<int>(_source.Level);
+						}
+					}
+
+					_source.Attribute.spellDamage = floatVal * (1 + bonusVal/100);
+				}else
+				{
+
+				}
+				break;		
 			case EntityAttributeType.Health:
 				intValue = source.Attribute.health;
 				break;
@@ -754,6 +828,8 @@ public enum EntityAttributeType{
 
 	Evasion,
 
-	AvoidDamage,
+	SpellDamage,
+
+	IncomeSpellModifier,
 
 }
