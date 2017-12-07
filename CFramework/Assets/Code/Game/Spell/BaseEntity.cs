@@ -160,7 +160,7 @@ public class BaseEntity {
 
 	public void AttackTarget()
 	{
-		target.ForEachTarget((target)=> target.TakeDamage(DamageType.DAMAGE_TYPE_PURE,attribute.physicAttack));
+		target.ForEachTarget((target)=> target.TakeDamage(DamageType.DAMAGE_TYPE_PURE,attribute.attackDamage));
 	}
 
 
