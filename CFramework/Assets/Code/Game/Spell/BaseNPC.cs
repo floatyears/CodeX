@@ -185,18 +185,52 @@ public class BaseNPC : BaseEntity {
 		
 	}
 
-	//proc-格挡攻击
+	//执行一次攻击，一般的攻击。proc-触发
 	public void PerformAttack(BaseNPC target, bool useCastAttackOrb, bool prcoessProcs, bool skipCooldown, bool ignoreInvis = false, bool useProjectile = false, bool fakeAttack = false, bool neverMiss = false)
 	{
-		if(!fakeAttack)
+		int hitChance = 0;
+		if(neverMiss) hitChance = 100;
+		if(!this.GetModifierState(Modifier_State.MODIFIER_STATE_INVULNERABLE)) //无敌状态
 		{
-			TriggerModifierEvent(ModifierEventType.OnAttack);
+			//Miss chance = 1 - [Π^n (1 - evasionn) x (1 - Min(sum of all sources of blind, 100%)) x (1 - uphill miss chance)]
+			hitChance = (1 - EntityAttribute.CalcAndUpdateValue(target,EntityAttributeType.Evasion)/100) * (1 - Math.Min(EntityAttribute.CalcAndUpdateValue(this, EntityAttributeType.MissRate), 100)/ 100);
+			if(hitChance < UnityEngine.Random.Range(0f,1f)) //击中
+			{
+				//Damage = { [Main Damage × (1 +   Percentage Bonuses) + FlatBonuses] × Crit Multiplier - Blocked Damage } × Armor Multipliers × General Damage Multipliers
+				int damage = (EntityAttribute.CalcAndUpdateValue(this, EntityAttributeType.AttackDamage) - EntityAttribute.CalcAndUpdateValue(target,EntityAttributeType.DamageBlock)) * EntityAttribute.CalcAndUpdateValue(this, EntityAttributeType.AttackOutgoModifier)/100 * EntityAttribute.CalcAndUpdateValue(target,EntityAttributeType.AttackIncomeModifier) /100;
+				target.TakeDamage(DamageType.DAMAGE_TYPE_PHYSICAL, damage);
+				this.TriggerModifierEvent(ModifierEventType.OnDealDamage);
+				target.TriggerModifierEvent(ModifierEventType.OnTakeDamage);
+			}else
+			{
+
+			}
 		}
+
+		// if(!fakeAttack)
+		// {
+		// 	TriggerModifierEvent(ModifierEventType.OnAttack);
+		// }
 	}
 
 	public void Purge(bool removePositiveBuffs, bool removeDebuffs, bool buffsCreatedThisFrameOnly, bool removeStuns, bool removeExceptions)
 	{
-
+		int count = modifiers.Count;
+		for(int i = count - 1; i >= 0; i--)
+		{
+			var buff = modifiers[i];
+			if(!buff.IsPurgable) continue;
+			if((removePositiveBuffs && buff.IsBuff) || (removeDebuffs && buff.IsDebuff) || (removeStuns && buff.IsStunned))
+			{
+				if(!buff.IsPurgeException || removeExceptions) //需要特别清除的buff
+				{
+					modifiers.RemoveAt(i);
+					buff.Destroy();
+				}
+				
+			}
+		}
+		
 	}
 
 	//---------技能系统逻辑----------//
@@ -260,7 +294,9 @@ public class BaseNPC : BaseEntity {
 		{
 			if(modifiers[i].Name == modifierName)
 			{
+				var buff = modifiers[i];
 				modifiers.RemoveAt(i);
+				buff.Destroy();
 			}
 		}
 	}
@@ -272,7 +308,9 @@ public class BaseNPC : BaseEntity {
 		{
 			if(modifiers[i].Name == modifierName && modifiers[i].Caster == caster)
 			{
+				var buff = modifiers[i];
 				modifiers.RemoveAt(i);
+				buff.Destroy();
 			}
 		}
 	}
@@ -315,7 +353,7 @@ public class BaseNPC : BaseEntity {
 
 	public override void TakeDamage(DamageType damageType, int value)
 	{
-		attribute.TakeDamage(damageType, value);
+		attribute.health -= value;
 		if(!IsAlive())
 		{
 			TriggerModifierEvent(ModifierEventType.OnDeath);

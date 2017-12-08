@@ -37,7 +37,7 @@ public class EntityAttribute {
 	public float physicArmor;
 
 	//魔法防御
-	public int magicResistance;
+	public float magicResistance;
 
 	//物理格挡
 	public int damageBlock;
@@ -160,29 +160,6 @@ public class EntityAttribute {
 		return 0f;
 	}
 
-	public void TakeDamage(DamageType type, int value)
-	{
-		switch(type)
-		{
-			case DamageType.DAMAGE_TYPE_MAGICAL:
-			break;
-			case DamageType.DAMAGE_TYPE_PHYSICAL:
-			break;
-			case DamageType.DAMAGE_TYPE_PURE:
-			break;
-			case DamageType.DAMAGE_TYPE_REMOVAL:
-			break;
-		}
-		
-		health -= value;
-	}
-
-	//根据算法计算出是否击中
-	public bool CheckHit(EntityAttribute target)
-	{
-		return false;
-	}
-
 	//计算新的值并更新这个值
 	public static int CalcAndUpdateValue(BaseEntity source, EntityAttributeType type)
 	{
@@ -288,6 +265,42 @@ public class EntityAttribute {
 				}
 
 				break;
+			case EntityAttributeType.MagicResistance:	
+				_source = source as BaseNPC;
+				//Total magic resistance = 1 − ((1 − natural resistance) × (1 - Intelligence × 0.15% on intelligence heroes) × (1 − first resistance bonus) × (1 − second resistance bonus) × (1 + first resistance reduction) × (1 + second resistance reduction))
+				if(_source != null)
+				{
+					//main armor
+					floatVal = 1f;
+					if(_source != null)
+					{
+						var tmp = _source.Modifiers;
+						int count = tmp.Count;
+						int finalVal = 0;
+						for(int i = 0; i < count; i++)
+						{
+							var iter = tmp[i].Properties;
+							AbilitySpecial val;
+							//加成值
+							if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MAGICAL_RESISTANCE_BONUS, out val)) 
+							{
+								floatVal *= (1 - val.GetVal<int>(_source.Level)/100);
+							}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MAGICAL_RESISTANCE_DECREPIFY_UNIQUE, out val))
+							{
+								finalVal = Math.Max(finalVal, val.GetVal<int>(_source.Level)) ;
+							}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MAGICAL_RESISTANCE_DIRECT_MODIFICATION, out val)) //?直接修改变化值
+							{
+								//floatVal += val.GetVal<float>(_source.Level);
+							}
+						}
+
+						_source.Attribute.magicResistance = (1 - _source.BaseAttribute.magicResistance)*(1 - EntityAttribute.CalcAndUpdateValue(_source, EntityAttributeType.Intellect) * 0.0015f) * floatVal * (1 - finalVal/100);
+					}
+				}else
+				{
+					floatVal = 1 - source.BaseAttribute.magicResistance;
+				}
+				break;
 			case EntityAttributeType.PhysicArmor:	
 				_source = source as BaseNPC;
 				//main armor = base armor + (agility/6);
@@ -300,34 +313,34 @@ public class EntityAttribute {
 					{
 						var tmp = _source.Modifiers;
 						int count = tmp.Count;
+						float finalVal = 0f;
+						float bonus = 0f;
 						for(int i = 0; i < count; i++)
 						{
 							var iter = tmp[i].Properties;
 							AbilitySpecial val;
-							float finalVal = -1f;
 							//加成值
-							if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS, out val)) 
+							if(finalVal > -1 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS, out val)) 
 							{
-								floatVal += val.GetVal<float>(_source.Level);
-							}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE, out val))
+								bonus += val.GetVal<float>(_source.Level);
+							}else if(finalVal > -1 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE, out val))
 							{
-								floatVal += val.GetVal<float>(_source.Level);
-							}else if(finalVal < 0 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE_ACTIVE, out val))
+								finalVal = Math.Max(finalVal, val.GetVal<float>(_source.Level));
+							}else if(finalVal > -1 && iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_PHYSICAL_ARMOR_BONUS_UNIQUE_ACTIVE, out val))
 							{
-								floatVal += val.GetVal<float>(_source.Level);
-							}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_IGNORE_PHYSICAL_ARMOR, out val))
+								finalVal = Math.Max(finalVal, val.GetVal<float>(_source.Level));
+							}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_IGNORE_PHYSICAL_ARMOR, out val)) //这个优先级最高
 							{
-								finalVal = 0f;
+								finalVal = -2f;
 								break;
 							}
-							
-							if(finalVal < 0)
-							{
-								_source.Attribute.physicArmor = floatVal;
-							}else
-							{
-								_source.Attribute.physicArmor = 0f;
-							}
+						}
+						if(finalVal > -1)
+						{
+							_source.Attribute.physicArmor = floatVal + Math.Max(bonus, finalVal);
+						}else
+						{
+							_source.Attribute.physicArmor = 0f;
 						}
 					}
 				}else
@@ -473,7 +486,7 @@ public class EntityAttribute {
 				break;
 			case EntityAttributeType.Evasion:
 				_source = source as BaseNPC;
-				intValue = source.BaseAttribute.evasion;
+				floatVal = 1 - source.BaseAttribute.evasion/100;
 				if(_source != null)
 				{
 					var tmp = _source.Modifiers;
@@ -484,22 +497,23 @@ public class EntityAttribute {
 						AbilitySpecial val;
 						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_EVASION_CONSTANT, out val))
 						{
-							intValue += val.GetVal<int>(_source.Level);
+							floatVal *= (1 - val.GetVal<int>(_source.Level)/100);
 						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_NEGATIVE_EVASION_CONSTANT, out val)) 
 						{
-							//intValue += val.GetVal<int>(_source.Level);
+							floatVal *= (1 - val.GetVal<int>(_source.Level)/100);
 						}
 					}
 
-					_source.Attribute.crit = intValue;
+					_source.Attribute.evasion = 100 - (int)(floatVal * 100); //
+					return _source.Attribute.evasion;
 				}else
 				{
 
 				}
 				break;
-			case EntityAttributeType.MissRate:
+			case EntityAttributeType.MissRate: //miss rate是相加
 				_source = source as BaseNPC;
-				floatVal = source.BaseAttribute.missRate;
+				intValue = source.BaseAttribute.missRate;
 				if(_source != null)
 				{
 					var tmp = _source.Modifiers;
@@ -510,14 +524,12 @@ public class EntityAttribute {
 						AbilitySpecial val;
 						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MISS_PERCENTAGE, out val))
 						{
-							floatVal *= (1 + val.GetVal<int>(_source.Level)/100);
-						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_NEGATIVE_EVASION_CONSTANT, out val)) 
-						{
-							//intValue += val.GetVal<int>(_source.Level);
+							intValue += val.GetVal<int>(_source.Level);
 						}
 					}
 
-					_source.Attribute.missRate = (int)floatVal;
+					_source.Attribute.missRate = intValue;
+					return intValue;
 				}else
 				{
 
@@ -735,26 +747,146 @@ public class EntityAttribute {
 				{
 
 				}
-				break;		
+				break;	
+			case EntityAttributeType.Mana:
+				intValue = source.Attribute.mana;
+				break;
+			case EntityAttributeType.MaxMana:
+				intValue = source.BaseAttribute.maxMana + EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Intellect)  * 14;
+				_source = source as BaseNPC;
+				
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					int finalVal = 0;
+					int bonus = 0;
+					floatVal = 1f;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_HEALTH_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MIN_HEALTH,out val))
+						{
+							finalVal = Math.Min(finalVal, val.GetVal<int>(_source.Level));
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_EXTRA_HEALTH_BONUS,out val)) //在percentage之后识别
+						{
+							bonus += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_EXTRA_HEALTH_PERCENTAGE,out val))
+						{
+							floatVal *= (100 + val.GetVal<int>(_source.Level))/100;
+						}
+					}
+
+					source.Attribute.maxHealth = (int)((intValue + bonus)* floatVal);
+				}
+				else{
+
+				}
+				break;
 			case EntityAttributeType.Health:
 				intValue = source.Attribute.health;
 				break;
 			case EntityAttributeType.MaxHealth:
-				intValue = source.BaseAttribute.health + EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Strength)  * 20;
+				intValue = source.BaseAttribute.maxHealth + EntityAttribute.CalcAndUpdateValue(source, EntityAttributeType.Strength)  * 20;
+				_source = source as BaseNPC;
 				
-				source.Attribute.maxHealth = intValue;
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					int finalVal = 0;
+					int bonus = 0;
+					floatVal = 1f;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_HEALTH_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_MIN_HEALTH,out val))
+						{
+							finalVal = Math.Min(finalVal, val.GetVal<int>(_source.Level));
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_EXTRA_HEALTH_BONUS,out val)) //在percentage之后识别
+						{
+							bonus += val.GetVal<int>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_EXTRA_HEALTH_PERCENTAGE,out val))
+						{
+							floatVal *= (100 + val.GetVal<int>(_source.Level))/100;
+						}
+					}
+
+					source.Attribute.maxHealth = (int)((intValue + bonus)* floatVal);
+				}
+				else{
+
+				}
 				break;
 			case EntityAttributeType.HealthGegen:
 				//Health Regeneration = (Base + Sum of Flat Bonuses) × (1 + strength × (5/700))
 				//intValue = (int)((source.BaseAttribute.healthRegen + ) * (1 + EntityAttribute.CalcAndUpdateValue(source,EntityAttributeType.Strength) * 5 /700));
-				source.Attribute.healthRegen = intValue;
+				
+				_source = source as BaseNPC;
+				
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					float bonus = 0;
+					floatVal = _source.BaseAttribute.healthRegen;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_HEALTH_REGEN_CONSTANT,out val))
+						{
+							bonus += val.GetVal<float>(_source.Level);
+						}else if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_HEALTH_REGEN_PERCENTAGE,out val))
+						{
+							floatVal *= (1 + val.GetVal<int>(_source.Level)/100);
+						}
+					}
+					_source.Attribute.healthRegen = (_source.BaseAttribute.healthRegen + bonus) * floatVal;
+				}
+				else{
+
+				}
 				break;
-			
+			case EntityAttributeType.HealModifier:
+				//Health Regeneration = (Base + Sum of Flat Bonuses) × (1 + strength × (5/700))
+				//intValue = (int)((source.BaseAttribute.healthRegen + ) * (1 + EntityAttribute.CalcAndUpdateValue(source,EntityAttributeType.Strength) * 5 /700));
+				
+				_source = source as BaseNPC;
+				
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					floatVal = 1f;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_HEAL_AMPLIFY_PERCENTAGE,out val))
+						{
+							floatVal *= (1 + val.GetVal<float>(_source.Level)/100);
+						}
+					}
+					//return floatVal;
+				}
+				else{
+
+				}
+				break;
 			case EntityAttributeType.Strength:
 				//intValue = 
 				_source = source as BaseNPC;
 				//基础的力量值
-				intValue = source.BaseAttribute.strength + source.BaseAttribute.strengthGain * source.Level;
+				intValue = source.BaseAttribute.strength;// + source.BaseAttribute.strengthGain * source.Level; 升级的效果在外面处理
 				if(_source != null)
 				{
 					var tmp = _source.Modifiers;
@@ -771,8 +903,49 @@ public class EntityAttribute {
 							intValue += val.GetVal<int>(_source.Level);
 						}
 					}
-					//intValue = (int)(100 - (1 - EntityAttribute.CalcAndUpdateValue(_source,EntityAttributeType.Strength) * 0.0015f)*(1-_source.*100);
-					
+					_source.Attribute.strength = intValue;
+				}
+				break;
+			case EntityAttributeType.Agility:
+				//intValue = 
+				_source = source as BaseNPC;
+				//基础的力量值
+				intValue = source.BaseAttribute.agility;// + source.BaseAttribute.strengthGain * source.Level; 升级的效果在外面处理
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_STATS_AGILITY_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}
+					}
+					_source.Attribute.strength = intValue;
+				}
+				break;
+			case EntityAttributeType.Intellect:
+				//intValue = 
+				_source = source as BaseNPC;
+				//基础的力量值
+				intValue = source.BaseAttribute.intellect;// + source.BaseAttribute.strengthGain * source.Level; 升级的效果在外面处理
+				if(_source != null)
+				{
+					var tmp = _source.Modifiers;
+					int count = tmp.Count;
+					for(int i = 0; i < count; i++)
+					{
+						var iter = tmp[i].Properties;
+						AbilitySpecial val;
+						if(iter.TryGetValue(Modifier_Property.MODIFIER_PROPERTY_STATS_INTELLECT_BONUS,out val))
+						{
+							intValue += val.GetVal<int>(_source.Level);
+						}
+					}
+					_source.Attribute.strength = intValue;
 				}
 				break;
 		}
@@ -781,11 +954,16 @@ public class EntityAttribute {
 }
 
 public enum EntityAttributeType{
-	Health = 1,
+	Mana = 1,
+
+	MaxMana,
+	Health,
 
 	MaxHealth,
 
 	HealthGegen,
+
+	HealModifier,
 
 	Strength,
 
@@ -816,7 +994,6 @@ public enum EntityAttributeType{
 	DamageBlock,
 
 	Crit,
-
 
 	CastRange,
 

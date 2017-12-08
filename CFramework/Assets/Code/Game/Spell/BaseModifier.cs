@@ -38,7 +38,7 @@ public class BaseModifier {
 
 	private Dictionary<Modifier_State,Modifier_State_Value> states;
 
-	private Dictionary<Modifier_Property, AbilitySpecial> proterties;
+	private Dictionary<Modifier_Property, AbilitySpecial> properties;
 
 	private Dictionary<ModifierEventType, List<BaseAction>> eventActions;
 
@@ -46,7 +46,7 @@ public class BaseModifier {
 	{
 		get
 		{
-			return proterties;
+			return properties;
 		}
 	}
 
@@ -91,10 +91,46 @@ public class BaseModifier {
 		}
 	}
 
+	public bool IsBuff{
+		get{
+			return modifierParams.isBuff;
+		}
+	}
+
+	public bool IsDebuff{
+		get{
+			return modifierParams.isDebuff;
+		}
+	}
+
+	public bool IsPurgable
+	{
+		get{
+			return modifierParams.isPurgable;
+		}
+	}
+
+	public bool IsPurgeException{
+		get{
+			return modifierParams.isPurgeException;
+		}
+	}
+
+	public bool IsStunned{
+		get{
+			Modifier_State_Value stateVal;
+			if(states.TryGetValue(Modifier_State.MODIFIER_STATE_STUNNED, out stateVal))
+			{
+				return stateVal == Modifier_State_Value.MODIFIER_STATE_VALUE_ENABLED;
+			}
+			return false;
+		}
+	}
+
 	public BaseModifier(string modifierName)
 	{
 		eventActions = new Dictionary<ModifierEventType, List<BaseAction>>();
-		proterties = new Dictionary<Modifier_Property, AbilitySpecial>();
+		properties = new Dictionary<Modifier_Property, AbilitySpecial>();
 		modifierParams = ModifierManager.GetModifier(modifierName);
 		isAura = modifierParams.isAura;
 		isOrb = eventActions.ContainsKey(ModifierEventType.Orb);
@@ -222,20 +258,6 @@ public class BaseModifier {
 		}
 	}
 
-	// private void ProcessProperties()
-	// {
-	// 	var iterator = proterties.GetEnumerator();
-	// 	while(iterator.MoveNext())
-	// 	{
-	// 		switch(iterator.Current.Key)
-	// 		{
-	// 			case Modifier_Property.MODIFIER_PROPERTY_ABSOLUTE_NO_DAMAGE_MAGICAL:
-	// 				iterator.Current.Value.GetVal(caster.Level);
-	// 				break;
-	// 		} 
-	// 	}
-	// }
-
 	public void ApplyModifierStates()
 	{
 		parent.ApplyModifierStates(states);
@@ -271,6 +293,12 @@ public class BaseModifier {
 	public void Destroy()
 	{
 		TriggerEvent(ModifierEventType.OnDestroy);
+		states.Clear();
+		properties.Clear();
+		eventActions.Clear();
+		caster = null;
+		parent = null;
+		ability = null;
 	}
 }
 
@@ -292,7 +320,7 @@ public struct ModifierParams{
 	//是否可以被清除
 	public bool isPurgable;
 
-	//是否可以被强力清楚
+	//是否可以被强力清除
 	public bool isPurgeException;
 
 	public bool isHidden;
