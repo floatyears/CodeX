@@ -32,6 +32,12 @@ public class ActionLinearProjectile : BaseAction {
 
 	protected override bool ExeOnTarget(BaseEntity tar)
 	{
+		var info = new ProjectileItemParams();
+		info.distance = fixedDistance;
+		info.startRadius = startRadius;
+		info.endRadius = endRadius;
+		info.effectName = effectName;
+		ProjectileManager.Instance.CreateLinearProjectile(owner, null, info);
 		return true;
 	}
 
