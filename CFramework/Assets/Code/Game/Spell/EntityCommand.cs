@@ -15,9 +15,9 @@ public enum EntityCommandType
 {
 	Move = 1,
 
-	Cast,
+	Cast = 2,
 
-	Channel,
+	Channel = 4,
 }
 
 public enum EntityCommandState
