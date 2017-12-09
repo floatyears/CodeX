@@ -141,11 +141,21 @@ public class BaseNPC : BaseEntity {
 	}
 
 	//--------游戏操作逻辑---------//
-	public void CastSpell()
+	public void CastSpell(int abilityIndex)
 	{
 		
 	}
 
+	public void CastSpell(string abilityName)
+	{
+		int count = abilities.Count;
+		for(int i = 0; i < count; i++)
+		{
+			if(abilities[i].Name == abilityName){
+				abilities[i].CastAbility();
+			}
+		}
+	}
 	public void MoveTo(Vector3 pos)
 	{
 

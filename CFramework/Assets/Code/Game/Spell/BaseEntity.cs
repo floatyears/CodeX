@@ -149,7 +149,7 @@ public class BaseEntity {
 
 	public virtual void TakeDamage(DamageType damageType, int value)
 	{
-		attribute.TakeDamage(damageType, value);
+		//attribute.TakeDamage(damageType, value);
 		
 	}
 

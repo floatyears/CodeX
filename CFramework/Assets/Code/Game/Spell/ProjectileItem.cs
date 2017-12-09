@@ -24,6 +24,9 @@ public class ProjectileItem {
 
 	private ParticleItem particleItem;
 
+	private Transform shellObj;
+
+	private CapsuleCollider collider;
 
 	public int ProjectileID
 	{
@@ -74,6 +77,17 @@ public class ProjectileItem {
 		this.position = infoParams.spawnOrigin;
 		this.expireTime = infoParams.expireTime;
 		this.particleItem = new ParticleItem(this.infoParams.effectName, this.source);
+
+		//碰撞的部分还需要特别写，为了服务器验证计算。
+		var obj = new GameObject("projectile"+projectileID);
+		collider = obj.AddComponent<CapsuleCollider>();
+		collider.radius = this.infoParams.startRadius;
+
+		shellObj = obj.transform;
+		CObjectsPool.Instance.Instantiate("", infoParams.effectName, (_obj,uid)=>{
+			var tmp = _obj as Transform;
+			if(tmp != null) tmp.parent = shellObj;
+		} ,ObjectType.Effect);
 	}
 
 	public ProjectileItem(BaseEntity source, BaseAbility ability, ProjectileItemParams infoParams, EntityTarget target)
@@ -87,6 +101,14 @@ public class ProjectileItem {
 		this.position = infoParams.spawnOrigin;
 		this.expireTime = infoParams.expireTime;
 		this.particleItem = new ParticleItem(this.infoParams.effectName, this.source);
+
+		var obj = new GameObject("projectile"+projectileID);
+		obj.AddComponent<BoxCollider>();
+		shellObj = obj.transform;
+		CObjectsPool.Instance.Instantiate("", infoParams.effectName, (_obj,uid)=>{
+			var tmp = _obj as Transform;
+			if(tmp != null) tmp.parent = shellObj;
+		} ,ObjectType.Effect);
 	}
 
 	public void Update(float deltaTime)
@@ -130,6 +152,10 @@ public class ProjectileItem {
 
 	public void Destroy()
 	{
+		if(shellObj.childCount > 0)
+		{
+			CObjectsPool.Instance.Destroy(shellObj.GetChild(0), ObjectType.Effect);
+		}
 		particleItem.Destroy();
 	}
 }
