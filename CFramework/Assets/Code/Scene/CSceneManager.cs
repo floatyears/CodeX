@@ -95,6 +95,13 @@ public class CSceneManager : CModule {
 		}
 	}
 
+	public CSceneBase CurScene
+	{
+		get{
+			return curScene;
+		}
+	}
+
 
 }
 

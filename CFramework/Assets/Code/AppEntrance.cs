@@ -16,4 +16,8 @@ public class AppEntrance : MonoBehaviour {
 	void Update () {
 		gameCore.Update();
 	}
+
+	void FixedUpdate() {
+		gameCore.FixedUpdate();
+	}
 }

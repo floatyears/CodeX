@@ -8,6 +8,8 @@ public class CGameCore {
 	//游戏内的各个模块
 	private List<CModule> modules;
 
+	private List<CModule> fixedModules;
+
 	private int updateNum = 0;
 
 	//游戏初始化
@@ -23,7 +25,9 @@ public class CGameCore {
 		AddModule("UIManager", new CUIManager());
 		AddModule("SceneManager", new CSceneManager());
 
-		CDataModel.Player.CsAccountLogin();
+		fixedModules = new List<CModule>(3);
+		//fixedModules.Add();
+		//CDataModel.Player.CsAccountLogin();
 	}
 
 	
@@ -56,5 +60,10 @@ public class CGameCore {
 		{
 			modules[i].Update();
 		}
+	}
+
+	//fixed更新，比如帧同步这一块儿全是在FixedUpdate中更新
+	public void FixedUpdate() {
+		
 	}
 }

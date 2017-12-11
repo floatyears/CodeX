@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class PlayerController {
 
+	/* 玩家输入处理 */
+
 	private Vector3 touchPos; 
 
 	private Touch touch1;
@@ -17,7 +19,25 @@ public class PlayerController {
 	//主要用于在touch下模拟点击
 	private int elapseFrame = 0;
 
-	private List<EntityCommand> commands;
+	/* */
+	//服务器的帧
+	private int serverFrame;
+
+	//客户端的帧
+	private int clientFrame;
+
+	//这是模拟的输入，有部分来自服务器，同时包含了客户端的预测，当预测出错时，需要用来自服务器的最后一帧到玩家当前帧的所有输入重播一遍来进行缓和
+	private CircularBuffer<EntityCommand> simulateCommands;
+
+	//玩家输入的commands，跟播放的commands分开是
+	private CircularBuffer<EntityCommand> inputCommands;
+
+	public void Init()
+	{
+		//保存20帧的命令
+		inputCommands = new CircularBuffer<EntityCommand>(20);
+		simulateCommands = new CircularBuffer<EntityCommand>(20);
+	}
 	
 	/// <summary>
 	/// Update is called every frame, if the MonoBehaviour is enabled.
@@ -38,16 +58,16 @@ public class PlayerController {
 		{
 			if(Input.GetKeyUp(KeyCode.W))
 			{
-				
+				inputCommands.Enqueue(new EntityCommand(1, EntityCommandType.Move, 1, 0));
 			}else if(Input.GetKeyUp(KeyCode.D))
 			{
-
+				inputCommands.Enqueue(new EntityCommand(1, EntityCommandType.Move, 90, 0));
 			}else if(Input.GetKeyUp(KeyCode.A))
 			{
-
+				inputCommands.Enqueue(new EntityCommand(1, EntityCommandType.Move, 180, 0));
 			}else if(Input.GetKeyUp(KeyCode.S))
 			{
-				
+				inputCommands.Enqueue(new EntityCommand(1, EntityCommandType.Move, 270, 0));
 			}
 		}
 		

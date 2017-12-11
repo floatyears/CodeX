@@ -92,7 +92,7 @@ public class BaseNPC : BaseEntity {
 
 	protected List<BaseModifier> modifiers;
 
-	protected Stack<EntityCommand> commandStack;
+	//protected Stack<EntityCommand> commandStack;
 
 	public List<BaseModifier> Modifiers
 	{

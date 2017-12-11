@@ -63,6 +63,13 @@ public class BaseEntity {
 		}
 	}
 
+	public int GUID
+	{
+		get{
+			return guid;
+		}
+	}
+
 	public EntityAttribute BaseAttribute{
 		get{
 			return baseAttribute;

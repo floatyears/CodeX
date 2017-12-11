@@ -16,4 +16,18 @@ public class CBattleScene : CSceneBase {
 		blueTeam = new List<BaseNPC>();
 		redTeam = new List<BaseNPC>();
 	}
+
+	public BaseNPC GetNpcByUID(int uid)
+	{
+		int count = allNpc.Count;
+		for(int i = 0; i < count; i++)
+		{
+			var tmp = allNpc[i];
+			if(tmp.GUID == uid)
+			{
+				return tmp;
+			}
+		}
+		return null;
+	}
 }
