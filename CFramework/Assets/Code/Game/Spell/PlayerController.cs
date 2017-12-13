@@ -2,6 +2,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/*
+服务器的命令经过处理之后返回到客户端，如果客户端进行了提前预测，
+如果和服务器的结果冲突，那么就需要进行“和解”(reconcile)。 
+简单的做法是直接用服务器的结果覆盖当前状态，但是这样会非常不友好。
+做法是用另外一个环形缓冲来存储玩家输入，如果预测失败，就把失败那一刻
+起的全部输入全部重播一遍直至追上当前时刻，而这个时候服务器也在模拟相同的
+操作（因为这个时候服务器已经收到了部分客户端的输入），就不会出现互相追赶的问题。
+
+这需要状态同步和帧同步都要进行
+ */
 public class PlayerController {
 
 	/* 玩家输入处理 */
@@ -19,9 +29,6 @@ public class PlayerController {
 	//主要用于在touch下模拟点击
 	private int elapseFrame = 0;
 
-	/* */
-	//服务器的帧
-	private int serverFrame;
 
 	//客户端的帧
 	private int clientFrame;
@@ -36,13 +43,13 @@ public class PlayerController {
 	{
 		//保存20帧的命令
 		inputCommands = new CircularBuffer<EntityCommand>(20);
-		simulateCommands = new CircularBuffer<EntityCommand>(20);
+		simulateCommands = new CircularBuffer<EntityCommand>(40);
 	}
 	
 	/// <summary>
 	/// Update is called every frame, if the MonoBehaviour is enabled.
 	/// </summary>
-	public void Update()
+	public void FixedUpdate()
 	{
 #if UNITY_STANDALONE || UNITY_EDITOR //在PC平台上操作
 		
@@ -103,5 +110,30 @@ public class PlayerController {
 			
 		}
 #endif
+		clientFrame++; //客户端的帧数加一
+		var curCommand = inputCommands.Peek();//当前的指令
+		curCommand.Execute(); //即刻开始模拟
+
+		if(!CheckPredict()) //预测失败
+		{
+
+		}
+	}
+
+
+
+	private void Reconcile()
+	{
+		
+	}
+	
+	private bool CheckPredict()
+	{
+		return false;
+	}
+
+	private void ReplaceCommand()
+	{
+		//inputCommands.
 	}
 }

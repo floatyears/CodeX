@@ -50,6 +50,19 @@ public class CircularBuffer<T> {
 		}
 	}
 
+	public T Peek()
+	{
+		if(!IsEmpty)
+		{
+			T tmp = buffer[head];
+			return tmp;
+		}else
+		{
+			CLog.Error(typeof(T).GetType().ToString(), " Circular Buffer is Empty, Peek failed!");
+			return default(T);
+		}
+	}
+
 	private int NextPos(int pos)
 	{
 		return (pos + 1) % bufferSize;
