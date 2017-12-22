@@ -36,7 +36,7 @@ public class CommandFrameManager : CModule {
 
 	}
 
-	public void SimulateFrame(int frame, )
+	public void SimulateFrame(int frame, List<EntityCommand> commands)
 	{
 
 	}

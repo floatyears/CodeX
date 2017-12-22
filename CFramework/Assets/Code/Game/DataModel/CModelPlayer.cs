@@ -3,26 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using FlatBuffers;
 
-public interface IModel {
-
-	void Init();
-
-	void Dispose();
-}
-
-public class CModelScene : IModel
-{
-	public void Init()
-	{
-
-	}
-
-	public void Dispose()
-	{
-
-	}
-} 
-
+//玩家数据模型
 public class CModelPlayer : IModel
 {	
 	public int roleID;
