@@ -41,6 +41,24 @@ public struct PlayerState{
 
 	PMoveType pmType;
 
+	int bobCycle;
+
+	PMoveFlags pmFlags;
+
+	int pmTime;
+
+	Vector3 origin;
+
+	Vector3 velocity;
+
+	int gravity;
+
+	int speed;
+
+	int[] delta_angles; //
+
+
+
 
 }
 
@@ -95,6 +113,35 @@ public enum PMoveType
 	INTERMISSION = 6, //间歇期
 
 	SPINGTERMISSION = 7,
+}
+
+public enum PMoveFlags
+{
+	DUCKED = 0x1,
+
+	JUMP_HELD = 0x2,
+
+	BACKWARDS_JUMP = 0x04,
+
+	BACKWARDS_RUN = 0x8,
+
+	TIME_LAND = 0x10,
+
+	TIME_KOCKBACK = 0x20,
+
+	TIME_WATERJUMP = 0x40,
+
+	RESPAWNED = 0x80,
+
+	USE_ITEM_HELD = 0x100,
+
+	GRAPPLE_PULL = 0x200,
+
+	FOLLOW = 0x400, //跟随其他玩家的视角
+
+	SCOREBOARD = 0x800,
+
+	INVULEXPAND = 0x1000,
 }
 
 public enum EntityType
