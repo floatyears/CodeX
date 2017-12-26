@@ -57,15 +57,75 @@ public struct PlayerState{
 
 	int[] delta_angles; //
 
+	int entityID; //entityID
 
+	int movementDir; //摇杆操作的方向，范围是为0-180(int8)
 
+	EntityFlags entityFlags;
 
+	int eventSequence;
+
+	int[] events;
+
+	int[] eventParams;
+
+	int externalEvent;
+
+	int externalEventParam;
+
+	int externalEventTime;
+
+	int clientNum; //范围是0-MAX_CLIENT - 1
+
+	int damageEvent;
+
+	int damageCount;
+
+	int[] states;
+
+	int[] persistant;
+
+	int ping;
+
+	int pm_framecount;
+
+	int entityEventSequence;
 }
 
 public struct EntityState{
 	int index;
 
 	// int 
+}
+
+public enum EntityFlags{
+	DEAD = 0x1,
+
+	TELEPORT_BIT = 0x2, //只要origin变化过大就设置
+
+	BOUNCE = 0x4,
+
+	BOUNCE_HALF = 0x8,
+
+	NODRAW = 0x10,
+
+	FIRING = 0x20,
+
+	MOVE_STOP = 0x40,
+
+	AWARD_CAP = 0x80,
+
+	VOTED = 0x100,
+
+	AWARD_EXCELLENT = 0x200, //
+
+	AWARD_IMPRESSIVE = 0x400,
+
+	AWARD_DEFEND = 0x800,
+
+	AWARD_ASSIST = 0x1000,
+
+	AWARD_DENIED = 0x2000,
 }
 
 public struct PMove{
@@ -115,6 +175,7 @@ public enum PMoveType
 	SPINGTERMISSION = 7,
 }
 
+//移动的标签
 public enum PMoveFlags
 {
 	DUCKED = 0x1,
