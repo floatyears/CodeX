@@ -4,15 +4,171 @@ using UnityEngine;
 
 public class CModelGameState : IModel {
 
+	private int clientFrame;
+
+	private int clientNum;
+
+	private bool demoPlayback;
+
+	private bool levelShot;
+
+	private int deferredPlayerLoading;
+
+	private bool loading; //
+
+	private bool intermissionStarted;
+
+	private int latestSnapshotNum; //客户端收到的最近的snapshots的数据
+
+	private int latestSnapshotTime; //收到latestSnapshotNum的snapshot的时间
+
+	private SnapShot snap; //snap.serverTime = time;
+
+	private SnapShot nextSnap; //snap.serverTime > time or NULL
+
+	private SnapShot[] activeSnapshots; //
+
+	private float frameInterpolation; //(time - snap.serverTime) / (nextSnap.serverTime - snap.serverTime)
+
+	private bool thisFrameTeleport;
+
+	private bool nextFrameTeleport;
+
+	private int frameTime; //time - oldTime
+
+	private int time; //这是客户端当前帧渲染的时间
+
+	private int oldTime; //这是上一帧的时间，用于missile trails 和 prediction checking
+
+	private int physicsTime; //snap.time或者nextSnap.time
+
+	private int timeLimitWarnings; //
+
+	private int frameLimitWarnings;
+
+	private bool mapRestart;
+
+	private bool renderingThirdPerson;
+
+	private bool hyperspace; //prediction state
+
+	private PlayerState predictedPlayerState;
+
+	private ClientEntity preditedPlayerEntity;
+
+	private bool validPPS; //第一次调用PredictPlayerState之后，保证predictedPlayerState是一个可访问的状态
+
+	private int predictedErrorTime;
+
+	private Vector3 predictedError;
+
+	private int eventSequence;
+
+	private int[] predictableEvents;
+
+	private float stepChange;
+
+	private int stepTime;
+
+	private float duckChange;
+
+	private int duckTime;
+
+	private float landChange;
+
+	private int landTime;
+
+	//attack player
+	private int attackerTime;
+
+	private ClientActive clientActive;
+
 	// Use this for initialization
 	public void Init () {
 		
 	}
 	
-	// Update is called once per frame
+	
 	public void Dispose () {
 		
 	}
+}
+
+public struct ClientActive
+{
+	public int timeoutCount;
+
+	public ClientSnapshot snap;
+
+	public int serverTime;
+
+	public int oldServerTime; //防止时间倒退的情况
+
+	public int oldFrameServerTime;
+
+	public int serverTimeDelta; // serverTime = realTime + serverTimeDelta;这个时间会随着延迟而变化
+
+	public bool extrapolateSnapshot; //在任何客户端帧被强制向外插值时设置
+
+	public bool newSnapshot; //在解包了任何可用的消息时设置
+
+	public int parseEntitiesIndex;
+
+	public int[] mouseDx;
+
+	public int[] mouseDy;
+
+	public int mouseIndex;
+
+	public int[] joystickAxis;
+
+	public int userCmdValue;
+
+	public float sensitivity;
+
+	public UserCmd[] cmds;
+
+	public int cmdNum; //每一帧都在增长，因为可能好几帧被打包到一起
+
+	public OutPacket[] outPackets;
+
+	public Vector3 viewAngles;
+
+	public int serverID;
+
+	public ClientSnapshot[] snapshots;
+
+	public EntityState[] entityBaselines; //用于增量更新，如果没有在上一帧里面那么就用baseline内的来计算
+
+	public EntityState[] parseEntities;
+
+
+}
+
+//客户端所用的snapshot，
+public struct ClientSnapshot
+{
+	public bool valid;
+
+	public SnapFlags snapFlags;
+
+	public int serverTime;
+
+	public int messageNum;
+
+	public int deltaNum;
+
+	public int ping;
+
+	public int cmdNum;
+
+	public PlayerState playerState;
+
+	public int numEntities; //所需要在这一帧显示的entity的数量
+
+	public int parseEntitiesIndex; //指向循环列表内的索引值
+
+	public int serverCommandNum; //执行这个指令之前的所有指令，使这一帧成为当前帧。
 }
 
 //每一帧的数据，给定时间的服务器呈现。
@@ -36,190 +192,11 @@ public struct SnapShot{
 
 }
 
-public struct PlayerState{
-	int commandTime; //最后执行的cmd的cmd.serverTime;
-
-	PMoveType pmType;
-
-	int bobCycle;
-
-	PMoveFlags pmFlags;
-
-	int pmTime;
-
-	Vector3 origin;
-
-	Vector3 velocity;
-
-	int gravity;
-
-	int speed;
-
-	int[] delta_angles; //
-
-	int entityID; //entityID
-
-	int movementDir; //摇杆操作的方向，范围是为0-180(int8)
-
-	EntityFlags entityFlags;
-
-	int eventSequence;
-
-	int[] events;
-
-	int[] eventParams;
-
-	int externalEvent;
-
-	int externalEventParam;
-
-	int externalEventTime;
-
-	int clientNum; //范围是0-MAX_CLIENT - 1
-
-	int damageEvent;
-
-	int damageCount;
-
-	int[] states;
-
-	int[] persistant;
-
-	int ping;
-
-	int pm_framecount;
-
-	int entityEventSequence;
-}
-
-public struct EntityState{
-	int index;
-
-	// int 
-}
-
-public enum EntityFlags{
-	DEAD = 0x1,
-
-	TELEPORT_BIT = 0x2, //只要origin变化过大就设置
-
-	BOUNCE = 0x4,
-
-	BOUNCE_HALF = 0x8,
-
-	NODRAW = 0x10,
-
-	FIRING = 0x20,
-
-	MOVE_STOP = 0x40,
-
-	AWARD_CAP = 0x80,
-
-	VOTED = 0x100,
-
-	AWARD_EXCELLENT = 0x200, //
-
-	AWARD_IMPRESSIVE = 0x400,
-
-	AWARD_DEFEND = 0x800,
-
-	AWARD_ASSIST = 0x1000,
-
-	AWARD_DENIED = 0x2000,
-}
-
-public struct PMove{
-	PlayerState playerState;
-
-	UserCmd cmd;
-
-	int debugLevel;
-
-	int frameCount;
-
-	int numTouch;
-
-	int pmoveFixed;
-
-	int pmoveMsec;
-}
-
-public struct UserCmd
+public struct OutPacket
 {
+	public int cmdNum;
 
-}
+	public int serverTime;
 
-public enum SnapFlags{
-
-	RATE_DELAYED = 1,
-
-	NOT_ACTIVE = 2,
-
-	SERVER_COUNT = 3,
-}
-
-public enum PMoveType
-{
-	NORMAL = 1,
-
-	NOCLIP = 2,
-
-	SPECTATOR = 3, //
-
-	DEAD = 4,
-
-	FREEZE = 5,
-
-	INTERMISSION = 6, //间歇期
-
-	SPINGTERMISSION = 7,
-}
-
-//移动的标签
-public enum PMoveFlags
-{
-	DUCKED = 0x1,
-
-	JUMP_HELD = 0x2,
-
-	BACKWARDS_JUMP = 0x04,
-
-	BACKWARDS_RUN = 0x8,
-
-	TIME_LAND = 0x10,
-
-	TIME_KOCKBACK = 0x20,
-
-	TIME_WATERJUMP = 0x40,
-
-	RESPAWNED = 0x80,
-
-	USE_ITEM_HELD = 0x100,
-
-	GRAPPLE_PULL = 0x200,
-
-	FOLLOW = 0x400, //跟随其他玩家的视角
-
-	SCOREBOARD = 0x800,
-
-	INVULEXPAND = 0x1000,
-}
-
-public enum EntityType
-{
-	GENERNAL = 1,
-
-	PLAYER = 2,
-
-	ITEM = 3,
-
-	MISSILE = 4,
-
-	MOVER = 5,
-
-	BEAM = 6, //光束
-
-	PUSH_TRIGGER = 7,
-
-	TELEPORT
+	public int realTime; //packet发送时的realTime
 }
