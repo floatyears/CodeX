@@ -28,6 +28,14 @@ public class CNetwork : CModule{
 
 	private const int builderLimit = 3;
 
+	private int incommingSequence;
+
+	private int outgoingSequence;
+
+	private int dropped;
+
+	private int framgmentSequence;
+
 
 	public static CNetwork Instance
 	{

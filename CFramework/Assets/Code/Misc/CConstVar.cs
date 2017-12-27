@@ -13,4 +13,6 @@ public class CConstVar {
 	public const int PACKET_BACKUP = 32;
 
 	public const int MAX_ENTITIES = 1<<10;
+
+	public const int MAX_RELIABLE_COMMANDS = 64;
 }

@@ -25,6 +25,24 @@ public class CDataModel : CModule {
 		}
 	}
 
+	private static CModelConnection connection;
+
+	public static CModelConnection Connection
+	{
+		get{
+			return connection;
+		}
+	}
+
+	private static CModelGameState gameState;
+
+	public static CModelGameState GameState
+	{
+		get{
+			return gameState;
+		}
+	} 
+
 	private static CDataModel instance;
 
 	public static CDataModel Instance
@@ -45,12 +63,12 @@ public class CDataModel : CModule {
 		models = new List<IModel>();
 		msgRegister = new Dictionary<Type, List<Callback>>();
 
-		AddModule<CModelScene>(ref scene);
-		AddModule<CModelPlayer>(ref player);
+		AddModel<CModelScene>(ref scene);
+		AddModel<CModelPlayer>(ref player);
 		
 	}
 	
-	private void AddModule<T>(ref T instance) where T : IModel, new()
+	private void AddModel<T>(ref T instance) where T : IModel, new()
 	{
 		instance = new T();
 		models.Add(instance);
