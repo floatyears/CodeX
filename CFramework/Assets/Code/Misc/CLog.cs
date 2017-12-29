@@ -12,17 +12,17 @@ public class CLog {
 #endif
 	}
 
-	public static void Info(string msg1, string msg2)
+	public static void Info(string format, string msg)
 	{
 #if UNITY_EDITOR
-		Debug.Log(msg1 + msg2);
+		Debug.Log(string.Format(format, msg));
 #endif
 	}
 
-	public static void Info(string msg1, string msg2, string msg3)
+	public static void Info(string format, params object[] args)
 	{
 #if UNITY_EDITOR
-		Debug.Log(msg1 + msg2 + msg3);
+		Debug.Log(string.Format(format, args));
 #endif
 	}
 
@@ -46,6 +46,7 @@ public class CLog {
 		Debug.LogWarning(msg1 + msg2 + msg3);
 #endif	
 	}
+
 	public static void Error(string msg)
 	{
 #if UNITY_EDITOR
@@ -53,17 +54,17 @@ public class CLog {
 #endif	
 	}
 
-	public static void Error(string msg1, string msg2)
+	public static void Error(string format, string msg)
 	{
 #if UNITY_EDITOR
-		Debug.LogError(msg1 + msg2);
+		Debug.LogError(string.Format(format, msg));
 #endif			
 	}
 
-	public static void Error(string msg1, string msg2, string msg3)
+	public static void Error(string format, params object[] args)
 	{
 #if UNITY_EDITOR
-		Debug.LogError(msg1 + msg2 + msg3);
+		Debug.LogError(string.Format(format, args));
 #endif	
 	}
 }

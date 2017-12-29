@@ -277,7 +277,7 @@ public class BaseAbility : BaseEntity {
 			eventActions[eType].Add(action);
 		}else
 		{
-			CLog.Info("There is same action with the event type: ", action.ToString());
+			CLog.Info("There is same action with the event type: %s", action.ToString());
 		}
 	}
 
@@ -295,7 +295,7 @@ public class BaseAbility : BaseEntity {
 				eventActions[eType].Add(actions[i]);
 			}else
 			{
-				CLog.Info("There is same action with the event type: ", actions[i].ToString());
+				CLog.Info("There is same action with the event type: %s", actions[i].ToString());
 			}
 		}
 	}

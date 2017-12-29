@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Net;
+using System;
 
 public class CModelConnection : IModel {
+
+	private bool inited = false;
 
 	public ConnectionState state;
 
@@ -76,16 +79,35 @@ public class CModelConnection : IModel {
 
 	private string[] timeDemoDurations;
 
+	public IPAddress ServerIP = IPAddress.Parse("127.0.0.1:8001");
+
+
+	private NetChan netChan;
+
+	public NetChan NetChan{
+		get
+		{
+			return netChan;
+		}
+	}
+
+	private bool serverRunning;
+
+	public bool ServerRunning{
+		get{
+			return serverRunning;
+		}
+	}
 
 	// Use this for initialization
 	public void Init()
 	{
-
+		inited = true;
 	}
 	
 	public void Dispose()
 	{
-
+		inited = false;
 	}
 }
 
@@ -105,7 +127,58 @@ public enum ConnectionState
 
 	PRIMED, //收到了gamestate，等待第一帧
 
-	ACTIVE, //
+	ACTIVE, //已经在主循环中了
 
 	CINEMATIC,
+}
+
+public struct NetChan{
+
+	public NetSrc src;
+	public int dropped; //between last packet and previous
+
+	public IPAddress remoteAddress;
+
+	public int qport; //qport value to write when transmitting
+
+	//sequence variables
+	public int incomingSequence;
+
+	public int outgoingSequence;
+
+	//incomming fragment buffer
+	public int fragementSequence;
+
+	public int fragmentLength;
+
+	public byte[] fragmentBuffer;
+
+	//outgoing fragment buffer
+	//需要为最大的fragmet messages留出空间
+	public bool unsentFragments;
+
+	public int unsentFragmentStart;
+
+	public int unsentLength;
+
+	public byte[] unsentBuffer;
+
+	public int challenge;
+
+	public int lastSentTime;
+
+	public int lastSentSize;
+
+	public void WriteFragment(byte[] data, int start, int length)
+	{
+		Array.Copy(data,start,fragmentBuffer,fragmentLength,length);
+		fragmentLength += length;
+	}
+}
+
+public enum NetSrc
+{
+	CLIENT,
+
+	SERVER,
 }

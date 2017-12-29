@@ -76,7 +76,7 @@ public class CObjectsPool : CModule  {
 					if(obj == null)
 					{
 						CAssetsManager.Instance.ReleaseAsset(info); //加载出错即释放资源
-						CLog.Error("Instantiate Model Fail, not such asset:",info.assetName);
+						CLog.Error("Instantiate Failed, no such asset: %s",info.assetName);
 					}else
 					{
 						assetsInfos.Add(fullName, info);

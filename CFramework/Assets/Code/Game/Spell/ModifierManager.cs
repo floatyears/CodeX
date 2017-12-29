@@ -33,7 +33,7 @@ public sealed class ModifierManager {
 			updateModifiers.Add(modifier);
 		}else
 		{
-			CLog.Info("There is a same thinker modifier: ",modifier.ToString());
+			CLog.Info("There is a same thinker modifier: %s",modifier.ToString());
 		}
 	}
 
@@ -44,7 +44,7 @@ public sealed class ModifierManager {
 			updateModifiers.Add(modifier);
 		}else
 		{
-			CLog.Info("There is not the thinker modifier: ",modifier.ToString());
+			CLog.Info("There is not the thinker modifier: %s",modifier.ToString());
 		}
 	}
 
