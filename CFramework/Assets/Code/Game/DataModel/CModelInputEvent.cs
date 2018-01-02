@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using System.IO;
+using System.Net;
 
 //所有的输入事件，比如网络消息和用户输入。
 public class CModelInputEvent : IModel {
@@ -34,6 +35,33 @@ public class CModelInputEvent : IModel {
 		}
 
 		SysEvent ev;
+		IPEndPoint remote;
+		MsgPacket packet;
+		while(true)
+		{
+			ev = GetEvent();
+			if(ev.eventType == SysEventType.NONE)
+			{
+				while(CNetwork.Instance.GetLoopPacket(NetSrc.CLIENT, out remote, out packet))
+				{
+					
+				}
+			}
+		}
+
+
+		//消耗事件
+	}
+	
+	// Update is called once per frame
+	public void Dispose () {
+		
+	}
+
+	public int Milliseconds()
+	{
+		//添加事件
+		SysEvent ev;
 		//在获取到一个空事件之前，一直获取事件，并将它们添加到队列中
 		do{
 			ev = GetRealEvent();
@@ -42,11 +70,8 @@ public class CModelInputEvent : IModel {
 			}
 
 		}while(ev.eventType != SysEventType.NONE);
-	}
-	
-	// Update is called once per frame
-	public void Dispose () {
 		
+		return ev.eventTime;
 	}
 
 	public SysEvent GetEvent()
