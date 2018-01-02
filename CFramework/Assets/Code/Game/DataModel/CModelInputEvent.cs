@@ -37,20 +37,40 @@ public class CModelInputEvent : IModel {
 		SysEvent ev;
 		IPEndPoint remote;
 		MsgPacket packet;
+		var network = CNetwork.Instance;
+		var server = Server.Instance;
 		while(true)
 		{
 			ev = GetEvent();
 			if(ev.eventType == SysEventType.NONE)
 			{
-				while(CNetwork.Instance.GetLoopPacket(NetSrc.CLIENT, out remote, out packet))
-				{
-					
+				while(network.GetLoopPacket(NetSrc.CLIENT, out remote, out packet)){
+					network.PacketEvent(packet, remote);
 				}
+
+				while(network.GetLoopPacket(NetSrc.SERVER, out remote, out packet)){
+					if(CDataModel.Connection.ServerRunning){
+						server.RunServerPacket(remote, packet);
+					}
+				}
+				// return ev.eventTime;
+			}
+
+			switch(ev.eventType)
+			{
+				case SysEventType.KEY:
+					break;
+				case SysEventType.CHAR:
+					break;
+				case SysEventType.MOUSE:
+					break;
+				case SysEventType.JOYSTICK_AXIS:
+					break;
+				default:
+					CLog.Error("Event Update: bad type %s", ev.eventType);
+					break;
 			}
 		}
-
-
-		//消耗事件
 	}
 	
 	// Update is called once per frame

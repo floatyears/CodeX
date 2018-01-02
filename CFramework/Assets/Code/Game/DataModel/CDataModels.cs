@@ -52,6 +52,14 @@ public class CDataModel : CModule {
 		}
 	}
 
+	private static CModelCMD cmdBuffer;
+
+	public static CModelCMD CmdBuffer
+	{
+		get{
+			return cmdBuffer;
+		}
+	}
 
 	private static CDataModel instance;
 
@@ -82,6 +90,7 @@ public class CDataModel : CModule {
 		AddModel<CModelConnection>(out connection);
 		AddModel<CModelGameState>(out gameState);
 		AddModel<CModelInputEvent>(out inputEvent);
+		AddModel<CModelCMD>(out cmdBuffer);
 	}
 	
 	private void AddModel<T>(out T instance) where T : IModel, new()

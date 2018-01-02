@@ -129,7 +129,7 @@ public class CNetwork : CModule{
 		var connection = CDataModel.Connection;
 
 		if(connection.ServerRunning){
-			SV_PacketPrcess(packet, from);
+			Server.Instance.SV_PacketPrcess(packet, from);
 		}else{
 
 			connection.lastPacketTime = CDataModel.GameState.realTime;
@@ -148,13 +148,14 @@ public class CNetwork : CModule{
 				return;
 			}
 
-			if(from.Address != connection.NetChan.remoteAddress)
+			if(from != connection.NetChan.remoteAddress)
 			{
 				CLog.Info("%s: sequenced packet without connection", from);
 				return;
 			}
 
-			if(!PacketProcess(packet, from))
+			var netChan = CDataModel.Connection.NetChan;
+			if(!NetChanProcess(ref netChan, packet))
 			{
 				return;
 			}
@@ -176,7 +177,7 @@ public class CNetwork : CModule{
 		}
 	}
 
-	private bool PacketProcess(MsgPacket packet, IPEndPoint remote)
+	public static bool NetChanProcess(ref NetChan netChan, MsgPacket packet)
 	{
 		bool fragmented = false;
 		int fragmentStart = 0;
@@ -192,8 +193,6 @@ public class CNetwork : CModule{
 		}else{
 			fragmented = false;
 		}
-
-		var netChan = CDataModel.Connection.NetChan;
 
 		//如果是服务器，那就读取qport
 		if(netChan.src == NetSrc.SERVER)
@@ -246,7 +245,7 @@ public class CNetwork : CModule{
 		{
 			if(CConstVar.ShowNet > 0 || CConstVar.ShowPacket > 0)
 			{
-				CLog.Info("%s: Dropped %d packets at %d", remote, netChan.dropped, sequence);
+				CLog.Info("%s: Dropped %d packets at %d", netChan.remoteAddress, netChan.dropped, sequence);
 			}
 		}
 
@@ -383,15 +382,146 @@ public class CNetwork : CModule{
 	//处理广播消息等。
 	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
 	{
+		int challenge = 0;
+
+		msg.BeginReadOOB();
+		msg.ReadInt(); //skip -1
+		string s = msg.ReadStringLine();
+		var cmd = CDataModel.CmdBuffer;
+		cmd.TokenizeString(s, false);
+		string c = cmd.Argv(0);
+		CLog.Info("Client Packet %s : %s", from, c);
+
+		var connection = CDataModel.Connection;
+		if(c == "challengeResponse")
+		{
+			if(CDataModel.Connection.state == ConnectionState.CONNECTING)
+			{
+				CLog.Info("Unwanted challenge response recieved. Ignored.");
+				return;
+			}
+
+			int ver = 0;
+			c = cmd.Argv(2);
+			if(!string.IsNullOrEmpty(c))
+			{
+				challenge = Convert.ToInt32(c);
+			}
+			string sver = cmd.Argv(3);
+			if(!string.IsNullOrEmpty(sver)){
+				ver = Convert.ToInt32(sver);
+			}
+
+			if(string.IsNullOrEmpty(c) || challenge != connection.challenge)
+			{
+				CLog.Info("Bad challenge for challengeResponse. Ignored.");
+				return;
+			}
+
+			//发送challenge response，而不是challenge request packets
+			connection.challenge = Convert.ToInt32(cmd.Argv(1));
+			connection.state = ConnectionState.CHALLENGING;
+			connection.connectPacketCount = 0;
+			connection.connectTime = -99999;
+
+			//使用这个地址作为新的服务器地址。这允许服务器代理处理到多个服务器的连接
+			connection.serverAddress = from;
+			return;
+		}
+
+		//服务器连接
+		if(c == "connectResponse")
+		{
+			if(connection.state >= ConnectionState.CONNECTED)
+			{
+				CLog.Info("Dup connect recieved. Ignored.");
+				return;
+			}
+
+			if(connection.state != ConnectionState.CHALLENGING)
+			{
+				CLog.Info("connectResponse packet while not connecting. Ignored.");
+				return;
+			}
+			if(from != connection.serverAddress)
+			{
+				CLog.Info("connectResponse from wrong address. Ignored.");
+				return;
+			}
+
+			c = cmd.Argv(1);
+			if(!string.IsNullOrEmpty(c))
+			{
+				challenge = Convert.ToInt32(c);
+			}else{
+				CLog.Info("Bad connectResponse recieved. Ignored.");
+				return;
+			}
+			if(challenge != connection.challenge)
+			{
+				CLog.Info("ConnectionResponse with bad challenge received. Ignored.");
+				return;
+			}
+
+			connection.NetChanSetup(NetSrc.CLIENT, from, CConstVar.Qport, connection.challenge);
+			connection.state = ConnectionState.CONNECTED;
+			connection.lastPacketSentTime = -9999; //立即发送第一个数据包
+			return;
+		}
+
+		//服务器返回信息
+		if(c == "infoResponse")
+		{
+			ServerInfoPacket(from, msg);
+			return;
+		}
+
+		if(c == "statusResponse")
+		{
+			ServerStatusResponse(from, msg);
+			return;
+		}
+
+		if(c == "echo")
+		{
+			return;
+		}
+
+		if(c == "keyAuthorize")
+		{
+			return;
+		}
+
+		if(c == "getserversResponse")
+		{
+			ServerResponsePacket(from, msg, false);
+			return;
+		}
+
+		if(c == "getserversExtResponse")
+		{
+			ServerResponsePacket(from, msg, true);
+			return;
+		}
 
 	}
 
-	private void WriteDemoMessage(MsgPacket packet, int headerBytes)
+	private void ServerStatusResponse(IPEndPoint from, MsgPacket msg)
 	{
 
 	}
 
-	private void SV_PacketPrcess(MsgPacket packet, IPEndPoint remote)
+	private void ServerResponsePacket(IPEndPoint from, MsgPacket msg, bool extended)
+	{
+
+	}
+
+	private void ServerInfoPacket(IPEndPoint from, MsgPacket msg)
+	{
+		
+	}
+
+	private void WriteDemoMessage(MsgPacket packet, int headerBytes)
 	{
 
 	}

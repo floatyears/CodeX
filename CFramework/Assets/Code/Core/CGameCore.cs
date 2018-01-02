@@ -12,6 +12,8 @@ public class CGameCore {
 
 	private int updateNum = 0;
 
+	private int fixedUpdateNum = 0;
+
 	//游戏初始化
 	public void Init()
 	{
@@ -26,6 +28,10 @@ public class CGameCore {
 		AddModule("SceneManager", new CSceneManager());
 
 		fixedModules = new List<CModule>(3);
+		fixedModules.Add(new Server());
+		fixedModules[0].Init();
+		
+		fixedUpdateNum = fixedModules.Count;
 		//fixedModules.Add();
 		//CDataModel.Player.CsAccountLogin();
 	}
@@ -64,6 +70,9 @@ public class CGameCore {
 
 	//fixed更新，比如帧同步这一块儿全是在FixedUpdate中更新
 	public void FixedUpdate() {
-		
+		for(int i = 0; i <= fixedUpdateNum; i++)
+		{
+			fixedModules[i].Update();
+		}
 	}
 }

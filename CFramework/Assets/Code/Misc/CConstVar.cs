@@ -13,6 +13,11 @@ public class CConstVar {
 
 	public const int ShowNet = 2;
 
+	public static int Qport = 8001;
+
+	public static int maxClient = 20;
+	
+
 	/*-------------预定义数据-----------*/
 	public const int MaxEntity = 10;
 
@@ -54,4 +59,15 @@ public class CConstVar {
 	public const int MAX_QUEUED_EVENTS = 256;
 
 	public const int MASK_QUEUED_EVENTS = MAX_QUEUED_EVENTS - 1;
+
+	public const int ComSpeeds = 1;
+
+	public const int MAX_STRING_TOKENS = 1024;
+
+	public const int BIG_INFO_STRING = 8192;
+
+	public const int MAX_CONFIGSTRINGS = 1024;
+
+	public const int MAX_CHALLENGES = 2048;
+
 }

@@ -100,6 +100,37 @@ public struct EntityState{
 
 }
 
+public struct EntityShared
+{
+	public EntityState unused;
+
+	public bool linked;
+
+	public int linkCount;
+
+	public int svFlags;
+
+	public int singleClinet;
+
+	public bool bmodel;
+
+	public Vector3 mins, maxs;
+
+	public int contents;
+
+	public Vector3 absmin, absmax;
+
+	public Vector3 currentOrigin, currentAngles;
+
+	public int ownerNum;
+}
+
+public struct SharedEntity
+{
+	public EntityState s;
+	public EntityShared r;
+}
+
 public enum EntityEventType
 {
 	NONE = 0,

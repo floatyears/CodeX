@@ -112,7 +112,7 @@ public class CSocketUDP {
 				//已经丢掉的包，不处理
 			}else
 			{
-				if(remoteEP.Address != connection.NetChan.remoteAddress)
+				if(remoteEP != connection.NetChan.remoteAddress)
 				{
 					CLog.Error(string.Format("%s:sequence packet without connection",remoteEP.Address));
 				}else{
@@ -121,7 +121,11 @@ public class CSocketUDP {
 
 					var network = CNetwork.Instance;
 					if(network == null) return;
-					network.PacketEvent(packet, remoteEP);
+					if(CDataModel.Connection.ServerRunning){ //服务器接收到消息
+						Server.Instance.RunServerPacket(remoteEP, packet);
+					}else{
+						network.PacketEvent(packet, remoteEP);
+					}
 				}
 			}
 			
@@ -179,6 +183,13 @@ public class MsgPacket{
 		curPos = 0;
 		bit = 0;
 		oob = false;
+	}
+
+	public void BeginReadOOB()
+	{
+		curPos = 0;
+		bit = 0;
+		oob = true;
 	}
 
 	public int CurSize
@@ -301,6 +312,17 @@ public class MsgPacket{
 	public short ReadShot()
 	{
 		return 0;
+	}
+
+	//读取char
+	public string ReadChars(int len)
+	{
+		return "";
+	}
+
+	public string ReadStringLine()
+	{
+		return "";
 	}
 
 	public void WriteInt(int value, int pos = -1)

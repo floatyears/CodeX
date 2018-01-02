@@ -16,13 +16,13 @@ public class CModelConnection : IModel {
 
 	public int lastPacketTime; //for timeouts
 
-	// private IPAddress serverAddress;
+	public IPEndPoint serverAddress;
 
-	private int connectTime; // for connection retransmits
+	public int connectTime; // for connection retransmits
 
-	private int connectPacketCount; //
+	public int connectPacketCount; //
 
-	private int challenge;
+	public int challenge;
 
 	private int checksumFeed;
 
@@ -105,6 +105,16 @@ public class CModelConnection : IModel {
 		inited = true;
 	}
 	
+	public void NetChanSetup(NetSrc src, IPEndPoint from, int qport, int challenge)
+	{
+		netChan.src = src;
+		netChan.remoteAddress = from;
+		netChan.qport = qport;
+		netChan.incomingSequence = 0;
+		netChan.outgoingSequence = 1;
+		netChan.challenge = challenge;
+	}
+
 	public void Dispose()
 	{
 		inited = false;
@@ -137,7 +147,7 @@ public struct NetChan{
 	public NetSrc src;
 	public int dropped; //between last packet and previous
 
-	public IPAddress remoteAddress;
+	public IPEndPoint remoteAddress;
 
 	public int qport; //qport value to write when transmitting
 

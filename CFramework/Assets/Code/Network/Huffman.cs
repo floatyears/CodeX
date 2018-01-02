@@ -12,6 +12,16 @@ public class HuffmanMsg{
 	{
 
 	}
+
+	public static void Compress(MsgPacket packet, int offset)
+	{
+
+	}
+
+	public static void Decompress(MsgPacket packet, int offset)
+	{
+
+	}
 }
 
 public struct HuffmanTree
