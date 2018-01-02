@@ -36,7 +36,9 @@ public class CModelGameState : IModel {
 
 	private int frameTime; //time - oldTime
 
-	private int time; //这是客户端当前帧渲染的时间
+	public int time; //这是客户端当前帧渲染的时间
+
+	public int realTime; //忽略暂停
 
 	private int oldTime; //这是上一帧的时间，用于missile trails 和 prediction checking
 
@@ -81,7 +83,18 @@ public class CModelGameState : IModel {
 	//attack player
 	private int attackerTime;
 
+	public int paused = 0;
+
+	//是否记录
+	public int journal = 1;
+
 	private ClientActive clientActive;
+
+	public ClientActive ClientActive{
+		get{
+			return clientActive;
+		}
+	}
 
 	// Use this for initialization
 	public void Init () {
@@ -110,7 +123,7 @@ public struct ClientActive
 
 	public bool extrapolateSnapshot; //在任何客户端帧被强制向外插值时设置
 
-	public bool newSnapshot; //在解包了任何可用的消息时设置
+	public bool newSnapshots; //在解包了任何可用的消息时设置
 
 	public int parseEntitiesIndex;
 
@@ -146,7 +159,7 @@ public struct ClientActive
 }
 
 //客户端所用的snapshot，
-public struct ClientSnapshot
+public class ClientSnapshot
 {
 	public bool valid;
 

@@ -9,7 +9,9 @@ public class CConstVar {
 	//丢包的概率
 	public const int NET_DROP_SIM = 10;
 
-	public const bool ShowPacket = false;
+	public const int ShowPacket = 1;
+
+	public const int ShowNet = 2;
 
 	/*-------------预定义数据-----------*/
 	public const int MaxEntity = 10;
@@ -19,6 +21,8 @@ public class CConstVar {
 	public const int CMD_BACKUP = 64;
 
 	public const int PACKET_BACKUP = 32;
+
+	public const int PACKET_MASK = PACKET_BACKUP - 1;
 
 	public const int MAX_ENTITIES = 1<<10;
 
@@ -40,5 +44,14 @@ public class CConstVar {
 
 	public const int FRAGMENT_BIT = 1 << 31;
 
+	public const int MAX_SNAPSHOT_ENTITIES = 256;
 
+	public const int MAX_PARSE_ENTITIES = PACKET_BACKUP * MAX_SNAPSHOT_ENTITIES;
+	
+
+	public const int MAX_PUSHED_EVENTS = 1024;
+
+	public const int MAX_QUEUED_EVENTS = 256;
+
+	public const int MASK_QUEUED_EVENTS = MAX_QUEUED_EVENTS - 1;
 }

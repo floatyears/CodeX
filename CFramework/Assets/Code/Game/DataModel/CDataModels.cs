@@ -43,6 +43,16 @@ public class CDataModel : CModule {
 		}
 	} 
 
+	private static CModelInputEvent inputEvent;
+
+	public static CModelInputEvent InputEvent
+	{
+		get{
+			return inputEvent;
+		}
+	}
+
+
 	private static CDataModel instance;
 
 	public static CDataModel Instance
@@ -52,23 +62,29 @@ public class CDataModel : CModule {
 		}
 	}
 
+
 	private Dictionary<Type, List<Callback>> msgRegister;
 
 	private List<IModel> models;
+
+	private List<IModel> updateList;
 
 
 	public override void Init()
 	{
 		instance = this;
 		models = new List<IModel>();
+		updateList = new List<IModel>();
 		msgRegister = new Dictionary<Type, List<Callback>>();
 
-		AddModel<CModelScene>(ref scene);
-		AddModel<CModelPlayer>(ref player);
-		
+		AddModel<CModelScene>(out scene);
+		AddModel<CModelPlayer>(out player);
+		AddModel<CModelConnection>(out connection);
+		AddModel<CModelGameState>(out gameState);
+		AddModel<CModelInputEvent>(out inputEvent);
 	}
 	
-	private void AddModel<T>(ref T instance) where T : IModel, new()
+	private void AddModel<T>(out T instance) where T : IModel, new()
 	{
 		instance = new T();
 		models.Add(instance);
@@ -88,6 +104,9 @@ public class CDataModel : CModule {
 					msgRegister.Add(args, calls);
 				}
 				calls.Add(new Callback(method, instance));
+			}else if(method.Name.StartsWith("Update"))
+			{
+				if(!updateList.Contains(instance)) updateList.Add(instance);
 			}
 		}
 	}
@@ -131,6 +150,7 @@ public class CDataModel : CModule {
 			iterator.Current.Value.Clear();
 		}
 		msgRegister.Clear();
+		updateList.Clear();
 		instance = null;
 	}
 }

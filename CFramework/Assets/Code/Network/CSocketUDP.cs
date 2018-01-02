@@ -95,7 +95,8 @@ public class CSocketUDP {
 		int count = recvSocket.EndReceive(ar);
 		if(count > 0)
 		{
-			if(CDataModel.Connection.state < ConnectionState.CONNECTED)
+			var connection = CDataModel.Connection;
+			if(connection.state < ConnectionState.CONNECTED)
 			{
 				return; //网络还没连上，不处理消息
 			}
@@ -105,16 +106,57 @@ public class CSocketUDP {
 				//已经丢掉的包，不处理
 			}else
 			{
-				if(remoteEP.Address != CDataModel.Connection.NetChan.remoteAddress)
+				if(remoteEP.Address != connection.NetChan.remoteAddress)
 				{
 					CLog.Error(string.Format("%s:sequence packet without connection",remoteEP.Address));
 				}else{
 					var packet = packetBuffer[~curPacket];
 					packet.GetData(buffer, count);
-					if(CDataModel.Connection.ServerRunning){
+					if(connection.ServerRunning){
 						SV_PacketPrcess(packet, remoteEP);
 					}else{
-						PacketProcess(packet, remoteEP);
+
+						connection.lastPacketTime = CDataModel.GameState.realTime;
+						if(packet.CurSize >= 4 && packet.ReadInt() == -1)
+						{
+							ConnectionlessPacket(remoteEP, packet);
+							return;
+						}
+						if(connection.state < ConnectionState.CONNECTED)
+						{
+							return;
+						}
+						if(packet.CurSize < 4)
+						{
+							CLog.Info("%s: wrong packet", remoteEP.Address);
+							return;
+						}
+
+						if(remoteEP.Address != connection.NetChan.remoteAddress)
+						{
+							CLog.Info("%s: sequenced packet without connection", remoteEP);
+							return;
+						}
+
+						if(!PacketProcess(packet, remoteEP))
+						{
+							return;
+						}
+
+						//可靠消息和不可靠消息的头是不同的
+						int headerBytes = packet.CurPos;
+
+						//记录最后接收到的消息，这样它可以在客户端信息中返回，允许服务器检测丢失的gamestate
+						connection.serverMessageSequence = LittleInt(packet.ReadInt(0));
+						connection.lastPacketTime = CDataModel.GameState.time;
+
+						ParseMessage(packet);
+
+						//在解析完packet之后，不知道是否能保存demo message
+						if(connection.demoRecording && !connection.demoWaiting)
+						{
+							WriteDemoMessage(packet, headerBytes);
+						}
 					}
 				}
 			}
@@ -141,7 +183,7 @@ public class CSocketUDP {
 		packet.BeginRead();
 		int sequence = packet.ReadInt();
 
-		//check for fragment infomation
+		//检查fragment信息
 		if((sequence & CConstVar.FRAGMENT_BIT) != 0 )
 		{
 			sequence &= ~CConstVar.FRAGMENT_BIT;
@@ -152,7 +194,7 @@ public class CSocketUDP {
 
 		var netChan = CDataModel.Connection.NetChan;
 
-		//read qport if we are a server
+		//如果是服务器，那就读取qport
 		if(netChan.src == NetSrc.SERVER)
 		{
 			packet.ReadShot(); //
@@ -160,11 +202,11 @@ public class CSocketUDP {
 
 		int checkSum = packet.ReadInt();
 
-		//UDP spoofing protection
+		//UDP欺骗保护
 		if(CheckSum(netChan.challenge, checkSum) != checkSum)
 			return false;
 
-		//read the fragment infomation
+		//读取fragment信息
 		if(fragmented)
 		{
 			fragmentStart = packet.ReadShot();
@@ -175,7 +217,7 @@ public class CSocketUDP {
 			fragmentLength = 0;
 		}
 
-		if(CConstVar.ShowPacket)
+		if(CConstVar.ShowPacket > 0)
 		{
 			if(fragmented)
 			{
@@ -190,9 +232,20 @@ public class CSocketUDP {
 		//丢掉乱序或者重复的packets
 		if(sequence <= netChan.incomingSequence)
 		{
-			if(CConstVar.ShowPacket)
+			if(CConstVar.ShowPacket > 0)
 			{
 				CLog.Error("%s:Out of order packet %d at %d", netChan.remoteAddress, netChan.dropped, sequence);
+			}
+			return false;
+		}
+
+		//丢包使得当前的消息不可用
+		netChan.dropped = sequence - (netChan.incomingSequence + 1);
+		if(netChan.dropped > 0)
+		{
+			if(CConstVar.ShowNet > 0 || CConstVar.ShowPacket > 0)
+			{
+				CLog.Info("%s: Dropped %d packets at %d", remoteEP, netChan.dropped, sequence);
 			}
 		}
 
@@ -210,7 +263,7 @@ public class CSocketUDP {
 			//如果有fragment丢失，打印出日志
 			if(fragmentStart != netChan.fragmentLength)
 			{
-				if(CConstVar.ShowPacket)
+				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
 					CLog.Info("%s:Dropped a message fragment", netChan.remoteAddress);
 				}
@@ -220,7 +273,7 @@ public class CSocketUDP {
 			//复制fragment到fragment buffer
 			if(fragmentLength < 0 || packet.CurPos + fragmentLength > packet.CurSize || netChan.fragmentLength + fragmentLength > netChan.fragmentBuffer.Length)
 			{
-				if(CConstVar.ShowPacket)
+				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
 					CLog.Info("%s:illegal fragment length", netChan.remoteAddress);
 				}
@@ -237,7 +290,7 @@ public class CSocketUDP {
 			//
 			if(netChan.fragmentLength > packet.Data.Length)
 			{
-				if(CConstVar.ShowPacket)
+				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
 					CLog.Info("$s:fragmentLength %d > packet.Data Length", netChan.remoteAddress, netChan.fragmentLength);
 				}
@@ -245,18 +298,228 @@ public class CSocketUDP {
 			}
 
 			//保证前面的还是sequence
-			packet.WriteInt(sequence, 0);
+			packet.WriteInt(CSocketUDP.LittleInt(sequence), 0);
 			packet.WriteData(netChan.fragmentBuffer, 4, netChan.fragmentLength);
-
 			packet.CurSize = netChan.fragmentLength + 4;
+			netChan.fragmentLength = 0;
+			packet.CurPos = 4; 	//粘贴sequence
+			packet.Bit = 32;  	//粘贴sequence
 
+			//客户端没有应答fragment信息
+			netChan.incomingSequence = sequence;
+
+			return true;
 		}
+
+		//信息现在可以从当前的信息指针中读取
+		netChan.incomingSequence = sequence;
 	
 		return true;
 	}
 
+	private void ParseMessage(MsgPacket packet)
+	{
+		int cmd;
+		if(CConstVar.ShowNet == 1)
+		{
+			CLog.Info("%s --------------\n", packet.CurSize);
+		}
+
+		packet.Oob = false;
+		
+		var connection = CDataModel.Connection;
+		//获得可靠的acknowledge sequence
+		connection.reliableAcknowledge = packet.ReadInt();
+		if(connection.reliableAcknowledge < connection.reliableSequence - CConstVar.MAX_RELIABLE_COMMANDS){
+			connection.reliableAcknowledge = connection.reliableSequence;
+		}
+
+		//处理消息
+		while(true)
+		{
+			if(packet.CurPos > packet.CurSize)
+			{
+				CLog.Error("Parse Message: read past end of server message");
+				break;
+			}
+			cmd = packet.ReadInt();
+			if(cmd == (int)SVCCmd.EOF){
+				CLog.Info("END OF MESSAGE");
+				break;
+			}
+
+			if(CConstVar.ShowNet >= 2){
+				if(cmd < 0){
+					CLog.Info("%s: BAD CMD %d", packet.CurPos, cmd);
+				}else{
+					CLog.Info("%s packet", ((SVCCmd)cmd).ToString());
+				}
+			}
+
+			switch((SVCCmd)cmd)
+			{
+				case SVCCmd.NOP:
+					break;
+				case SVCCmd.SERVER_COMMAND:
+					ParseCommandString(packet);
+					break;
+				case SVCCmd.GAME_STATE:
+					ParseGamestate(packet);
+					break;
+				case SVCCmd.SNAPSHOT:
+					ParseSnapshot(packet);
+					break;
+				case SVCCmd.DOWNLOAD:
+					break;
+				default:
+					CLog.Error("Parse Message: Illegile server message");
+					break;
+			}
+
+		}
+	}
+
+	//处理广播消息等。
+	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
+	{
+
+	}
+
+	private void WriteDemoMessage(MsgPacket packet, int headerBytes)
+	{
+
+	}
+
 	private void SV_PacketPrcess(MsgPacket packet, IPEndPoint remote)
 	{
+
+	}
+
+	//如果snapshot解析正确，它会被复制到snap中，并被存储在snapshots[]
+	//如果snapshot因为任何原因不合适，不会任何改变任何state
+	private void ParseSnapshot(MsgPacket packet)
+	{
+		int len;
+		ClientSnapshot old = new ClientSnapshot();
+		ClientSnapshot newSnap = new ClientSnapshot();
+		int deltaNum;
+		int oldMessageNum;
+		int i, packetNum;
+
+		var connection = CDataModel.Connection;
+
+		//获取可靠的acknowledge number
+		//所有从服务器发送到客户端的消息reliableAcknowledge = ReadLong();
+		//将新的snapshot读取到临时缓冲中
+		//如果合适就复制到snap中
+		newSnap.serverCommandNum = connection.serverCommandSequence;
+		newSnap.serverTime = packet.ReadInt();
+
+		CDataModel.GameState.paused = 0;
+
+		newSnap.messageNum = connection.serverMessageSequence;
+
+		deltaNum = packet.ReadByte();
+		if(deltaNum == 0){
+			newSnap.deltaNum = -1;
+		}else{
+			newSnap.deltaNum = newSnap.messageNum - deltaNum;
+		}
+		newSnap.snapFlags = (SnapFlags)packet.ReadByte();
+
+		var clientActive = CDataModel.GameState.ClientActive;
+		if(newSnap.deltaNum <= 0)
+		{
+			newSnap.valid = true;
+			old = null;
+			connection.demoWaiting = false;
+		}else{
+			old = clientActive.snapshots[newSnap.deltaNum & CConstVar.PACKET_MASK];
+			if(!old.valid){
+				CLog.Error("old snapshot is invalid");
+			}else if(old.messageNum != newSnap.deltaNum){
+				CLog.Info("Delta frame too old");
+			}else if(clientActive.parseEntitiesIndex - old.parseEntitiesIndex > CConstVar.MAX_PARSE_ENTITIES - CConstVar.MAX_SNAPSHOT_ENTITIES){
+				CLog.Info("Delta parseEntitiesNum too old");
+			}else{
+				newSnap.valid = true;
+			}
+		}
+
+		CLog.Info("playerstate:%d", packet.CurPos);
+		if(old != null)
+		{
+			ReadDeltaPlayerstate(packet, old.playerState, newSnap.playerState);
+		}else{
+			// PlayerState tmpP = default(PlayerState);
+			ReadDeltaPlayerstate(packet, null, newSnap.playerState);
+		}
+
+		CLog.Info("packet entities:%d", packet.CurPos);
+		ParseEntities(packet, old, newSnap);
+
+		//如果不合适，就弹出所有的内容，因为它已经被读出。
+		if(!newSnap.valid)
+		{
+			return;
+		}
+
+		//清除最后接收到的帧和当前帧之间的所有帧的valid标记，所以如果有丢掉的消息
+		//它看起来就不会像是从buffer中增量更新而得到的合适的帧。
+		oldMessageNum = clientActive.snap.messageNum + 1;
+
+		if(newSnap.messageNum - oldMessageNum >= CConstVar.PACKET_BACKUP)
+		{
+			oldMessageNum = newSnap.messageNum - (CConstVar.PACKET_BACKUP - 1);
+		}
+		for(; oldMessageNum < newSnap.messageNum; oldMessageNum++)
+		{
+			clientActive.snapshots[oldMessageNum & CConstVar.PACKET_MASK].valid = false;
+		}
+		
+		clientActive.snap = newSnap;
+		clientActive.snap.ping	 = 999;
+		for(i = 0; i < CConstVar.PACKET_BACKUP; i++)
+		{
+			packetNum = (connection.NetChan.outgoingSequence - 1 - i) & CConstVar.PACKET_MASK;
+			if(clientActive.snap.playerState.commandTime >= clientActive.outPackets[packetNum].serverTime)
+			{
+				clientActive.snap.ping = CDataModel.GameState.realTime - clientActive.outPackets[packetNum].realTime;
+				break;
+			}
+		}
+
+		//保存当前帧在缓冲中，用来后来做增量比较
+		clientActive.snapshots[clientActive.snap.messageNum & CConstVar.PACKET_MASK] = clientActive.snap;
+
+		if(CConstVar.ShowNet == 3)
+		{
+			CLog.Info("snapshot: %d delta: %d ping:%d", clientActive.snap.messageNum, clientActive.snap.deltaNum, clientActive.snap.ping);
+		}
+
+		clientActive.newSnapshots = true;
+
+	}
+
+	private void ParseGamestate(MsgPacket packet)
+	{
+
+	}
+
+	private void ParseEntities(MsgPacket packet, ClientSnapshot from, ClientSnapshot to)
+	{
+
+	}
+
+	private void ParseCommandString(MsgPacket packet)
+	{
+
+	}
+
+	private void ReadDeltaPlayerstate(MsgPacket packet, PlayerState from, PlayerState to)
+	{
+		int i,lc;
+		int bits;
 
 	}
 
@@ -268,6 +531,11 @@ public class CSocketUDP {
 	public static int CheckSum(int challenge, int sequence)
 	{
 		return challenge ^(sequence * challenge);
+	}
+
+	public static int LittleInt(int value)
+	{
+		return 0;
 	}
 }
 
@@ -320,6 +588,18 @@ public class MsgPacket{
 		}
 	}
 
+	public int Bit{
+		set{
+			bit = value;
+		}
+	}
+
+	public bool Oob{
+		set{
+			oob = value;
+		}
+	}
+
 	public byte[] Data{
 		get{
 			return bytes;
@@ -330,6 +610,9 @@ public class MsgPacket{
 		get{
 			return curPos;
 		}
+		set{
+			curPos = value;
+		}
 	}
 
 	public long ReadLong()
@@ -337,9 +620,79 @@ public class MsgPacket{
 		return 0L;
 	}
 
-	public int ReadInt()
+	public int ReadInt(int start = -1)
+	{
+		if(start < 0)
+		{
+			start = curPos;
+		}else{
+
+		}
+		return 0;
+	}
+
+	public int ReadByte()
 	{
 		return 0;
+	}
+
+	public int ReadBits(int bits)
+	{
+		int value, get, i, nbits;
+		bool sgn;
+
+		value = 0;
+		if(bits < 0)
+		{
+			bits = -bits;
+			sgn = true;
+		}else{
+			sgn = false;
+		}
+		if(oob)
+		{
+			if(bits == 8)
+			{
+				value = bytes[curPos];
+				curPos++;
+				bit += 8;
+			}else if(bits == 16)
+			{
+				short temp;
+
+			}else if(bits == 32)
+			{
+
+			}else{
+				CLog.Error("can't read %d bits", bits);
+			}
+		}else{
+			nbits = 0;
+			if((bits & 7) != 0)
+			{
+				nbits = bits & 7;
+				for(i = 0; i < nbits; i++)
+				{
+					// value |= (Huff)
+				}
+				bits = bits - nbits;
+			}
+			if(bits != 0)
+			{
+				for(i=0; i < bits; i+= 8)
+				{
+					// value |= (get << (i + nbits));
+				}
+			}
+		}
+
+		if(sgn)
+		{
+			if((value & ( 1 << (bits - 1))) != 0){
+				value |= -1 ^ ((1 - bits) - 1);
+			}
+		}
+		return value;
 	}
 
 	public short ReadShot()
@@ -359,51 +712,16 @@ public class MsgPacket{
 
 }
 
-public class HuffmanMsg{
-
-	public HuffmanTree compresser;
-
-	public HuffmanTree decompresser;
-
-}
-
-public struct HuffmanTree
+public enum SVCCmd
 {
-	public int blocNode;
-
-	public int blocPtrs;
-
-	public HuffmanNode tree;
-
-	public HuffmanNode lhead;
-
-	public HuffmanNode ltail;
-
-	public HuffmanNode[] loc;
-
-	public HuffmanNode freeList;
-
-	public HuffmanNode[] nodeList;
-
+	BAD = 0,
+	NOP,
+	GAME_STATE,
+	CONFIG_STRING,
+	BASELINE,
+	SERVER_COMMAND,
+	DOWNLOAD,
+	SNAPSHOT,
+	EOF,
 }
 
-//定义为class可以指向引用地址
-public class HuffmanNode
-{
-	public int weight;
-
-	public int symbol;
-
-	public HuffmanNode left;
-
-	public HuffmanNode right;
-
-	public HuffmanNode parent;
-	
-	public HuffmanNode next;
-
-	public HuffmanNode prev;
-
-	public HuffmanNode head;
-
-}

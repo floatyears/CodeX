@@ -10,11 +10,11 @@ public class CModelConnection : IModel {
 
 	public ConnectionState state;
 
-	private int clientNum;
+	public int clientNum;
 
-	private int lastPacketSentTime; //for retransmits during connection
+	public int lastPacketSentTime; //for retransmits during connection
 
-	private int lastPacketTime; //for timeouts
+	public int lastPacketTime; //for timeouts
 
 	// private IPAddress serverAddress;
 
@@ -26,18 +26,18 @@ public class CModelConnection : IModel {
 
 	private int checksumFeed;
 
-	private int reliableSequence;
+	public int reliableSequence;
 
-	private int reliableAcknowledge; //服务器执行的最后一个
+	public int reliableAcknowledge; //服务器执行的最后一个
 
 	private string[] reliableCommands;
 
-	// private int serverMessageSequence;
+	public int serverMessageSequence;
 
 	//server message(非可靠)和command(可靠) sequence数量不会在关卡改变的时候改变
 	//只要connection连上，就会增加
 	//从服务器接收的可靠消息
-	private int serverCommandSequence;
+	public int serverCommandSequence;
 
 	private int lastExecutedServerCommand; //获取或者执行的server command
 
@@ -57,11 +57,11 @@ public class CModelConnection : IModel {
 
 	private bool spDemoRecording;
 
-	private bool demoRecording;
+	public bool demoRecording;
 
 	private bool demoPlaying;
 
-	private bool demoWaiting;
+	public bool demoWaiting;
 
 	private bool firstDemoFrameSkipped;
 

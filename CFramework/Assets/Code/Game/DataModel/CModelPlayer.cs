@@ -69,7 +69,7 @@ public struct PlayerEntity
 	public int missileFireTime; //弹道攻击
 }
 
-public struct PlayerState{
+public class PlayerState{
 	public int commandTime; //最后执行的cmd的cmd.serverTime;
 
 	public PMoveType pmType;
