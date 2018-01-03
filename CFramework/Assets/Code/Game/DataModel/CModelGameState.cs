@@ -9,7 +9,7 @@ public class CModelGameState : IModel {
 
 	private int clientNum;
 
-	private bool demoPlayback;
+	public bool demoPlayback;
 
 	private bool levelShot;
 
@@ -23,17 +23,27 @@ public class CModelGameState : IModel {
 
 	private int latestSnapshotTime; //收到latestSnapshotNum的snapshot的时间
 
-	private SnapShot snap; //snap.serverTime = time;
+	public SnapShot snap; //snap.serverTime = time;
 
-	private SnapShot nextSnap; //snap.serverTime > time or NULL
+	public SnapShot nextSnap; //snap.serverTime > time or NULL
 
-	private SnapShot[] activeSnapshots; //
+	public SnapShot[] activeSnapshots; //
 
-	private float frameInterpolation; //(time - snap.serverTime) / (nextSnap.serverTime - snap.serverTime)
+	public float frameInterpolation; //(time - snap.serverTime) / (nextSnap.serverTime - snap.serverTime)
 
-	private bool thisFrameTeleport;
+	public bool thisFrameTeleport;
 
-	private bool nextFrameTeleport;
+	public bool nextFrameTeleport;
+
+	/*------非延迟-------*/
+	public int lastPredictedCommand;
+
+	public int lastServerTime;
+
+	public PlayerState[] savedPmoveState;
+
+	public int stateHead, stateTail;
+
 
 	private int frameTime; //time - oldTime
 
@@ -41,9 +51,9 @@ public class CModelGameState : IModel {
 
 	public int realTime; //忽略暂停
 
-	private int oldTime; //这是上一帧的时间，用于missile trails 和 prediction checking
+	public int oldTime; //这是上一帧的时间，用于missile trails 和 prediction checking
 
-	private int physicsTime; //snap.time或者nextSnap.time
+	public int physicsTime; //snap.time或者nextSnap.time
 
 	private int timeLimitWarnings; //
 
@@ -53,17 +63,17 @@ public class CModelGameState : IModel {
 
 	private bool renderingThirdPerson;
 
-	private bool hyperspace; //prediction state
+	public bool hyperspace; //prediction state
 
-	private PlayerState predictedPlayerState;
+	public PlayerState predictedPlayerState;
 
 	private ClientEntity preditedPlayerEntity;
 
-	private bool validPPS; //第一次调用PredictPlayerState之后，保证predictedPlayerState是一个可访问的状态
+	public bool validPPS; //第一次调用PredictPlayerState之后，保证predictedPlayerState是一个可访问的状态
 
-	private int predictedErrorTime;
+	public int predictedErrorTime;
 
-	private Vector3 predictedError;
+	public Vector3 predictedError;
 
 	private int eventSequence;
 
@@ -89,6 +99,8 @@ public class CModelGameState : IModel {
 	//是否记录
 	public int journal = 1;
 
+	public ClientEntity[] clientEntities;
+
 	private ClientActive clientActive;
 
 	public ClientActive ClientActive{
@@ -99,14 +111,54 @@ public class CModelGameState : IModel {
 
 	// Use this for initialization
 	public void Init () {
-		clientActive = new ClientActive();
+		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
+		ClearState();
 	}
 	
+	public void ClearState(){
+		clientActive.cmdNum = 0;
+		clientActive.cmds = new UserCmd[CConstVar.CMD_BACKUP];
+		clientActive.entityBaselines = new EntityState[CConstVar.MAX_GENTITIES];
+		clientActive.extrapolateSnapshot = false;
+		clientActive.joystickAxis = new int[CConstVar.MAX_JOYSTICK_AXIS];
+		clientActive.mouseDx = new int[2];
+		clientActive.mouseDy = new int[2];
+		clientActive.mouseIndex = 0;
+		clientActive.newSnapshots = false;
+		clientActive.oldFrameServerTime = 0;
+		clientActive.oldServerTime = 0;
+		clientActive.outPackets = new OutPacket[CConstVar.PACKET_BACKUP];
+		clientActive.parseEntities = new EntityState[CConstVar.MAX_PARSE_ENTITIES];
+		clientActive.parseEntitiesIndex = 0;
+		clientActive.sensitivity = 0f;
+		clientActive.serverID = 0;
+		clientActive.serverTime = 0;
+		clientActive.serverTimeDelta = 0;
+		clientActive.snap = null;
+		clientActive.snapshots = new ClientSnapshot[CConstVar.PACKET_BACKUP];
+		clientActive.timeoutCount = 0;
+		clientActive.userCmdValue = 0;
+		clientActive.viewAngles = Vector3.zero;
+		
+	}
+
+	public bool GetUserCmd(int cmdNum, out UserCmd cmd)
+	{
+		if(cmdNum > clientActive.cmdNum){
+			CLog.Error("GetUserCmd: %d >= %d", cmdNum, clientActive.cmdNum);
+		}
+		cmd = new UserCmd();
+		if(cmdNum <= clientActive.cmdNum - CConstVar.CMD_BACKUP){
+			return false;
+		}
+
+		cmd = clientActive.cmds[cmdNum & CConstVar.CMD_MASK];
+		return true;
+	}
 
 	//如果snapshot解析正确，它会被复制到snap中，并被存储在snapshots[]
 	//如果snapshot因为任何原因不合适，不会任何改变任何state
-	public void ParseSnapshot(MsgPacket packet)
-	{
+	public void ParseSnapshot(MsgPacket packet){
 		int len;
 		ClientSnapshot old = new ClientSnapshot();
 		ClientSnapshot newSnap = new ClientSnapshot();
@@ -210,6 +262,73 @@ public class CModelGameState : IModel {
 	}
 
 	public void ParseGamestate(MsgPacket packet)
+	{
+		int i;
+		EntityState entityState;
+		int newNum;
+		EntityState nullState;
+		int cmd;
+		string s = null;
+
+		var connection = CDataModel.Connection;
+		connection.connectPacketCount = 0;
+
+		//清除本地客户端状态
+		CDataModel.GameState.ClearState();
+
+		//gamestate总会标记一个服务器command sequence
+		connection.serverCommandSequence = packet.ReadInt();
+
+		// CDataModel.GameState.clientActive.
+		while(true){
+			cmd = packet.ReadByte();
+			if(cmd == (int)SVCCmd.EOF){
+				break;
+			}
+			if(cmd == (int)SVCCmd.CONFIG_STRING){
+				int len;
+
+				i = packet.ReadShot();
+				if(i < 0 || i > CConstVar.MAX_CONFIGSTRINGS){
+					CLog.Error(" configstring > MAX_CONFIGSTRING");
+				}
+				s = packet.ReadBigString();
+				len = s.Length;
+
+
+			}else if(cmd == (int)SVCCmd.BASELINE){
+				newNum = packet.ReadBits(CConstVar.GENTITYNUM_BITS);
+				if(newNum < 0 || newNum >= CConstVar.MAX_GENTITIES){
+					CLog.Error("Baseline number out of range: %d", newNum);
+				}
+
+				nullState = new EntityState();
+				entityState = clientActive.entityBaselines[newNum];
+				ReadDeltaEntity(packet, ref nullState, ref entityState, newNum);
+			}else{
+				CLog.Error("ParseGameState: bad command type");
+			}
+		}
+
+		connection.clientNum = packet.ReadInt();
+
+		connection.checksumFeed = packet.ReadInt();
+		
+
+		ParseServerInfo(s);
+
+		//处理server id和其他信息
+		SystemInfoChanged(s);
+
+
+	}
+
+	private void ParseServerInfo(string systemInfo)
+	{
+
+	}
+
+	private void SystemInfoChanged(string systemInfo)
 	{
 
 	}
@@ -550,22 +669,22 @@ public class ClientSnapshot
 
 //每一帧的数据，给定时间的服务器呈现。
 //服务器会在固定时间产生，不过如果客户端的帧率太高了，有可能不会发送给客户端，或者网络传输过程中被丢弃了。
-public struct SnapShot{
-	SnapFlags snapFlags;
+public class SnapShot{
+	public SnapFlags snapFlags;
 
-	int ping;
+	public int ping;
 
-	int serverTime; //服务器时间（毫秒）
+	public int serverTime; //服务器时间（毫秒）
 
-	PlayerState playerState; //玩家当前的所有信息
+	public PlayerState playerState; //玩家当前的所有信息
 
-	int numEntities;
+	public int numEntities;
 
-	EntityState[] entities; //所有需要展示的entity
+	public EntityState[] entities; //所有需要展示的entity
 
-	int numServerCommands;
+	public int numServerCommands;
 
-	int serverCommandSequence;
+	public int serverCommandSequence;
 
 }
 

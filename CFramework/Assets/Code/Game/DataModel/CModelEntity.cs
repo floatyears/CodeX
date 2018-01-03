@@ -18,44 +18,44 @@ public class CModelEntity : IModel {
 }
 
 public struct ClientEntity{
-	EntityState currentState;
+	public EntityState currentState;
 
-	EntityState nextState;
+	public EntityState nextState;
 
-	bool interpolate; //true:下一帧可以插值
+	public bool interpolate; //true:下一帧可以插值
 
-	bool currentValid;
+	public bool currentValid;
 
-	int previousEvent;
+	public int previousEvent;
 
-	int teleportFlag;
+	public int teleportFlag;
 
-	int trailTime; //missile可以处理丢包的情况
+	public int trailTime; //missile可以处理丢包的情况
 
-	int miscTime;
+	public int miscTime;
 
-	int snapShotTime; //这个entity在帧中出现的最后时间
+	public int snapShotTime; //这个entity在帧中出现的最后时间
 
-	PlayerEntity playerEntity;
+	public PlayerEntity playerEntity;
 
-	int errorTime; //从当前时间开始衰减出现的错误
+	public int errorTime; //从当前时间开始衰减出现的错误
 
-	Vector3 errorOrigin;
+	public Vector3 errorOrigin;
 
-	Vector3 errorAngle;
+	public Vector3 errorAngle;
 
-	bool extrapolated; //false if origin/angles is an interpolation
+	public bool extrapolated; //false if origin/angles is an interpolation
 
-	Vector3 rawOrigin;
+	public Vector3 rawOrigin;
 
-	Vector3 rawAngles;
+	public Vector3 rawAngles;
 
-	Vector3 beamEnd;
+	public Vector3 beamEnd;
 
 	//entity在这一帧的准确插值位置
-	Vector3 lerpOrigin;
+	public Vector3 lerpOrigin;
 
-	Vector3 lerpAngles;
+	public Vector3 lerpAngles;
 }
 
 public struct EntityState{
@@ -63,7 +63,7 @@ public struct EntityState{
 
 	public int entityIndex;
 
-	public EntityEventType entityType;
+	public EntityType entityType;
 
 	public EntityFlags entityFlags;
 
@@ -198,13 +198,13 @@ public enum EntityEventType
 
 public struct UserCmd
 {
-	int serverTime;
+	public int serverTime;
 
-	int[] angles;
+	public int[] angles;
 
-	int buttons;
+	public int buttons;
 
-	int skillID;
+	public int skillID;
 }
 
 public enum CmdButton
@@ -223,15 +223,15 @@ public enum CmdButton
 
 //弹道
 public struct Trajectory{
-	TrajectoryType trType;
+	public TrajectoryType trType;
 
-	int trTime;
+	public int trTime;
 
-	int trDuration; //如果不是0，trTime + trDuration = stop time
+	public int trDuration; //如果不是0，trTime + trDuration = stop time
 
-	Vector3 trBase;
+	public Vector3 trBase;
 
-	Vector3 trDelta; //velocity
+	public Vector3 trDelta; //velocity
 }
 
 

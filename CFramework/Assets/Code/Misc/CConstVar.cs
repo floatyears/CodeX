@@ -13,9 +13,25 @@ public class CConstVar {
 
 	public const int ShowNet = 2;
 
+	public const int ShowMiss = 1;
+
 	public static int Qport = 8001;
 
 	public static int maxClient = 20;
+
+	public static int PMoveMsec = 10;
+
+	public static int PMoveFixed = 10;
+
+	public static int PMoveFloat = 10;
+
+	public static int ErrorDecay = 10;
+
+	public static bool NoPredict = false;
+
+	public static bool SynchronousClients = false;
+
+	public static bool OptimizePrediction = true;
 	
 
 	/*-------------预定义数据-----------*/
@@ -25,11 +41,17 @@ public class CConstVar {
 
 	public const int CMD_BACKUP = 64;
 
+	public const int NUM_SAVED_STATES = CMD_BACKUP + 2;
+
+	public const int CMD_MASK = CMD_BACKUP - 1;
+
 	public const int PACKET_BACKUP = 32;
 
 	public const int PACKET_MASK = PACKET_BACKUP - 1;
 
 	public const int MAX_ENTITIES = 1<<10;
+
+	public const int ENTITYNUM_MAX_NORMAL = MAX_ENTITIES - 2;
 
 	public const int MAX_RELIABLE_COMMANDS = 64;
 
@@ -76,7 +98,12 @@ public class CConstVar {
 
 	public const int MAX_GENTITIES = 1 << GENTITYNUM_BITS;
 
+	public const int MAX_JOYSTICK_AXIS = 16;
+
 	public const int FLOAT_INT_BITS = 13;
+
+	public const int DEFAULT_GRAVITY = 800;
+
 	public const int FLOAT_INT_BIAS = 1 << (FLOAT_INT_BITS);
 
 	public static NetField[] entityStateFields = new NetField[]{

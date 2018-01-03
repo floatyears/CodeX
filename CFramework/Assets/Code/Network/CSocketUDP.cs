@@ -327,6 +327,16 @@ public class MsgPacket{
 		return "";
 	}
 
+	public string ReadString()
+	{
+		return "";
+	}
+
+	public string ReadBigString()
+	{
+		return "";
+	}
+
 	public void WriteInt(int value, int pos = -1)
 	{
 		if(pos < 0)

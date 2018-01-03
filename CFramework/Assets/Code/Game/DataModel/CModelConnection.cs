@@ -24,7 +24,7 @@ public class CModelConnection : IModel {
 
 	public int challenge;
 
-	private int checksumFeed;
+	public int checksumFeed;
 
 	public int reliableSequence;
 
@@ -41,7 +41,7 @@ public class CModelConnection : IModel {
 
 	private int lastExecutedServerCommand; //获取或者执行的server command
 
-	private string[] serverCommands;
+	public string[] serverCommands;
 
 	private int incommingSequence;
 

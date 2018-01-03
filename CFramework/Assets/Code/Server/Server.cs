@@ -69,6 +69,16 @@ public class Server : CModule {
 
 	}
 
+	public void ParseServerInfo(string systemInfo)
+	{
+
+	}
+
+	public void SystemInfoChanged(string systemInfo)
+	{
+
+	}
+
 	public void SV_PacketEvent(IPEndPoint from, MsgPacket packet)
 	{
 		int i;

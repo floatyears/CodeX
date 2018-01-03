@@ -557,7 +557,17 @@ public class CNetwork : CModule{
 
 	private void ParseCommandString(MsgPacket packet)
 	{
-
+		int seq = packet.ReadInt();
+		string s = packet.ReadString();
+		var connection = CDataModel.Connection;
+		if(connection == null) return;
+		if(connection.serverCommandSequence >= seq){
+			return;
+		}
+		connection.serverCommandSequence = seq;
+		
+		int index = seq & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
+		connection.serverCommands[index] = s;
 	}
 
 	public void Send()
