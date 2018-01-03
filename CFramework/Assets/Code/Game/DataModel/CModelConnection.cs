@@ -188,7 +188,7 @@ public struct NetChan{
 
 public enum NetSrc
 {
-	CLIENT,
+	CLIENT = 0,
 
 	SERVER,
 }

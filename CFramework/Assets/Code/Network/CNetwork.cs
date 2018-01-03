@@ -40,6 +40,11 @@ public class CNetwork : CModule{
 
 	private int framgmentSequence;
 
+	/*----------LOOPBACK缓冲，用于本地玩家---------*/
+
+	private Loopback[] loopbacks;
+
+
 
 	public static CNetwork Instance
 	{
@@ -65,6 +70,9 @@ public class CNetwork : CModule{
 		//udp相关
 		updSocket = new CSocketUDP();
 		updSocket.Init();
+
+		//loopback
+		loopbacks = new Loopback[2];
 	}
 
 
@@ -99,7 +107,24 @@ public class CNetwork : CModule{
 	{
 		from = new IPEndPoint(IPAddress.Loopback, 0);
 		msg = new MsgPacket();
-		return false;
+
+		Loopback loop = loopbacks[(int)src];
+		if(loop.send - loop.get > CConstVar.MAX_LOOPBACK){
+			loop.get = loop.send - CConstVar.MAX_LOOPBACK;
+		}
+
+		if(loop.get >= loop.send)
+		{
+			return false;
+		}
+
+		int i = loop.get & (CConstVar.MAX_LOOPBACK - 1);
+		loop.get++;
+		Array.Copy(loop.msgs[i].data, msg.Data, loop.msgs[i].datalen);
+		msg.CurSize = loop.msgs[i].datalen;
+		
+		from.Address = IPAddress.Loopback;
+		return true;
 	}
 
 	public void SendMsg(SendCallback callback)
@@ -364,10 +389,10 @@ public class CNetwork : CModule{
 					ParseCommandString(packet);
 					break;
 				case SVCCmd.GAME_STATE:
-					ParseGamestate(packet);
+					CDataModel.GameState.ParseGamestate(packet);
 					break;
 				case SVCCmd.SNAPSHOT:
-					ParseSnapshot(packet);
+					CDataModel.GameState.ParseSnapshot(packet);
 					break;
 				case SVCCmd.DOWNLOAD:
 					break;
@@ -526,131 +551,12 @@ public class CNetwork : CModule{
 
 	}
 
-	//如果snapshot解析正确，它会被复制到snap中，并被存储在snapshots[]
-	//如果snapshot因为任何原因不合适，不会任何改变任何state
-	private void ParseSnapshot(MsgPacket packet)
-	{
-		int len;
-		ClientSnapshot old = new ClientSnapshot();
-		ClientSnapshot newSnap = new ClientSnapshot();
-		int deltaNum;
-		int oldMessageNum;
-		int i, packetNum;
+	
 
-		var connection = CDataModel.Connection;
-
-		//获取可靠的acknowledge number
-		//所有从服务器发送到客户端的消息reliableAcknowledge = ReadLong();
-		//将新的snapshot读取到临时缓冲中
-		//如果合适就复制到snap中
-		newSnap.serverCommandNum = connection.serverCommandSequence;
-		newSnap.serverTime = packet.ReadInt();
-
-		CDataModel.GameState.paused = 0;
-
-		newSnap.messageNum = connection.serverMessageSequence;
-
-		deltaNum = packet.ReadByte();
-		if(deltaNum == 0){
-			newSnap.deltaNum = -1;
-		}else{
-			newSnap.deltaNum = newSnap.messageNum - deltaNum;
-		}
-		newSnap.snapFlags = (SnapFlags)packet.ReadByte();
-
-		var clientActive = CDataModel.GameState.ClientActive;
-		if(newSnap.deltaNum <= 0)
-		{
-			newSnap.valid = true;
-			old = null;
-			connection.demoWaiting = false;
-		}else{
-			old = clientActive.snapshots[newSnap.deltaNum & CConstVar.PACKET_MASK];
-			if(!old.valid){
-				CLog.Error("old snapshot is invalid");
-			}else if(old.messageNum != newSnap.deltaNum){
-				CLog.Info("Delta frame too old");
-			}else if(clientActive.parseEntitiesIndex - old.parseEntitiesIndex > CConstVar.MAX_PARSE_ENTITIES - CConstVar.MAX_SNAPSHOT_ENTITIES){
-				CLog.Info("Delta parseEntitiesNum too old");
-			}else{
-				newSnap.valid = true;
-			}
-		}
-
-		CLog.Info("playerstate:%d", packet.CurPos);
-		if(old != null)
-		{
-			ReadDeltaPlayerstate(packet, old.playerState, newSnap.playerState);
-		}else{
-			// PlayerState tmpP = default(PlayerState);
-			ReadDeltaPlayerstate(packet, null, newSnap.playerState);
-		}
-
-		CLog.Info("packet entities:%d", packet.CurPos);
-		ParseEntities(packet, old, newSnap);
-
-		//如果不合适，就弹出所有的内容，因为它已经被读出。
-		if(!newSnap.valid)
-		{
-			return;
-		}
-
-		//清除最后接收到的帧和当前帧之间的所有帧的valid标记，所以如果有丢掉的消息
-		//它看起来就不会像是从buffer中增量更新而得到的合适的帧。
-		oldMessageNum = clientActive.snap.messageNum + 1;
-
-		if(newSnap.messageNum - oldMessageNum >= CConstVar.PACKET_BACKUP)
-		{
-			oldMessageNum = newSnap.messageNum - (CConstVar.PACKET_BACKUP - 1);
-		}
-		for(; oldMessageNum < newSnap.messageNum; oldMessageNum++)
-		{
-			clientActive.snapshots[oldMessageNum & CConstVar.PACKET_MASK].valid = false;
-		}
-		
-		clientActive.snap = newSnap;
-		clientActive.snap.ping	 = 999;
-		for(i = 0; i < CConstVar.PACKET_BACKUP; i++)
-		{
-			packetNum = (connection.NetChan.outgoingSequence - 1 - i) & CConstVar.PACKET_MASK;
-			if(clientActive.snap.playerState.commandTime >= clientActive.outPackets[packetNum].serverTime)
-			{
-				clientActive.snap.ping = CDataModel.GameState.realTime - clientActive.outPackets[packetNum].realTime;
-				break;
-			}
-		}
-
-		//保存当前帧在缓冲中，用来后来做增量比较
-		clientActive.snapshots[clientActive.snap.messageNum & CConstVar.PACKET_MASK] = clientActive.snap;
-
-		if(CConstVar.ShowNet == 3)
-		{
-			CLog.Info("snapshot: %d delta: %d ping:%d", clientActive.snap.messageNum, clientActive.snap.deltaNum, clientActive.snap.ping);
-		}
-
-		clientActive.newSnapshots = true;
-
-	}
-
-	private void ParseGamestate(MsgPacket packet)
-	{
-
-	}
-
-	private void ParseEntities(MsgPacket packet, ClientSnapshot from, ClientSnapshot to)
-	{
-
-	}
+	
 
 	private void ParseCommandString(MsgPacket packet)
 	{
-
-	}
-
-	private void ReadDeltaPlayerstate(MsgPacket packet, PlayerState from, PlayerState to)
-	{
-		int i,lc;
-		int bits;
 
 	}
 
@@ -689,4 +595,15 @@ public class CNetwork : CModule{
 		csocket = null;
 		updSocket = null;
 	}
+}
+
+
+public struct LoopbackMsg{
+	public byte[] data;
+	public int datalen;
+}
+
+public struct Loopback{
+	public LoopbackMsg[] msgs;
+	public int get,send;
 }

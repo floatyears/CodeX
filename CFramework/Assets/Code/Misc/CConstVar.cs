@@ -70,4 +70,16 @@ public class CConstVar {
 
 	public const int MAX_CHALLENGES = 2048;
 
+	public const int MAX_LOOPBACK = 16;
+
+	public const int GENTITYNUM_BITS = 10;
+
+	public const int MAX_GENTITIES = 1 << GENTITYNUM_BITS;
+
+	public const int FLOAT_INT_BITS = 13;
+	public const int FLOAT_INT_BIAS = 1 << (FLOAT_INT_BITS);
+
+	public static NetField[] entityStateFields = new NetField[]{
+		
+	};
 }

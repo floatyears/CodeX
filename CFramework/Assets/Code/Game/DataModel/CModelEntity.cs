@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class CModelEntity : IModel {
 
@@ -58,45 +59,47 @@ public struct ClientEntity{
 }
 
 public struct EntityState{
-	int entityID;
+	public int entityID;
 
-	EntityEventType entityType;
+	public int entityIndex;
 
-	EntityFlags entityFlags;
+	public EntityEventType entityType;
 
-	Trajectory pos;
+	public EntityFlags entityFlags;
 
-	Trajectory apos; //用于计算角度
+	public Trajectory pos;
 
-	int time;
+	public Trajectory apos; //用于计算角度
 
-	int time2;
+	public int time;
 
-	Vector3 origin; //origin
+	public int time2;
 
-	Vector3 origin2; //target
+	public Vector3 origin; //origin
 
-	Vector3 angles; //origin
+	public Vector3 origin2; //target
 
-	Vector3 angles2; //target
+	public Vector3 angles; //origin
 
-	int otherEntityID;
+	public Vector3 angles2; //target
 
-	int otherEntity2ID;
+	public int otherEntityID;
 
-	int sourceID;
+	public int otherEntity2ID;
 
-	int source2ID;
+	public int sourceID;
 
-	int clientNum; //范围是0-(MAX_CLIENT - 1)
+	public int source2ID;
 
-	int frame;
+	public int clientNum; //范围是0-(MAX_CLIENT - 1)
 
-	int solid;
+	public int frame;
 
-	EventType eventID;
+	public int solid;
 
-	int eventParam;
+	public EventType eventID;
+
+	public int eventParam;
 
 }
 

@@ -205,6 +205,8 @@ public class MsgPacket{
 	public int Bit{
 		set{
 			bit = value;
+		}get{
+			return bit;
 		}
 	}
 
