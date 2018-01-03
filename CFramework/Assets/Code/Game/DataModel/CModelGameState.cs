@@ -215,6 +215,7 @@ public class CModelGameState : IModel {
 	}
 
 	//TODO：这里有问题，这个函数做了一个假设，可以新增entity，但是不能删除entity，因为删除了，index就会出现错乱
+	//不过其实问题不大，因为是用的index，所以entity变换成为另外一个entity也不是问题（删除的话先不管，如果新增，就补位到那个entity的位置）。
 	private void ParseEntities(MsgPacket packet, ClientSnapshot oldframe, ClientSnapshot newframe)
 	{
 		int newIndex;
