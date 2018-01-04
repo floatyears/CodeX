@@ -27,11 +27,25 @@ public class CConstVar {
 
 	public static int ErrorDecay = 10;
 
+	public static int MaxPackets = 30;
+
+	public static int PacketDUP = 3;
+
+	public static int NoDelta = 1;
+
+	public static int PacketDelayClient = 10;
+
+	public static int PacketDelayServer = 10;
+
+	public static float timeScale = 1f;
+
 	public static bool NoPredict = false;
 
 	public static bool SynchronousClients = false;
 
 	public static bool OptimizePrediction = true;
+
+	public const bool LanForcePackets = false;
 	
 
 	/*-------------预定义数据-----------*/
@@ -105,6 +119,9 @@ public class CConstVar {
 	public const int DEFAULT_GRAVITY = 800;
 
 	public const int FLOAT_INT_BIAS = 1 << (FLOAT_INT_BITS);
+
+	public const int MAX_PACKET_USERCMDS = 32;
+
 
 	public static NetField[] entityStateFields = new NetField[]{
 		

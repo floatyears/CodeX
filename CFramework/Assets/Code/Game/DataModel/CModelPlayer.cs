@@ -12,9 +12,13 @@ public class CModelPlayer : IModel
 
 	public PMove pmove;
 
+	private PlayerState predictedPlayerState;
+
+	private bool validPPS = false;
+
 	public void Init()
 	{
-		
+		validPPS = false;
 	}
 
 	public void Update()
@@ -36,22 +40,24 @@ public class CModelPlayer : IModel
 		var gamestate = CDataModel.GameState;
 		gamestate.hyperspace = false;
 
-		if(!gamestate.validPPS){
-			gamestate.validPPS = true;
-			gamestate.predictedPlayerState = gamestate.snap.playerState;
+		if(!validPPS){
+			validPPS = true;
+			predictedPlayerState = gamestate.snap.playerState;
 		}
 
+		//如果是播回放，那么就复制移动，不做预测
 		if(gamestate.demoPlayback || (gamestate.snap.playerState.pmFlags & PMoveFlags.FOLLOW) != PMoveFlags.NONE){
 			InterpolatePlayerState(false);
 			return;
 		}
 
+		//非预测的本地移动会抓取最近的视角
 		if(CConstVar.NoPredict || CConstVar.SynchronousClients){
 			InterpolatePlayerState(true);
 			return;
 		}
 
-		pmove.playerState = gamestate.predictedPlayerState;
+		pmove.playerState = predictedPlayerState;
 		if(pmove.playerState.pmType == PMoveType.DEAD){
 			// pmove.tracemask = 
 		}else{
@@ -62,9 +68,10 @@ public class CModelPlayer : IModel
 
 		// pmove.noFootsteps = gamestate.dm
 
-		oldPlayerState = gamestate.predictedPlayerState;
+		oldPlayerState = predictedPlayerState;
 		current = CDataModel.GameState.ClientActive.cmdNum;
 
+		//如果没有紧接着snapshot之后的comands，就不能精确预测当前的位置，所以就停在最后的正确位置上
 		cmdNum = current - CConstVar.CMD_BACKUP + 1;
 		CDataModel.GameState.GetUserCmd(cmdNum, out oldestCmd);
 		if(oldestCmd.serverTime > gamestate.snap.playerState.commandTime && oldestCmd.serverTime < gamestate.time){
@@ -77,10 +84,10 @@ public class CModelPlayer : IModel
 		CDataModel.GameState.GetUserCmd(current, out latestCmd);
 
 		if(gamestate.nextSnap != null && !gamestate.nextFrameTeleport && !gamestate.thisFrameTeleport){
-			gamestate.predictedPlayerState = gamestate.nextSnap.playerState;
+			predictedPlayerState = gamestate.nextSnap.playerState;
 			gamestate.physicsTime = gamestate.nextSnap.serverTime;
 		}else{
-			gamestate.predictedPlayerState = gamestate.snap.playerState;
+			predictedPlayerState = gamestate.snap.playerState;
 			gamestate.physicsTime = gamestate.snap.serverTime;
 		}
 
@@ -105,8 +112,8 @@ public class CModelPlayer : IModel
 			}else{
 				bool error = true;
 				for(int i = gamestate.stateHead; i != gamestate.stateTail; i = (i+1)%CConstVar.NUM_SAVED_STATES){
-					if(gamestate.savedPmoveState[i].commandTime == gamestate.predictedPlayerState.commandTime){
-						int errorcode = IsUnacceptableError(gamestate.predictedPlayerState, gamestate.savedPmoveState[i]);
+					if(gamestate.savedPmoveState[i].commandTime == predictedPlayerState.commandTime){
+						int errorcode = IsUnacceptableError(predictedPlayerState, gamestate.savedPmoveState[i]);
 
 						if(errorcode > 0){
 							if(CConstVar.ShowMiss > 0){
@@ -145,14 +152,14 @@ public class CModelPlayer : IModel
 				UpdateViewAngles(pmove.playerState, pmove.cmd);
 			}
 
-			if(pmove.cmd.serverTime <= gamestate.predictedPlayerState.commandTime){
+			if(pmove.cmd.serverTime <= predictedPlayerState.commandTime){
 				continue;
 			}
 			if(pmove.cmd.serverTime > latestCmd.serverTime){
 				continue;
 			}
 
-			if(gamestate.predictedPlayerState.commandTime == oldPlayerState.commandTime){
+			if(predictedPlayerState.commandTime == oldPlayerState.commandTime){
 				Vector3 delta;
 				float len;
 
@@ -164,7 +171,7 @@ public class CModelPlayer : IModel
 					gamestate.thisFrameTeleport = false;
 				}else{
 					Vector3 adjusted, new_angles;
-					AdjustPositionForMover(gamestate.predictedPlayerState.origin, gamestate.predictedPlayerState.groundEntityNum, gamestate.physicsTime, gamestate.oldTime, out adjusted, gamestate.predictedPlayerState.viewangles,out new_angles);
+					AdjustPositionForMover(predictedPlayerState.origin, predictedPlayerState.groundEntityNum, gamestate.physicsTime, gamestate.oldTime, out adjusted, predictedPlayerState.viewangles,out new_angles);
 				
 					if(CConstVar.ShowMiss > 0){
 						if(oldPlayerState.origin != adjusted){
@@ -242,9 +249,9 @@ public class CModelPlayer : IModel
 			}
 			return;
 		}
-		AdjustPositionForMover(gamestate.predictedPlayerState.origin, gamestate.predictedPlayerState.groundEntityNum, gamestate.physicsTime, gamestate.time, out gamestate.predictedPlayerState.origin, gamestate.predictedPlayerState.viewangles, out gamestate.predictedPlayerState.viewangles);
+		AdjustPositionForMover(predictedPlayerState.origin, predictedPlayerState.groundEntityNum, gamestate.physicsTime, gamestate.time, out predictedPlayerState.origin, predictedPlayerState.viewangles, out predictedPlayerState.viewangles);
 		if(CConstVar.ShowMiss > 0){
-			if(gamestate.predictedPlayerState.eventSequence > oldPlayerState.eventSequence + CConstVar.MAX_PS_EVENT){
+			if(predictedPlayerState.eventSequence > oldPlayerState.eventSequence + CConstVar.MAX_PS_EVENT){
 				CLog.Info("dropped event");
 			}
 		}
@@ -321,7 +328,7 @@ public class CModelPlayer : IModel
 		float f;
 		int i;
 		var gamestate = CDataModel.GameState;
-		PlayerState outP = gamestate.predictedPlayerState;
+		PlayerState outP = predictedPlayerState;
 		SnapShot prev = gamestate.snap;
 		SnapShot next = gamestate.nextSnap;
 

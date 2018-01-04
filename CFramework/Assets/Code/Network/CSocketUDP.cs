@@ -17,8 +17,6 @@ public class CSocketUDP {
 
 	private byte[] buffer;
 
-	
-
 	private int socketArgsLimit = 2;
 
 	private MsgPacket[] packetBuffer;
@@ -117,7 +115,7 @@ public class CSocketUDP {
 					CLog.Error(string.Format("%s:sequence packet without connection",remoteEP.Address));
 				}else{
 					var packet = packetBuffer[~curPacket];
-					packet.GetData(buffer, count);
+					packet.WriteData(buffer, 0, count); //把缓冲内的数据写入到packet
 
 					var network = CNetwork.Instance;
 					if(network == null) return;
@@ -143,211 +141,22 @@ public class CSocketUDP {
 		}
 	}
 
+	//network层已经做了fragment的拆分处理
+	public void SendMsg(byte[] bytes, int length, IPEndPoint to){
+		sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+	}
+
+	private void SendCallback(IAsyncResult ar){
+		int count = sendSocket.EndSendTo(ar);
+
+		if(count > 0){
+			CLog.Info("Send Packet Finish. length: %d", count);
+		}
+	}
 	
 }
 
-public class MsgPacket{
-	bool allowOverflow;
 
-	bool overflowed;
-
-	bool oob; //out of band(带外数据)
-
-	byte[] bytes;
-
-	int curSize;
-
-	int curPos;
-
-	int bit;
-
-	public MsgPacket()
-	{
-		this.bytes = new byte[CConstVar.BUFFER_LIMIT];
-		this.curPos = 0;
-	}
-
-	public void GetData(byte[] data, int length)
-	{
-		Array.Copy(data, 0, bytes, 0, length);
-		curSize = length;
-	}
-
-	public void WriteData(byte[] data, int start, int length)
-	{
-		Array.Copy(bytes, start, data, 0, length);
-	}
-
-	public void BeginRead()
-	{
-		curPos = 0;
-		bit = 0;
-		oob = false;
-	}
-
-	public void BeginReadOOB()
-	{
-		curPos = 0;
-		bit = 0;
-		oob = true;
-	}
-
-	public int CurSize
-	{
-		get{
-			return curSize;
-		}
-		set{
-			curSize = value;
-		}
-	}
-
-	public int Bit{
-		set{
-			bit = value;
-		}get{
-			return bit;
-		}
-	}
-
-	public bool Oob{
-		set{
-			oob = value;
-		}
-	}
-
-	public byte[] Data{
-		get{
-			return bytes;
-		}
-	}
-
-	public int CurPos{
-		get{
-			return curPos;
-		}
-		set{
-			curPos = value;
-		}
-	}
-
-	public long ReadLong()
-	{
-		return 0L;
-	}
-
-	public int ReadInt(int start = -1)
-	{
-		if(start < 0)
-		{
-			start = curPos;
-		}else{
-
-		}
-		return 0;
-	}
-
-	public int ReadByte()
-	{
-		return 0;
-	}
-
-	public int ReadBits(int bits)
-	{
-		int value, get, i, nbits;
-		bool sgn;
-
-		value = 0;
-		if(bits < 0)
-		{
-			bits = -bits;
-			sgn = true;
-		}else{
-			sgn = false;
-		}
-		if(oob)
-		{
-			if(bits == 8)
-			{
-				value = bytes[curPos];
-				curPos++;
-				bit += 8;
-			}else if(bits == 16)
-			{
-				short temp;
-
-			}else if(bits == 32)
-			{
-
-			}else{
-				CLog.Error("can't read %d bits", bits);
-			}
-		}else{
-			nbits = 0;
-			if((bits & 7) != 0)
-			{
-				nbits = bits & 7;
-				for(i = 0; i < nbits; i++)
-				{
-					// value |= (Huff)
-				}
-				bits = bits - nbits;
-			}
-			if(bits != 0)
-			{
-				for(i=0; i < bits; i+= 8)
-				{
-					// value |= (get << (i + nbits));
-				}
-			}
-		}
-
-		if(sgn)
-		{
-			if((value & ( 1 << (bits - 1))) != 0){
-				value |= -1 ^ ((1 - bits) - 1);
-			}
-		}
-		return value;
-	}
-
-	public short ReadShot()
-	{
-		return 0;
-	}
-
-	//读取char
-	public string ReadChars(int len)
-	{
-		return "";
-	}
-
-	public string ReadStringLine()
-	{
-		return "";
-	}
-
-	public string ReadString()
-	{
-		return "";
-	}
-
-	public string ReadBigString()
-	{
-		return "";
-	}
-
-	public void WriteInt(int value, int pos = -1)
-	{
-		if(pos < 0)
-		{
-			pos = curPos;
-		}
-
-		
-	}
-
-}
 
 public enum SVCCmd
 {

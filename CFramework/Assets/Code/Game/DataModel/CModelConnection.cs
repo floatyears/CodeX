@@ -30,7 +30,7 @@ public class CModelConnection : IModel {
 
 	public int reliableAcknowledge; //服务器执行的最后一个
 
-	private string[] reliableCommands;
+	public string[] reliableCommands;
 
 	public int serverMessageSequence;
 
@@ -59,7 +59,7 @@ public class CModelConnection : IModel {
 
 	public bool demoRecording;
 
-	private bool demoPlaying;
+	public bool demoPlaying;
 
 	public bool demoWaiting;
 

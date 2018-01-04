@@ -44,6 +44,8 @@ public class CNetwork : CModule{
 
 	private Loopback[] loopbacks;
 
+	//
+	private CircularBuffer<PacketQueue> packetQueue;
 
 
 	public static CNetwork Instance
@@ -73,8 +75,10 @@ public class CNetwork : CModule{
 
 		//loopback
 		loopbacks = new Loopback[2];
-	}
 
+		//队列
+		packetQueue = new CircularBuffer<PacketQueue>(10);
+	}
 
 	public void Connect()
 	{
@@ -84,14 +88,13 @@ public class CNetwork : CModule{
 	// Update is called once per frame
 	public override void Update () 
 	{
+		//flat buffer的处理
 		while(csocket.HasCacheMsg) //这里一次性处理的所有的协议，可以设置每帧处理的协议数量
 		{
 			var byteBuffer = csocket.GetMsg();
 			//直接派发数据
 			CDataModel.Instance.DispatchMessage(byteBuffer);
-			
 		}
-
 		while(sendStack.Count > 0)
 		{
 			var builder = GetFreeBufferBuilder();
@@ -101,8 +104,33 @@ public class CNetwork : CModule{
 			}
 			
 		}
+
+		//udp 的处理
+		FlushPacketQueue();
 	}
 
+	/*-----------Flatbuffer相关-----------*/
+	public void SendMsg(SendCallback callback)
+	{
+		sendStack.Push(callback);
+		//var msg = ScPlayerBasic.GetRootAsScPlayerBasic(new ByteBuffer(fb.SizedByteArray())); 
+		//CLog.Info(msg.MsgID.ToString());
+	}
+
+	private FlatBufferBuilder GetFreeBufferBuilder()
+	{
+		for(int i = 0; i < builderLimit; i++ )
+		{
+			if(msgBuilders[i].VtableSize < 0)
+			{
+				return msgBuilders[i];
+			}
+		}
+
+		return null;
+	}
+
+	/*---------------LOOPBACK---------------*/
 	public bool GetLoopPacket(NetSrc src, out IPEndPoint from, out MsgPacket msg)
 	{
 		from = new IPEndPoint(IPAddress.Loopback, 0);
@@ -127,25 +155,6 @@ public class CNetwork : CModule{
 		return true;
 	}
 
-	public void SendMsg(SendCallback callback)
-	{
-		sendStack.Push(callback);
-		//var msg = ScPlayerBasic.GetRootAsScPlayerBasic(new ByteBuffer(fb.SizedByteArray())); 
-		//CLog.Info(msg.MsgID.ToString());
-	}
-
-	private FlatBufferBuilder GetFreeBufferBuilder()
-	{
-		for(int i = 0; i < builderLimit; i++ )
-		{
-			if(msgBuilders[i].VtableSize < 0)
-			{
-				return msgBuilders[i];
-			}
-		}
-
-		return null;
-	}
 
 	/* ----------------UDP START--------------------- */
 
@@ -325,7 +334,7 @@ public class CNetwork : CModule{
 			//保证前面的还是sequence
 			packet.WriteInt(CNetwork.LittleInt(sequence), 0);
 			packet.WriteData(netChan.fragmentBuffer, 4, netChan.fragmentLength);
-			packet.CurSize = netChan.fragmentLength + 4;
+			// packet.CurSize = netChan.fragmentLength + 4;
 			netChan.fragmentLength = 0;
 			packet.CurPos = 4; 	//粘贴sequence
 			packet.Bit = 32;  	//粘贴sequence
@@ -551,10 +560,6 @@ public class CNetwork : CModule{
 
 	}
 
-	
-
-	
-
 	private void ParseCommandString(MsgPacket packet)
 	{
 		int seq = packet.ReadInt();
@@ -570,11 +575,255 @@ public class CNetwork : CModule{
 		connection.serverCommands[index] = s;
 	}
 
+	/*-------------------UDP END------------------*/
+
+
+	/*------------------发送消息-------------------*/
+
 	public void Send()
 	{
 		// socket.SendTo();
 	}
 
+	public bool ReadyToSendPacket(){
+		int oldPacketNum;
+		int delta;
+
+		var connection = CDataModel.Connection;
+		if(connection.demoPlaying || connection.state == ConnectionState.CINEMATIC){
+			return false;
+		}
+
+		int realTime = CDataModel.GameState.realTime;
+		//没有合适的gamstate状态，就1s发一个包
+		if(connection.state != ConnectionState.ACTIVE && connection.state != ConnectionState.PRIMED && realTime - connection.lastPacketSentTime < 1000){
+			return false;
+		}
+
+		//loopback就每帧都发送
+		if(IPAddress.IsLoopback(connection.NetChan.remoteAddress.Address)){
+			return true;
+		}
+
+		if(CConstVar.LanForcePackets && IsLANAddress(connection.NetChan.remoteAddress.Address)){
+			return true;
+		}
+
+		if(CConstVar.MaxPackets < 15) CConstVar.MaxPackets = 15;
+		else if(CConstVar.MaxPackets > 125) CConstVar.MaxPackets = 125;
+
+		oldPacketNum = (connection.NetChan.outgoingSequence - 1) & CConstVar.PACKET_MASK;
+		delta = realTime - CDataModel.GameState.ClientActive.outPackets[oldPacketNum].realTime;
+		if(delta < (1000 / CConstVar.MaxPackets)){
+			//累积的commands会在下一个packet中发出
+			return false;
+		}
+		return true;
+	}
+
+	private void WritePacket(){
+		MsgPacket buf;
+		byte[] data = new byte[CConstVar.MAX_MSG_LEN];
+		int i,j;
+		UserCmd cmd, oldcmd;
+		int packetNum;
+		int oldPacketNum;
+		int count, key;
+
+		var clActive = CDataModel.GameState.ClientActive;
+		var connection = CDataModel.Connection;
+		if(connection.demoPlaying || connection.state == ConnectionState.CINEMATIC){
+			return;
+		}
+
+		UserCmd nullcmd = new UserCmd();
+
+		oldcmd = nullcmd;
+		buf = new MsgPacket();
+		buf.Oob = false;
+		buf.WriteInt(clActive.serverID);
+
+		//写入我们最后收到的消息，这可以用来增量压缩，同时也可以告知我们是否丢掉了gamestate
+		buf.WriteInt(connection.serverMessageSequence);
+
+		//写入最后收到的可靠消息
+		buf.WriteInt(connection.serverCommandSequence);
+
+		//写入所有未知的client commands
+		for(i = connection.reliableAcknowledge + 1; i < connection.reliableSequence; i++){
+			buf.WriteByte((byte)ClientMsgType.ClientCommand);
+			buf.WriteInt(i);
+			buf.WriteString(connection.reliableCommands[i & (CConstVar.MAX_RELIABLE_COMMANDS - 1)]);
+		}
+
+		if(CConstVar.PacketDUP < 0) CConstVar.PacketDUP = 0;
+		else if(CConstVar.PacketDUP > 5) CConstVar.PacketDUP = 5;
+
+		oldPacketNum = (connection.NetChan.outgoingSequence - 1 - CConstVar.PacketDUP) & CConstVar.PACKET_MASK;
+		count = clActive.cmdNum - clActive.outPackets[oldPacketNum].cmdNum;
+		if(count > CConstVar.MAX_PACKET_USERCMDS){
+			count = CConstVar.MAX_PACKET_USERCMDS;
+			CLog.Info("Exceed max packet usercmds");
+		}
+
+		if(count >= 1){
+			if(CConstVar.ShowNet > 0){
+				CLog.Info("packet user cmd: %d", count);
+			}
+
+			if(CConstVar.NoDelta > 0 || !clActive.snap.valid || connection.demoWaiting || connection.serverMessageSequence != clActive.snap.messageNum){
+				buf.WriteByte((byte)ClientMsgType.MoveNoDelta);
+			}else{
+				buf.WriteByte((byte)ClientMsgType.Move);
+			}
+
+			//写入command的数量
+			buf.WriteByte((byte)count);
+
+			//使用chechsum feed内的key
+			key = connection.checksumFeed;
+			//使用已知的消息
+			key ^= connection.serverMessageSequence;
+			//使用key中最后已知的服务器command
+			key ^= HasKey(connection.serverCommands[connection.serverCommandSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
+
+			for(i = 0; i < count; i++){
+				j = (clActive.cmdNum - count + i + 1) & CConstVar.CMD_MASK;
+				cmd = clActive.cmds[j];
+				WirteDeltaUserCmdKey(buf, key, oldcmd, cmd);
+				oldcmd = cmd;
+			}
+		}
+
+		//发送消息
+		packetNum = connection.NetChan.outgoingSequence & CConstVar.PACKET_MASK;
+		var opacket = clActive.outPackets[packetNum];
+		var realTime = CDataModel.GameState.realTime;
+		opacket.realTime = realTime;
+		opacket.serverTime = oldcmd.serverTime;
+		opacket.cmdNum = clActive.cmdNum;
+		connection.lastPacketSentTime = realTime;
+
+		if(CConstVar.ShowNet > 0){
+			CLog.Info("send packet:%d", buf.CurPos);
+		}
+
+		//客户端发送数据
+		buf.WriteByte((byte)ClientMsgType.EOF);
+		var netChan = connection.NetChan;
+		NetChanTransmit(ref netChan, buf.CurSize, buf.Data);
+
+		//下一帧传输所有的数据，没有延迟
+		while(netChan.unsentFragments){
+			NetChanTransmitNextFrame(ref netChan);
+			CLog.Warning("unsent fragments (not supposed to happen!)");
+		}
+
+	}
+
+	public void NetChanTransmit(ref NetChan netChan, int length, byte[] data){
+		MsgPacket send = new MsgPacket();
+		byte[] sendBuf = new byte[CConstVar.PACKET_MAX_LEN];
+		if(length > CConstVar.PACKET_MAX_LEN){
+			CLog.Info("Netchan transmit overflow, length = %d", length);
+		}
+		netChan.unsentFragmentStart = 0;
+
+		//fragment large reliable messages
+		if(length >= CConstVar.FRAGMENT_SIZE){
+			netChan.unsentFragments = true;
+			netChan.unsentLength = length;
+			Array.Copy(data, 0, netChan.unsentBuffer, 0, length);
+
+			//只发送第一帧的数据
+			NetChanTransmitNextFrame(ref netChan); 
+		}
+
+		//写入packet header
+		send.WriteInt(netChan.outgoingSequence);
+
+		//发送qport
+		if(netChan.src == NetSrc.CLIENT){
+			send.WriteShort((short)CConstVar.Qport);
+		}
+
+		send.WriteInt(CheckSum(netChan.challenge, netChan.outgoingSequence));
+		netChan.outgoingSequence++;
+
+		send.WriteData(data, -1, length); //data的数据写入到packet中
+
+		//发送数据
+		SendPacket(netChan.src, send.CurSize, send.Data, netChan.remoteAddress);
+
+		//存储这个包发送的时间和大小。
+		netChan.lastSentTime = CDataModel.InputEvent.Milliseconds();
+		netChan.lastSentSize = send.CurSize;
+
+		if(CConstVar.ShowPacket > 0){
+			CLog.Info("%s send %d : s = %d ack = %d", netChan.src, send.CurSize * 4, netChan.outgoingSequence - 1, netChan.incomingSequence);
+		}
+	}
+
+	private void SendPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
+		if(CConstVar.ShowPacket > 0){ // && *(int *)data == -1
+			CLog.Info("send packet %d", length * 4);
+		}
+
+		if(IPAddress.IsLoopback(to.Address)){
+			SendLoopPacket(src, length, data, to);
+			return;
+		}
+
+		// if(to.Address.)
+
+		if(src == NetSrc.CLIENT && CConstVar.PacketDelayClient > 0){
+			QueuePacket(length, data, to, CConstVar.PacketDelayClient);
+		}else if(src == NetSrc.SERVER && CConstVar.PacketDelayServer > 0){
+			QueuePacket(length, data, to, CConstVar.PacketDelayServer);
+		}else{
+			updSocket.SendMsg(data, length, to);
+		}
+
+	}
+
+	private static void SendLoopPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
+
+	}
+
+	public static void NetChanTransmitNextFrame(ref NetChan netChan){
+
+	}
+
+	private void WirteDeltaUserCmdKey(MsgPacket msg, int key, UserCmd from, UserCmd to){
+
+	}
+
+	private void QueuePacket(int length, byte[] data, IPEndPoint to, int delay){
+		if(delay > 999) delay = 999;
+		var newPacket = new PacketQueue();
+		newPacket.packet.CurSize = length;
+		newPacket.packet.WriteData(data, 0, length);
+		newPacket.to = to;
+		newPacket.release = CDataModel.InputEvent.Milliseconds() +  (int)((float)delay/CConstVar.timeScale);
+
+		packetQueue.Enqueue(newPacket);
+		// while(packetQueue.IsEmpty())
+	}
+
+	private void FlushPacketQueue(){
+		int time = CDataModel.InputEvent.Milliseconds();
+		while(!packetQueue.IsEmpty){
+			var packet = packetQueue.Dequeue();
+			if(packet.release >= time){ //延迟操作
+				break;
+			}
+
+			updSocket.SendMsg(packet.packet.Data, packet.packet.CurSize, packet.to);
+		}
+	}
+
+
+	/*------------------工具函数-----------------*/
 	public static int CheckSum(int challenge, int sequence)
 	{
 		return challenge ^(sequence * challenge);
@@ -585,7 +834,22 @@ public class CNetwork : CModule{
 		return 0;
 	}
 
-	/*-------------------UDP END------------------*/
+	public static bool IsLANAddress(IPAddress address){
+		return true;
+	}
+
+	public static int HasKey(string content, int maxLen){
+		int hash = 0;
+		for (int i = 0; i < maxLen && content[i] != '\0'; i++) {
+			if ((content[i] & 0x80) > 0 || content[i] == '%')
+				hash += '.' * (119 + i);
+			else
+				hash += content[i] * (119 + i);
+		}
+		hash = (hash ^ (hash >> 10) ^ (hash >> 20));
+		return hash;
+	}
+
 
 	public void Reconnect()
 	{
@@ -616,4 +880,26 @@ public struct LoopbackMsg{
 public struct Loopback{
 	public LoopbackMsg[] msgs;
 	public int get,send;
+}
+
+public enum ClientMsgType{
+	Bad = 0,
+	Nop = 1,
+
+	Move,
+
+	MoveNoDelta,
+
+	ClientCommand,
+
+	EOF,
+}
+
+public struct PacketQueue{
+
+	public IPEndPoint to;
+
+	public int release;
+
+	public MsgPacket packet;
 }
