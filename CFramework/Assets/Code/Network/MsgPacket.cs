@@ -81,6 +81,21 @@ public class MsgPacket{
 		}
 	}
 
+	public bool AllowOverflow{
+		set{
+			allowOverflow = value;
+		}
+	}
+
+	public bool Overflowed{
+		set{
+			overflowed = value;
+		}
+		get{
+			return overflowed;
+		}
+	}
+
 	public byte[] Data{
 		get{
 			return bytes;
@@ -373,6 +388,11 @@ public class MsgPacket{
 	{
 
 	}
+
+	public void WriteDeltaEntity(ref EntityState from, ref EntityState to, bool force)
+	{
+
+	}
 	
 
 	public void WriteInt(int value, int pos = -1)
@@ -444,6 +464,25 @@ public class MsgPacket{
 	public void WriteString(string value)
 	{
 		
+	}
+
+	public void Copy(MsgPacket dest, byte[] data, int length){
+		if(length < curSize){
+			CLog.Error("Msg Copy: can't copy into a smaller MsgPacket buffer");
+		}
+
+		Array.Copy(data, 0, dest.Data, 0, length);
+		curSize = length;
+		dest.AllowOverflow = allowOverflow;
+		dest.Overflowed = overflowed;
+		dest.Oob = oob;
+		dest.Bit = bit;
+	}
+
+	public void Clear(){
+		curSize = 0;
+		overflowed = false;
+		bit = 0;
 	}
 
 }

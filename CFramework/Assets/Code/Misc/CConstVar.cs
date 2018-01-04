@@ -45,6 +45,8 @@ public class CConstVar {
 
 	public static float PitchSpeed = 1f;
 
+	public static int PadPackets = 1;
+
 	public static bool NoPredict = false;
 
 	public static bool SynchronousClients = false;

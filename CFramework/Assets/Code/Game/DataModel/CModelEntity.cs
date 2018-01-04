@@ -111,7 +111,7 @@ public struct EntityShared
 
 	public int linkCount;
 
-	public int svFlags;
+	public SVFlags svFlags;
 
 	public int singleClinet;
 
@@ -128,7 +128,7 @@ public struct EntityShared
 	public int ownerNum;
 }
 
-public struct SharedEntity
+public class SharedEntity
 {
 	public EntityState s;
 	public EntityShared r;
@@ -325,4 +325,28 @@ public enum TrajectoryType
 	SINE = 5, //value = base + sin(time / duration) * delta
 
 	GRAVITY = 6,
+}
+
+public enum SVFlags{
+	NONE = 0,
+
+	NO_CLIENT = 0x1,
+
+	CLIENT_MASK = 0x2,
+
+	BOT = 0x8,
+
+	BROADCAST = 0x20,
+
+	PORTAL = 0x40,
+
+	USE_CURRENT_ORIGIN = 0x80,
+	
+	SINGLE_CLIENT = 0x100,
+
+	NOSERVERINFO = 0x200,
+
+	CAPSULE = 0x400,
+
+	NOTSINGLE_CLIENT = 0x800,
 }

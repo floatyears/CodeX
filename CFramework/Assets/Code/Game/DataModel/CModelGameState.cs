@@ -119,6 +119,10 @@ public class CModelGameState : IModel {
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
 		ClearState();
 	}
+
+	public void Update(){
+		ProcessSnapshots();
+	}
 	
 	public void ClearState(){
 		clientActive.cmdNum = 0;

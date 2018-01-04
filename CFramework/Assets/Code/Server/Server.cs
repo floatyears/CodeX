@@ -210,9 +210,188 @@ public class Server : CModule {
 	{
 
 	}
+
+	private void CalcPings(){
+
+	}
+
+	private bool CheckPaused(){
+		return false;
+	}
+
+	private void CheckTimeouts(){
+
+	}
+
+	private void SendMessageToClient(MsgPacket msg, ClientNode client){
+		var frame = client.frames[client.netChan.outgoingSequence & CConstVar.PACKET_MASK];
+		frame.messageSize = msg.CurSize;
+		frame.messageSent = time;
+		frame.messageAcked = -1;
+
+		msg.WriteByte((byte)SVCCmd.EOF);
+
+		if(client.netChan.unsentFragments || client.netChanQueue.IsEmpty ){
+			CLog.Info("NetChan Transimit: unsent fragments, stacked");
+			NetChanBuffer netChanBuffer = new NetChanBuffer();
+
+			//存储消息，不能编码后存储，因为编码依赖于我们还需要完成发送的内容
+			msg.Copy(netChanBuffer.msg, netChanBuffer.bytes, netChanBuffer.bytes.Length); 
+
+			//插入队列，消息会被编码并后续发送
+			client.netChanQueue.Enqueue(netChanBuffer);
+		}else{
+			//
+			CNetwork.Instance.NetChanTransmit(ref client.netChan, msg.CurSize, msg.Data);
+		}
+	}
+
+	private void SendClientSnapshot(ClientNode client){
+		byte[] msg_buf = new byte[CConstVar.MAX_MSG_LEN];
+
+		BuildClientSnapshot(client);
+
+		if(client.gentity != null && (client.gentity.r.svFlags & SVFlags.NO_CLIENT) != SVFlags.NONE){
+			return;
+		}
+		MsgPacket msg = new MsgPacket();
+		msg.AllowOverflow = true;
+
+		msg.WriteInt(client.lastClientCommand);
+
+		UpdateServerCommandsToClient(client, msg);
+
+		WriteSnapshotToClient(client, msg);
+
+		if(msg.Overflowed){
+			CLog.Info("WARNING: msg overflowed for %s", client.name);
+			msg.Clear();
+		}
+
+		SendMessageToClient(msg, client);
+
+	}
+
+	private void BuildClientSnapshot(ClientNode client){
+
+	}
+
+	private void UpdateServerCommandsToClient(ClientNode client, MsgPacket msg){
+
+	}
+
+	private void WriteSnapshotToClient(ClientNode client, MsgPacket msg){
+		SvClientSnapshot frame, oldFrame;
+		int lastFrame, i;
+		SnapFlags snapFlags;
+
+		frame = client.frames[client.netChan.outgoingSequence & CConstVar.PACKET_MASK];
+
+		if(client.deltaMessage <= 0 || client.state != ClientState.ACTIVE){
+			oldFrame = null;
+			lastFrame = 0;
+		}else if(client.netChan.outgoingSequence - client.deltaMessage >= (CConstVar.PACKET_BACKUP - 3)){
+			CLog.Info("%s Delta request from out of data packet.", client.name);
+			oldFrame = null;
+			lastFrame = 0;
+		}else{
+			oldFrame = client.frames[client.deltaMessage & CConstVar.PACKET_MASK];
+			lastFrame = client.netChan.outgoingSequence - client.deltaMessage;
+
+			if(oldFrame.firstEntity <= nextSnapshotEntities - numSnapshotEntities){
+				CLog.Info("%s Delta request from out of data entities.", client.name);
+				oldFrame = null;
+				lastFrame = 0;
+			}
+		}
+
+		msg.WriteByte((byte)SVCCmd.SNAPSHOT);
+
+		if(client.oldServerTime > 0){
+			msg.WriteInt(time + client.oldServerTime);
+		}else{
+			msg.WriteInt(time);
+		}
+
+		msg.WriteByte((byte)lastFrame);
+
+		snapFlags = (SnapFlags)snapFlagServerBit;
+		if(client.rateDelayed){
+			snapFlags |= SnapFlags.RATE_DELAYED;
+		}
+		if(client.state != ClientState.ACTIVE){
+			snapFlags |= SnapFlags.NOT_ACTIVE;
+		}
+
+		msg.WriteByte((byte)snapFlags);
+
+		// msg.WriteByte((byte)frame.ar)
+		if(oldFrame != null){
+			msg.WriteDeltaPlayerstate(oldFrame.playerState, frame.playerState);
+		}else{
+			msg.WriteDeltaPlayerstate(null, frame.playerState);
+		}
+
+		//增量编码entities
+		EmitPacketEntities(oldFrame, frame, msg);
+
+		//padding for rate debugging
+		if(CConstVar.PadPackets > 0){
+			for(i = 0; i < CConstVar.PadPackets; i++){
+				msg.WriteByte((byte)SVCCmd.NOP);
+			}
+		}
+
+
+	}
+
+	private void EmitPacketEntities(SvClientSnapshot from, SvClientSnapshot to, MsgPacket msg){
+		EntityState oldEnt = new EntityState(), newEnt = new EntityState();
+		int oldIndex = 0, newIndex = 0;
+		int oldNum, newNum;
+		int fromNumEnts;
+
+		if(from != null){
+			fromNumEnts = 0;
+		}else{
+			fromNumEnts = from.numEntities;
+		}
+
+		while(newIndex < to.numEntities || oldIndex < fromNumEnts){
+			if(newIndex >= to.numEntities){
+				newNum = 9999;
+			}else{
+				oldEnt = snapshotEntities[(to.firstEntity + newIndex) % numSnapshotEntities];
+				newNum = oldEnt.entityIndex;
+			}
+
+			if(oldIndex >= fromNumEnts){
+				oldNum = 9999;
+			}else{
+				oldEnt = snapshotEntities[(from.firstEntity + oldIndex) % numSnapshotEntities];
+				oldNum = oldEnt.entityIndex;
+			}
+
+			if(newNum == oldNum){
+				msg.WriteDeltaEntity(ref oldEnt, ref newEnt, false);
+			}
+		}
+
+	}
+
+	private void NetChanFreeQueue(ClientNode client)
+	{
+		while(client.netChanQueue.IsEmpty){
+			
+		}
+	}
+
+	private void MasterHeartbeat(){
+
+	}
 }
 
-public struct ClientNode
+public class ClientNode
 {
 	public ClientState state;
 	public string userInfo;
@@ -265,19 +444,27 @@ public struct ClientNode
 
 	public NetChan netChan;
 
-	public Queue<NetChanBuffer> netChanStartQueue;
-
-	public Queue<NetChanBuffer> netChanEndQueue;
+	public CircularBuffer<NetChanBuffer> netChanQueue;
 
 	public int oldServerTime;
 
 	public bool[] csUpdated;
+
+	public ClientNode(){
+		netChanQueue = new CircularBuffer<NetChanBuffer>(10); 
+	}
 }
 
 public class NetChanBuffer{
 	public MsgPacket msg;
 
 	public byte[] bytes;
+
+	public NetChanBuffer()
+	{
+		msg = new MsgPacket();
+		bytes = new byte[CConstVar.MAX_MSG_LEN];
+	}
 }
 
 public enum ClientState
@@ -289,7 +476,7 @@ public enum ClientState
 	ACTIVE,
 }
 
-public struct SvClientSnapshot
+public class SvClientSnapshot
 {
 	public PlayerState playerState;
 	public int numEntities;
