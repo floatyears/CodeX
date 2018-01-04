@@ -205,6 +205,19 @@ public struct UserCmd
 	public int buttons;
 
 	public int skillID;
+
+	public sbyte forwardmove, rightmove, upmove;
+
+	public UserCmd(int _serverTime = 0)
+	{
+		serverTime = _serverTime;
+		angles = new int[3];
+		buttons = 0;
+		skillID = 0;
+		forwardmove = 0;
+		rightmove = 0;
+		upmove = 0;
+	}
 }
 
 public enum CmdButton
@@ -237,6 +250,8 @@ public struct Trajectory{
 
 public enum SnapFlags{
 
+	NONE = 0,
+
 	RATE_DELAYED = 1,
 
 	NOT_ACTIVE = 2,
@@ -246,6 +261,9 @@ public enum SnapFlags{
 
 
 public enum EntityFlags{
+
+	NONE = 0,
+
 	DEAD = 0x1,
 
 	TELEPORT_BIT = 0x2, //只要origin变化过大就设置

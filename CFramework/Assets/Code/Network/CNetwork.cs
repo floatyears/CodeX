@@ -105,6 +105,9 @@ public class CNetwork : CModule{
 			
 		}
 
+		//写入packet
+		WritePacket();
+
 		//udp 的处理
 		FlushPacketQueue();
 	}
@@ -621,7 +624,23 @@ public class CNetwork : CModule{
 		return true;
 	}
 
-	private void WritePacket(){
+	/*
+	创建并发送command packet到服务器
+	包含可靠的commands和usercmds
+
+	客户端packet会包含这样的格式：
+	
+	4	sequence number
+	2	qport
+	4	serverid
+	4	acknowledged sequence number
+	4	clc.serverCommandSequence
+	<optional reliable commands>
+	1	clc_move or clc_moveNoDelta
+	1	command count
+	<count * usercmds>
+	*/
+	public void WritePacket(){
 		MsgPacket buf;
 		byte[] data = new byte[CConstVar.MAX_MSG_LEN];
 		int i,j;
@@ -690,7 +709,7 @@ public class CNetwork : CModule{
 			for(i = 0; i < count; i++){
 				j = (clActive.cmdNum - count + i + 1) & CConstVar.CMD_MASK;
 				cmd = clActive.cmds[j];
-				WirteDeltaUserCmdKey(buf, key, oldcmd, cmd);
+				buf.WirteDeltaUserCmdKey(key, ref oldcmd, ref cmd);
 				oldcmd = cmd;
 			}
 		}
@@ -790,13 +809,52 @@ public class CNetwork : CModule{
 
 	}
 
-	public static void NetChanTransmitNextFrame(ref NetChan netChan){
+	public void NetChanTransmitNextFrame(ref NetChan netChan){
+		MsgPacket send = new MsgPacket();
+		send.Oob = true;
+		byte[] send_buf = new byte[CConstVar.PACKET_MAX_LEN];
+		int fragmentLength = 0;
+		int outgoingSequence = netChan.outgoingSequence | CConstVar.FRAGMENT_BIT;
+		send.WriteInt(outgoingSequence);
 
+		//如果是客户端就发送qport
+		if(netChan.src == NetSrc.CLIENT){
+			send.WriteInt(CConstVar.Qport);
+		}
+
+		send.WriteInt(CheckSum(netChan.challenge, netChan.outgoingSequence));
+
+		fragmentLength = CConstVar.FRAGMENT_SIZE;
+		if(netChan.unsentFragmentStart + fragmentLength > netChan.unsentLength){
+			fragmentLength = netChan.unsentLength - netChan.unsentFragmentStart;
+		}
+
+		send.WriteShort((short)netChan.unsentFragmentStart);
+		send.WriteShort((short)fragmentLength);
+		send.WriteData(netChan.unsentBuffer, -1, fragmentLength, netChan.unsentFragmentStart);
+
+		//发送数据
+		SendPacket(netChan.src, send.CurSize, send.Data, netChan.remoteAddress);
+
+		//存储发送的时间和大小
+		netChan.lastSentTime = CDataModel.InputEvent.Milliseconds();
+		netChan.lastSentSize = send.CurSize;
+
+		if(CConstVar.ShowPacket > 0){
+			CLog.Info("%s send %d : s=%d fragment=%d,%d", netChan.src, send.CurSize, netChan.outgoingSequence, netChan.unsentFragmentStart, fragmentLength);
+		}
+
+		netChan.unsentFragmentStart += fragmentLength;
+		
+		//现在的情况有点戏剧，因为一个packet如果刚好是fragment的长度
+		//那还需要发送第二个packet（长度为0），这样另外一端就知道是否有更多的packet。
+		if(netChan.unsentFragmentStart == netChan.unsentLength && CConstVar.FRAGMENT_SIZE != fragmentLength){
+			netChan.outgoingSequence++;
+			netChan.unsentFragments = false;
+		}
 	}
 
-	private void WirteDeltaUserCmdKey(MsgPacket msg, int key, UserCmd from, UserCmd to){
-
-	}
+	
 
 	private void QueuePacket(int length, byte[] data, IPEndPoint to, int delay){
 		if(delay > 999) delay = 999;

@@ -20,10 +20,32 @@ public class CModelInputEvent : IModel {
 
 	private SysEvent[] eventQueue;
 
+	private int frame_msec;
+
+	private KButton inSpeed;
+
+	private KButton inRight;
+
+	private KButton inLeft;
+
+	private KButton inForward;
+
+	private KButton inBack;
+
+	private KButton inLookup;
+
+	private KButton inLookdown;
+
+	private KButton inStrafe;
+
+	private KButton[] inButtons;
+
 	// Use this for initialization
 	public void Init () {
 		pushedEvents = new SysEvent[CConstVar.MAX_PUSHED_EVENTS];
 		eventQueue = new SysEvent[CConstVar.MAX_PUSHED_EVENTS];
+		
+		inButtons = new KButton[16];
 	}
 
 	public void Update()
@@ -71,11 +93,95 @@ public class CModelInputEvent : IModel {
 					break;
 			}
 		}
+
+		CreateNewUserCommands();
 	}
 	
 	// Update is called once per frame
 	public void Dispose () {
 		
+	}
+
+	private void CreateNewUserCommands(){
+		int cmdNum;
+
+		if(CDataModel.Connection.state < ConnectionState.PRIMED){
+			return;
+		}
+
+		var cl = CDataModel.GameState.ClientActive;
+		cl.cmdNum++;
+		cmdNum = cl.cmdNum & CConstVar.CMD_MASK;
+		cl.cmds[cmdNum] = CreateCmd();
+
+	}
+
+	private UserCmd CreateCmd(){
+		UserCmd cmd;
+		var clientActive = CDataModel.GameState.ClientActive;
+		Vector3 oldAngles = clientActive.viewAngles;
+
+		AdjustAngles();
+
+		cmd = new UserCmd();
+
+
+		return cmd;
+	}
+
+	private void AdjustAngles(){
+		float speed;
+
+		if(inSpeed.active){
+			speed = 0.001f * CDataModel.GameState.frameTime * CConstVar.AnglesSpeedKey;
+		}else{
+			speed = 0.001f * CDataModel.GameState.frameTime;
+		}
+
+		var clientActive = CDataModel.GameState.ClientActive;
+		if(!inStrafe.active){
+			clientActive.viewAngles[CConstVar.YAW] -= speed * CConstVar.YawSpeed * KeyState(ref inRight);
+			clientActive.viewAngles[CConstVar.YAW] += speed * CConstVar.YawSpeed * KeyState(ref inLeft);
+		}
+
+		clientActive.viewAngles[CConstVar.PITCH] -= speed * CConstVar.PitchSpeed * KeyState(ref inLookup);
+		clientActive.viewAngles[CConstVar.PITCH] += speed * CConstVar.PitchSpeed * KeyState(ref inLookdown);
+	}
+
+	private float KeyState(ref KButton key){
+		int msec = key.msec;
+		key.msec = 0;
+
+		int time = CDataModel.GameState.realTime;
+		if(key.active){
+			if(key.downtime > 0){
+				msec = time;
+			}else{
+				msec += time - key.downtime;
+			}
+			key.downtime = time;
+		}
+
+		float val = (float)msec / CDataModel.GameState.deltaTime;
+		if(val < 0){
+			val = 0;
+		}else if(val > 1){
+			val = 1;
+		}
+
+		return val;
+	}
+
+	private void CmdButtons(ref UserCmd cmd){
+		for(int i = 0; i < 15; i++){
+			var btn = inButtons[i];
+			if(btn.active || btn.wasPressed){
+				cmd.buttons |= 1 << i;
+			}
+			btn.wasPressed = false;
+		}
+
+		// if()
 	}
 
 	public int Milliseconds()
@@ -202,4 +308,17 @@ public enum SysEventType
 	MOUSE,
 
 	JOYSTICK_AXIS,
+}
+
+public struct KButton{
+
+	public int[] down;
+
+	public int downtime;
+
+	public int msec;
+
+	public bool active;
+
+	public bool wasPressed;
 }

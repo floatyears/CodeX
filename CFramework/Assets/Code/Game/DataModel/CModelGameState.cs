@@ -35,6 +35,10 @@ public class CModelGameState : IModel {
 
 	public bool nextFrameTeleport;
 
+	public int processedSnapshotNum;
+
+	public int serverCommandSequence;
+
 	/*------非延迟-------*/
 	public int lastPredictedCommand;
 
@@ -44,12 +48,13 @@ public class CModelGameState : IModel {
 
 	public int stateHead, stateTail;
 
-
-	private int frameTime; //time - oldTime
+	public int frameTime; //time - oldTime
 
 	public int time; //这是客户端当前帧渲染的时间
 
 	public int realTime; //忽略暂停
+
+	public int deltaTime;
 
 	public int oldTime; //这是上一帧的时间，用于missile trails 和 prediction checking
 
@@ -209,10 +214,10 @@ public class CModelGameState : IModel {
 		CLog.Info("playerstate:%d", packet.CurPos);
 		if(old != null)
 		{
-			ReadDeltaPlayerstate(packet, old.playerState, newSnap.playerState);
+			packet.ReadDeltaPlayerstate(old.playerState, newSnap.playerState);
 		}else{
 			// PlayerState tmpP = default(PlayerState);
-			ReadDeltaPlayerstate(packet, null, newSnap.playerState);
+			packet.ReadDeltaPlayerstate(null, newSnap.playerState);
 		}
 
 		CLog.Info("packet entities:%d", packet.CurPos);
@@ -304,7 +309,7 @@ public class CModelGameState : IModel {
 
 				nullState = new EntityState();
 				entityState = clientActive.entityBaselines[newNum];
-				ReadDeltaEntity(packet, ref nullState, ref entityState, newNum);
+				packet.ReadDeltaEntity(ref nullState, ref entityState, newNum);
 			}else{
 				CLog.Error("ParseGameState: bad command type");
 			}
@@ -446,7 +451,7 @@ public class CModelGameState : IModel {
 		if(unchanged){
 			state = old;
 		}else{
-			ReadDeltaEntity(msg, ref old, ref state, newNum);
+			msg.ReadDeltaEntity(ref old, ref state, newNum);
 		}
 		if(state.entityIndex == (CConstVar.MAX_GENTITIES - 1)){
 			return;
@@ -455,127 +460,255 @@ public class CModelGameState : IModel {
 		frame.numEntities++;
 	}
 
-	//entity的索引值已经从消息中读取，这是from的state用来标识用的
-	//如果delta移除了这个entity，entityState.entityIndex会被设置为MAX_GENTITIES - 1
-	//可以从baseline中获取，或者从前面的packet_entity中获取
-	private void ReadDeltaEntity(MsgPacket msg, ref EntityState from, ref EntityState to, int number)
-	{
-		int i, lc;
-		int numFields;
-		NetField field;
-		int fromF, toF;
-		int print;
-		int trunc;
-		int startBit, endBit;
-
-		if(number < 0 || number >= CConstVar.MAX_GENTITIES){
-			CLog.Error("Bad delta entity number: %d", number);
-		}
-
-		if(msg.Bit == 0){
-			startBit = msg.CurPos * 8 - CConstVar.GENTITYNUM_BITS;
-		}else{
-			startBit = (msg.CurPos - 1) * 8 + msg.Bit - CConstVar.GENTITYNUM_BITS;
-		}
-
-		//检查是否要移除
-		if(msg.ReadBits(1) == 1){
-			to = new EntityState();
-			to.entityIndex = CConstVar.MAX_GENTITIES - 1;
-			if(CConstVar.ShowNet != 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -1)){
-				CLog.Info("remove entity: %d", number);
+	private void ProcessSnapshots(){
+		SnapShot snapshot;
+		int n = 0;
+		//查看客户端系统最近的snapshot
+		GetCurrentSnapshotNum(ref n, ref latestSnapshotTime);
+		if(n != latestSnapshotNum){
+			if(n < latestSnapshotNum){
+				CLog.Error("ProcessSnapshots: n < gamestate.latestSnapshotNum");
 			}
-			return;
+			latestSnapshotNum = n;
 		}
 
-		//检查是否无压缩
-		if(msg.ReadBits(1) == 0){
-			to = from;
-			to.entityIndex = number;
-			return;
+		while(snap != null){
+			snapshot = ReadNextSnapshot();
+			if(snapshot != null){
+				return;
+			}
+
+			if((snapshot.snapFlags & SnapFlags.NOT_ACTIVE) != SnapFlags.NONE){
+				SetInitialSnapshot(snapshot);
+			}
 		}
 
-		numFields = CConstVar.entityStateFields.Length;
-		lc = msg.ReadByte();
-		if(lc > numFields || lc < 0){
-			CLog.Info("invalid entity state field count");
-		}
+		do{
+			if(nextSnap != null){
+				snapshot = ReadNextSnapshot();
 
-		if(CConstVar.ShowNet != 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -1)){
-			print = 1;
-			CLog.Info("delta count %d: #-%d", msg.CurPos*3, to.entityIndex);
-		}else{
-			print = 0;
-		}
+				//如果没有下一帧，就必须外插值
+				if(snapshot != null){
+					break;
+				}
 
-		to.entityIndex = number;
+				SetNextSnapshot(snapshot);
 
-		for(i = 0; i < lc; i++){
-			field = CConstVar.entityStateFields[i];
-			// fromF = from + field.offset;
-			// toF = to 
-
-			//最好的方式还是c++直接操作内存数据，利用反射效率比较低
-			if(msg.ReadBits(1) == 0){ //没有变化
-				field.name.SetValue(to, field.name.GetValue(from));
-			}else{
-				if(field.bits == 0){
-					if(msg.ReadBits(1) == 0){
-						field.name.SetValue(to, 0.0f);
-					}else{
-						if(msg.ReadBits(1) == 0){
-							//积分浮点数
-							trunc = msg.ReadBits(CConstVar.FLOAT_INT_BITS);
-
-							//偏移允许正的部分和负的部分是一样大小的
-							trunc -= CConstVar.FLOAT_INT_BIAS;
-							field.name.SetValue(to, trunc);
-
-							if(print > 0){
-								CLog.Info("Read Delta Entity %s:%d", field.name, trunc);
-							}
-						}else{
-							//完整的浮点值
-							field.name.SetValue(to, msg.ReadBits(32));
-							if(print > 0){
-								CLog.Info("Read Delta Entity %s:%d", field.name, field.name.GetValue(to));
-							}
-						}
-					}
-				}else{
-					if(msg.ReadBits(1) == 0){
-						field.name.SetValue(to, 0);
-					}else{
-						field.name.SetValue(to, msg.ReadBits(field.bits));
-						if(print > 0){
-							CLog.Info("Read Delta Entity %s:%d", field.name, field.name.GetValue(to));
-						}
-					}
+				if(nextSnap.serverTime < snap.serverTime){
+					CLog.Error("ProcessSnapshots: Server time went backwards");
 				}
 			}
+
+			if(time >= snap.serverTime && time < nextSnap.serverTime){
+				break;
+			}
+
+			//
+			TransitionSnapshot();
+		}while(true);
+
+		if(snap == null){
+			CLog.Info("ProcessSnapshots: snap == null");
 		}
-		for(i = lc; i < numFields; i++){
-			field = CConstVar.entityStateFields[i];
-			//没有变化
-			field.name.SetValue(to, field.name.GetValue(from));
+		if(time < snap.serverTime){
+			time = snap.serverTime;
+		}
+		if(nextSnap != null && nextSnap.serverTime <= time){
+			CLog.Error("ProcessSnapshots: nextSnap.serverTime <= time");
+		}
+	}
+
+	private void TransitionSnapshot(){
+		ClientEntity clientEntity;
+		SnapShot oldFrame;
+		int i;
+		if(snap == null){
+			CLog.Error("TransitionSnapshot: null snap");
+		}
+		if(nextSnap == null){
+			CLog.Error("TransitionSnapshot: null nextSnap");
 		}
 
-		if(print > 0){
-			if(msg.Bit == 0){
-				endBit = msg.CurPos * 8 - CConstVar.GENTITYNUM_BITS;
-			}else{
-				endBit = (msg.CurPos - 1) * 8 + msg.Bit - CConstVar.GENTITYNUM_BITS;
-			}
-			CLog.Info("Read Delta Entity Finished. (%d bits)", endBit - startBit);
+		ExecuteNewServerCommands(nextSnap.serverCommandSequence);
+
+		for(i = 0; i < snap.numEntities; i++){
+			clientEntity = clientEntities[snap.entities[i].entityIndex];
+			clientEntity.currentValid = false;
 		}
+
+		oldFrame = snap;
+		snap = nextSnap;
+
+		CUtils.PlayerStateToEntityState(snap.playerState, clientEntities[snap.playerState.clientNum].currentState, false);
+		clientEntities[snap.playerState.clientNum].interpolate = false;
+
+		for(i = 0; i < snap.numEntities; i++){
+			clientEntity = clientEntities[snap.entities[i].entityIndex];
+			TransitionEntity(ref clientEntity);
+
+			//记录这个entity最后更新的snapshot的时间
+			clientEntity.snapShotTime = snap.serverTime;
+		}
+
+		nextSnap = null;
+
+		if(oldFrame != null){
+			PlayerState ops, ps;
+			ops = oldFrame.playerState;
+			ps = snap.playerState;
+
+			if(((ps.entityFlags ^ ops.entityFlags) ^ EntityFlags.TELEPORT_BIT) != EntityFlags.NONE){
+				this.thisFrameTeleport = true;
+			}
+
+			if(demoPlayback || (snap.playerState.pmFlags & PMoveFlags.FOLLOW) == PMoveFlags.NONE || CConstVar.NoPredict || CConstVar.SynchronousClients){
+				TransitionPlayerState(ps, ops);
+			}
+		}
+	}
+
+	private void TransitionPlayerState(PlayerState playerState, PlayerState oplayerState){
 
 	}
 
-	private void ReadDeltaPlayerstate(MsgPacket packet, PlayerState from, PlayerState to)
-	{
-		int i,lc;
-		int bits;
+	private void TransitionEntity(ref ClientEntity cEntity){
+		cEntity.currentState = cEntity.nextState;
+		cEntity.currentValid = true;
 
+		//如果entity不在最后一帧或者是传送的，就重置
+		if(!cEntity.interpolate){
+			ResetEntity(ref cEntity);
+		}
+
+		//清除下一个状态
+		cEntity.interpolate = false;
+
+		CheckEvents(ref cEntity);
+	}
+
+	private void CheckEvents(ref ClientEntity cEntity){
+
+	}
+
+	private void ResetEntity(ref ClientEntity cEntity){
+
+	}
+
+	private void ExecuteNewServerCommands(int latestSequence){
+		while(serverCommandSequence < latestSequence){
+			if(GetServerCommand(++serverCommandSequence)){
+				ServerCommand();
+			}
+		}
+	}
+
+	private bool GetServerCommand(int serverCommandNum){
+		return false;
+	}
+
+	private void ServerCommand(){
+
+	}
+
+	private SnapShot ReadNextSnapshot(){
+		bool r;
+		SnapShot dest;
+
+		if(latestSnapshotNum > processedSnapshotNum + 1000){
+			CLog.Info("ReadNextSnapshot: way out of range. %d > %d", latestSnapshotNum, processedSnapshotNum);
+		}
+
+		while(processedSnapshotNum > latestSnapshotNum){
+			if(snap == activeSnapshots[0]){
+				dest = activeSnapshots[1];
+			}else{
+				dest = activeSnapshots[0];
+			}
+
+			processedSnapshotNum++;
+			// dest = new SnapShot();
+			r = GetSnapshot(processedSnapshotNum, dest);
+
+			if(snap != null && r && dest.serverTime == snap.serverTime){
+
+			}
+
+			//如果成功，就返回
+			if(r){
+				AddLagometerSnapshotInfo(dest);
+				return dest;
+			}
+
+			//
+			AddLagometerSnapshotInfo(null);
+		}
+		
+		return null;
+	}
+
+	private void SetNextSnapshot(SnapShot snapshot){
+		int num;
+		EntityState state;
+		ClientEntity clientEntity;
+	}
+
+	public bool GetSnapshot(int snapshotNum, SnapShot snapshot){
+		ClientSnapshot clSnapshot;
+		int i, count;
+		if(snapshotNum > clientActive.snap.messageNum){
+			CLog.Error("GetSnapshot: snapshotNum > gamestate.snap.messageNum");
+		}
+
+		if(clientActive.snap.messageNum - snapshotNum >= CConstVar.PACKET_BACKUP){
+			return false;
+		}
+
+		clSnapshot = clientActive.snapshots[snapshotNum & CConstVar.PACKET_MASK];
+		if(!clSnapshot.valid){
+			return false;
+		}
+
+		//如果当前帧的entities超出了环形缓冲，我们不能返回它
+		if(clientActive.parseEntitiesIndex - clSnapshot.parseEntitiesIndex >= CConstVar.MAX_PARSE_ENTITIES){
+			return false;
+		}
+
+		//写入snapshot
+		snapshot.snapFlags = clSnapshot.snapFlags;
+		snapshot.serverCommandSequence = clSnapshot.serverCommandNum;
+		snapshot.ping = clSnapshot.ping;
+		snapshot.serverTime = clSnapshot.serverTime;
+		snapshot.playerState = clSnapshot.playerState;
+		count = clSnapshot.numEntities;
+		if(count > CConstVar.MAX_ENTITIES_IN_SNAPSHOT){
+			CLog.Info("GetSnapshot: truncated %d entities to %d", count, CConstVar.MAX_ENTITIES_IN_SNAPSHOT);
+			count = CConstVar.MAX_ENTITIES_IN_SNAPSHOT;
+		}
+
+		snapshot.numEntities = count;
+		for(i = 0; i < count; i++){
+			snapshot.entities[i] = clientActive.parseEntities[(clSnapshot.parseEntitiesIndex + i) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+		}
+
+		return true;
+	}
+
+	private void SetInitialSnapshot(SnapShot snapshot){
+		int i;
+		ClientEntity clientEntity;
+		EntityState state;
+
+		snap = snapshot;
+
+	}
+
+	private void AddLagometerSnapshotInfo(SnapShot snap){
+
+	}
+
+	private void GetCurrentSnapshotNum(ref int snapshotNum,ref int serverTime){
+		snapshotNum = clientActive.snap.messageNum;
+		serverTime = clientActive.snap.serverTime;
 	}
 	
 	public void Dispose () {

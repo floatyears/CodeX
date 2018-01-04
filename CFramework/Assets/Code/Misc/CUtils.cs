@@ -63,5 +63,9 @@ public class CUtils {
 		return a + b * phase;
 	}
 
+	public static void PlayerStateToEntityState(PlayerState playerState, EntityState state, bool snap){
+		
+	}
+
 	
 }

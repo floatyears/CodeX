@@ -39,6 +39,12 @@ public class CConstVar {
 
 	public static float timeScale = 1f;
 
+	public static float AnglesSpeedKey = 1f;
+
+	public static float YawSpeed = 1f;
+
+	public static float PitchSpeed = 1f;
+
 	public static bool NoPredict = false;
 
 	public static bool SynchronousClients = false;
@@ -64,6 +70,8 @@ public class CConstVar {
 	public const int PACKET_MASK = PACKET_BACKUP - 1;
 
 	public const int MAX_ENTITIES = 1<<10;
+
+	public const int MAX_ENTITIES_IN_SNAPSHOT = 256;
 
 	public const int ENTITYNUM_MAX_NORMAL = MAX_ENTITIES - 2;
 
@@ -122,8 +130,25 @@ public class CConstVar {
 
 	public const int MAX_PACKET_USERCMDS = 32;
 
+	public const int PITCH = 0;
+
+	public const int YAW = 1;
+
+	public const int ROLL = 2;
+
 
 	public static NetField[] entityStateFields = new NetField[]{
 		
+	};
+
+	public static int[] kbitmask = new int[]{
+		0x00000001, 0x00000003, 0x00000007, 0x0000000F,
+		0x0000001F,	0x0000003F,	0x0000007F,	0x000000FF,
+		0x000001FF,	0x000003FF,	0x000007FF,	0x00000FFF,
+		0x00001FFF,	0x00003FFF,	0x00007FFF,	0x0000FFFF,
+		0x0001FFFF,	0x0003FFFF,	0x0007FFFF,	0x000FFFFF,
+		0x001FFFFf,	0x003FFFFF,	0x007FFFFF,	0x00FFFFFF,
+		0x01FFFFFF,	0x03FFFFFF,	0x07FFFFFF,	0x0FFFFFFF,
+		0x1FFFFFFF,	0x3FFFFFFF,	0x7FFFFFFF,	System.Convert.ToInt32(0xFFFFFFFF),
 	};
 }

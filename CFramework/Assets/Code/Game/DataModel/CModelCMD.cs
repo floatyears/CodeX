@@ -39,7 +39,7 @@ public class CModelCMD : IModel {
 		}
 
 		//创建一个新的指令，即使是播回放
-		CreateNewUserCommands();
+		// CreateNewUserCommands();
 
 		// if()
 	}
@@ -66,14 +66,6 @@ public class CModelCMD : IModel {
 	}
 
 	/*-------------用户指令-------------*/
-	public void CreateNewUserCommands(){
-		int cmdNum;
-
-		if(CDataModel.Connection.state < ConnectionState.PRIMED){
-			return;
-		}
-
-
-	}
+	
 
 }
