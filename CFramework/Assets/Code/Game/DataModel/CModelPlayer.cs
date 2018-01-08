@@ -4,7 +4,7 @@ using UnityEngine;
 using FlatBuffers;
 
 //玩家数据模型
-public class CModelPlayer : IModel
+public class CModelPlayer : CModelBase
 {	
 	public int roleID;
 
@@ -16,12 +16,12 @@ public class CModelPlayer : IModel
 
 	private bool validPPS = false;
 
-	public void Init()
+	public override void Init()
 	{
 		validPPS = false;
 	}
 
-	public void Update()
+	private void Update()
 	{
 
 	}
@@ -408,7 +408,7 @@ public class CModelPlayer : IModel
 		ScPlayerBasic.GetRootAsScPlayerBasic(buffer);
 	}
 
-	public void Dispose()
+	public override void Dispose()
 	{
 
 	}

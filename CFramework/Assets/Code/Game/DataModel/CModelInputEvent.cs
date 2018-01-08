@@ -6,7 +6,7 @@ using System.IO;
 using System.Net;
 
 //所有的输入事件，比如网络消息和用户输入。
-public class CModelInputEvent : IModel {
+public class CModelInputEvent : CModelBase {
 
 	private int pushedEventsHead;
 	
@@ -41,15 +41,19 @@ public class CModelInputEvent : IModel {
 	private KButton[] inButtons;
 
 	// Use this for initialization
-	public void Init () {
+	public override void Init () {
 		pushedEvents = new SysEvent[CConstVar.MAX_PUSHED_EVENTS];
 		eventQueue = new SysEvent[CConstVar.MAX_PUSHED_EVENTS];
-		
+
 		inButtons = new KButton[16];
+
+		update = Update;
 	}
 
 	public void Update()
 	{
+
+		//EventLoop:
 		int time = (int)(Time.realtimeSinceStartup*1000);
 		if(Input.GetMouseButton(1))
 		{
@@ -75,6 +79,7 @@ public class CModelInputEvent : IModel {
 						server.RunServerPacket(remote, packet);
 					}
 				}
+				break;
 				// return ev.eventTime;
 			}
 
@@ -94,11 +99,25 @@ public class CModelInputEvent : IModel {
 			}
 		}
 
+
+		//Send CMD:
+		if(CDataModel.Connection.state < ConnectionState.CONNECTED){
+			return;
+		}
 		CreateNewUserCommands();
+		if(!CNetwork.Instance.ReadyToSendPacket()){
+			if(CConstVar.ShowNet > 0){
+				CLog.Info("send no msg.");
+			}
+			return;
+		}
+		CNetwork.Instance.WritePacket();
+
+		
 	}
 	
 	// Update is called once per frame
-	public void Dispose () {
+	public override void Dispose () {
 		
 	}
 

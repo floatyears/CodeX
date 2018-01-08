@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CModelCMD : IModel {
+public class CModelCMD : CModelBase {
 
 	private int cmdArgCount;
 
@@ -19,16 +19,17 @@ public class CModelCMD : IModel {
 
 	private int cmdIndex;
 
-	public void Init()
+	public override void Init()
 	{
 		cmdArgv = new string[CConstVar.MAX_STRING_TOKENS];
 		cmdTokenized = new char[CConstVar.MAX_STRING_TOKENS];
 		cmdCmd = new char[CConstVar.BIG_INFO_STRING];
-
 		cmds = new UserCmd[CConstVar.CMD_BACKUP];
+
+		update = Update;
 	}
 
-	public void Update()
+	private void Update()
 	{
 		if(CDataModel.Connection.state < ConnectionState.CONNECTED){
 			return;
@@ -44,7 +45,7 @@ public class CModelCMD : IModel {
 		// if()
 	}
 
-	public void Dispose()
+	public override void Dispose()
 	{
 
 	}

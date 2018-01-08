@@ -4,7 +4,7 @@ using UnityEngine;
 using System.Net;
 using System;
 
-public class CModelConnection : IModel {
+public class CModelConnection : CModelBase {
 
 	private bool inited = false;
 
@@ -100,7 +100,7 @@ public class CModelConnection : IModel {
 	}
 
 	// Use this for initialization
-	public void Init()
+	public override void Init()
 	{
 		inited = true;
 	}
@@ -115,7 +115,7 @@ public class CModelConnection : IModel {
 		netChan.challenge = challenge;
 	}
 
-	public void Dispose()
+	public override void Dispose()
 	{
 		inited = false;
 	}

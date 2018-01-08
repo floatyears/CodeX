@@ -2,22 +2,35 @@
 using System.Collections.Generic;
 using UnityEngine;
 using FlatBuffers;
+using System;
 
-public interface IModel {
+public class CModelBase{
+	public delegate void UpdateHandler();
 
-	void Init();
+	public UpdateHandler update;
 
-	void Dispose();
+	public virtual void Init(){
+
+	}
+
+	public virtual void Dispose(){
+
+	}
 }
 
-public class CModelScene : IModel
+// public interface IModel {
+
+	
+// }
+
+public class CModelScene : CModelBase
 {
-	public void Init()
+	public override void Init()
 	{
 
 	}
 
-	public void Dispose()
+	public override void Dispose()
 	{
 
 	}

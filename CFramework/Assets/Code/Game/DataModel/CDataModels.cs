@@ -73,16 +73,16 @@ public class CDataModel : CModule {
 
 	private Dictionary<Type, List<Callback>> msgRegister;
 
-	private List<IModel> models;
+	private List<CModelBase> models;
 
-	private List<IModel> updateList;
+	private List<CModelBase.UpdateHandler> updateList;
 
 
 	public override void Init()
 	{
 		instance = this;
-		models = new List<IModel>();
-		updateList = new List<IModel>();
+		models = new List<CModelBase>();
+		updateList = new List<CModelBase.UpdateHandler>();
 		msgRegister = new Dictionary<Type, List<Callback>>();
 
 		AddModel<CModelScene>(out scene);
@@ -93,7 +93,7 @@ public class CDataModel : CModule {
 		AddModel<CModelCMD>(out cmdBuffer);
 	}
 	
-	private void AddModel<T>(out T instance) where T : IModel, new()
+	private void AddModel<T>(out T instance) where T : CModelBase, new()
 	{
 		instance = new T();
 		models.Add(instance);
@@ -113,11 +113,11 @@ public class CDataModel : CModule {
 					msgRegister.Add(args, calls);
 				}
 				calls.Add(new Callback(method, instance));
-			}else if(method.Name.StartsWith("Update"))
-			{
-				if(!updateList.Contains(instance)) updateList.Add(instance);
 			}
 		}
+		instance.Init();
+
+		if(instance.update != null && !updateList.Contains(instance.update)) updateList.Add(instance.update);
 	}
 
 	public void DispatchMessage(FlatBuffers.ByteBuffer buffer)
@@ -141,6 +141,15 @@ public class CDataModel : CModule {
 		int vtable = bb_pos - bb.GetInt(bb_pos);
 		var o = 4 < bb.GetShort(vtable) ? (int)bb.GetShort(vtable + 4) : 0;
 		return bb.GetInt(o + bb_pos);
+	}
+
+	public override void Update(){
+		int len = updateList.Count;
+		for(int i = 0; i < len; i++){
+			updateList[i].Invoke();
+		}
+
+		CNetwork.Instance.FlushPacketQueue();
 	}
 	
 	

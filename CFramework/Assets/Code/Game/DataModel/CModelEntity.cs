@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-public class CModelEntity : IModel {
+public class CModelEntity : CModelBase {
 
-	public void Init()
+	public override void Init()
 	{
 
 	}	
 	
-	public void Dispose()
+	public override void Dispose()
 	{
 
 	}

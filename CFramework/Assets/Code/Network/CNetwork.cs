@@ -102,14 +102,13 @@ public class CNetwork : CModule{
 			{
 				sendStack.Pop().Invoke(builder);
 			}
-			
 		}
 
 		//写入packet
-		WritePacket();
+		// WritePacket();
 
 		//udp 的处理
-		FlushPacketQueue();
+		// FlushPacketQueue();
 	}
 
 	/*-----------Flatbuffer相关-----------*/
@@ -868,7 +867,8 @@ public class CNetwork : CModule{
 		// while(packetQueue.IsEmpty())
 	}
 
-	private void FlushPacketQueue(){
+	//清空缓存中的消息，必须在当前帧进行处理，超过当前帧可能会造成下一帧的数据错误
+	public void FlushPacketQueue(){
 		int time = CDataModel.InputEvent.Milliseconds();
 		while(!packetQueue.IsEmpty){
 			var packet = packetQueue.Dequeue();

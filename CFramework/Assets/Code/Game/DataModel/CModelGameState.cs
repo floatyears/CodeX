@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Reflection;
 
-public class CModelGameState : IModel {
+public class CModelGameState : CModelBase {
 
 	private int clientFrame;
 
@@ -115,9 +115,11 @@ public class CModelGameState : IModel {
 	}
 
 	// Use this for initialization
-	public void Init () {
+	public override void Init () {
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
 		ClearState();
+
+		update = Update;
 	}
 
 	public void Update(){
@@ -715,7 +717,7 @@ public class CModelGameState : IModel {
 		serverTime = clientActive.snap.serverTime;
 	}
 	
-	public void Dispose () {
+	public override void Dispose () {
 		
 	}
 }
