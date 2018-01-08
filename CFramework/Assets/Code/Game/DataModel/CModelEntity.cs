@@ -26,7 +26,7 @@ public struct ClientEntity{
 
 	public bool currentValid;
 
-	public int previousEvent;
+	public EntityEventType previousEvent;
 
 	public int teleportFlag;
 
@@ -56,6 +56,15 @@ public struct ClientEntity{
 	public Vector3 lerpOrigin;
 
 	public Vector3 lerpAngles;
+
+	public void Reset(){
+		// if(snapShotTime < )
+	}
+
+	public void CopyTo(ClientEntity to){
+		to.currentState = currentState;
+		to.nextState = nextState;
+	}
 }
 
 public class SvEntityState{
@@ -75,6 +84,7 @@ public struct EntityState{
 
 	public int entityIndex;
 
+	//entityType超过EntityEventType.Event_Count之后，就表示单纯的事件，而不代表一个entity
 	public EntityType entityType;
 
 	public EntityFlags entityFlags;
@@ -95,7 +105,7 @@ public struct EntityState{
 
 	public Vector3 angles2; //target
 
-	public int otherEntityID;
+	public int otherEntityIdx;
 
 	public int otherEntity2ID;
 
@@ -109,11 +119,17 @@ public struct EntityState{
 
 	public int solid;
 
-	public EventType eventID;
+	public EntityEventType eventID;
 
 	public int eventParam;
 
 	public int generic1;
+
+	public void CopyTo(EntityState to){
+		to.entityID = entityID;
+		to.entityIndex = entityIndex;
+		to.angles =angles;
+	}
 
 }
 
@@ -280,33 +296,40 @@ public enum EntityFlags{
 
 	DEAD = 0x1,
 
-	TELEPORT_BIT = 0x2, //只要origin变化过大就设置
+	TICKING = 0x2,
 
-	BOUNCE = 0x4,
+	TELEPORT_BIT = 0x4, //只要origin变化过大就设置
 
-	BOUNCE_HALF = 0x8,
+	AWARD_EXCELLENT = 0x8, //
 
-	NODRAW = 0x10,
+	PLAYER_EVENT = 0x10,
 
-	FIRING = 0x20,
+	BOUNCE = 0x20,
 
-	MOVE_STOP = 0x40,
+	BOUNCE_HALF = 0x40,
 
-	AWARD_CAP = 0x80,
+	AWARD_GAUNTLET = 0x80,
 
-	VOTED = 0x100,
+	NODRAW = 0x100,
 
-	AWARD_EXCELLENT = 0x200, //
+	FIRING = 0x200,
 
-	AWARD_IMPRESSIVE = 0x400,
+	MOVE_STOP = 0x400,
 
-	AWARD_DEFEND = 0x800,
+	AWARD_CAP = 0x800,
 
-	AWARD_ASSIST = 0x1000,
+	VOTED = 0x1000,
 
-	AWARD_DENIED = 0x2000,
+	AWARD_IMPRESSIVE = 0x4000,
+
+	AWARD_DEFEND = 0x8000,
+
+	AWARD_ASSIST = 0x10000,
+
+	AWARD_DENIED = 0x20000,
 }
 
+//entityType超过EntityEventType.Event_Count之后，就表示单纯的事件，而不代表一个entity
 public enum EntityType
 {
 	GENERNAL = 1,
@@ -323,7 +346,33 @@ public enum EntityType
 
 	PUSH_TRIGGER = 7,
 
-	TELEPORT
+	TELEPORT,
+
+	// any of the EV_* events can be added freestanding
+	// by setting eType to ET_EVENTS + eventNum
+	// this avoids having to set eFlags and eventNum
+	// 任何EntityEventType都可以独立地添加，只要设置eType为EVENTS_COUNT + eventNum，这避免了设置eFlags和eventNum
+	EVENTS_COUNT,
+
+	EVENT_ENT_1,
+	EVENT_ENT_2,
+	EVENT_ENT_3,
+	EVENT_ENT_4,
+	EVENT_ENT_5,
+	EVENT_ENT_6,
+	EVENT_ENT_7,
+	EVENT_ENT_8,
+	EVENT_ENT_9,
+	EVENT_ENT_10,
+	EVENT_ENT_11,
+	EVENT_ENT_12,
+	EVENT_ENT_13,
+	EVENT_ENT_14,
+	EVENT_ENT_15,
+	EVENT_ENT_16,
+	EVENT_ENT_17,
+	EVENT_ENT_18,
+
 }
 
 public enum TrajectoryType

@@ -79,10 +79,8 @@ public class Server : CModule {
 		svEntities = new SvEntityState[CConstVar.MAX_GENTITIES];
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
-		
 		inited = true;
 
-		// if()
 	}
 
 	public void Startup(){
@@ -108,7 +106,7 @@ public class Server : CModule {
 			msec = t2 - t1;
 			if(CConstVar.ComSpeeds == 3)
 			{
-				CLog.Info("SV_PacketEvent time: %d", msec);
+				CLog.Info("SV_PacketEvent time: {0}", msec);
 			}
 		}
 	}
@@ -204,7 +202,7 @@ public class Server : CModule {
 		cmd.TokenizeString(s, false);
 
 		string c = cmd.Argv(0);
-		CLog.Info("SV packet %s : %s", from, c);
+		CLog.Info("SV packet {0} : {1}", from, c);
 
 		switch(c)
 		{
@@ -226,7 +224,7 @@ public class Server : CModule {
 			case "disconnect":
 				break;
 			default:
-				CLog.Info("bad connectionless packet from %s: %s", from, s);
+				CLog.Info("bad connectionless packet from {0}: {1}", from, s);
 				break;
 		}
 	}
@@ -238,7 +236,7 @@ public class Server : CModule {
 			var cl = clients[i];
 			if(cl.state >= ClientState.CONNECTED){
 				var ps = cl.playerState;
-				status.Append(ps.persistant[(int)PlayerPersistant.SCORE]).Append(" ").Append(cl.ping).Append(" ").Append(cl.name);
+				status.Append(ps.persistant[(int)PlayerStatePersistant.PERS_SCORE]).Append(" ").Append(cl.ping).Append(" ").Append(cl.name);
 			}
 		}
 
@@ -305,7 +303,7 @@ public class Server : CModule {
 
 			if(from.Address.Equals(cl.netChan.remoteAddress.Address) && (cl.netChan.qport == qport || from.Port == cl.netChan.remoteAddress.Port)){
 				if(time - cl.lastConnectTime < CConstVar.reconnectLimit * 1000){
-					CLog.Info("%s: reconnect rejected : too soon", from);
+					CLog.Info("{0}: reconnect rejected : too soon", from);
 					return;
 				}
 				break;
@@ -403,7 +401,7 @@ public class Server : CModule {
 			}
 
 			if(from.Address.Equals(cl.netChan.remoteAddress.Address) && (cl.netChan.qport == qport || from.Port == cl.netChan.remoteAddress.Port)){
-				CLog.Info("%s: reconnect rejected : too soon", from);
+				CLog.Info("{0}: reconnect rejected : too soon", from);
 				newcl = cl;
 				newClIdx = i;
 				newClient();
@@ -453,7 +451,7 @@ public class Server : CModule {
 			}
 			else{
 				CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is full");
-				CLog.Info("Rejected a connection. %s", from);
+				CLog.Info("Rejected a connection. {0}", from);
 				return;
 			}
 		}
@@ -656,7 +654,7 @@ public class Server : CModule {
 
 			if(cl.state == ClientState.ZOMBIE && cl.lastPacketTime < zombiepoint){
 				cl.state = ClientState.FREE;
-				CLog.Info("Going from zombie to free for client %d", i);
+				CLog.Info("Going from zombie to free for client {0}", i);
 				continue;
 			}
 

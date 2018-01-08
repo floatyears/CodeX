@@ -63,6 +63,8 @@ public class CConstVar {
 
 	public static int SERVER_PORT = 27960;
 
+	public static int NUM_SERVER_PORTS = 4;
+
 	public static string PrivatePwd = "server_passwd";
 
 	public static string GameName = "test_game";
@@ -83,7 +85,9 @@ public class CConstVar {
 	/*-------------预定义数据-----------*/
 	public const int MaxEntity = 10;
 
-	public const int MAX_PS_EVENT = 2;
+	public const int MAX_PS_EVENTS = 2;
+
+	public const int MAX_PREDICTED_EVENTS = 16;
 
 	public const int CMD_BACKUP = 64;
 
@@ -179,6 +183,12 @@ public class CConstVar {
 	public const int MAX_OTHER_SERVERS = 10;
 
 	public const int MAX_PING_REQUESTS = 32;
+
+	public const int EVENT_VALID_MSEC = 300;
+
+	public const int EVENT_BITS = 0x100 | 0x200;
+
+	
 
 	public static NetField[] entityStateFields = new NetField[]{
 		

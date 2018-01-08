@@ -34,7 +34,6 @@ public class CScriptManager : CModule {
 		}
 
 		instance = this;
-		
 	}
 
 	// Update is called once per frame

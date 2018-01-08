@@ -292,7 +292,7 @@ public class MsgPacket{
 			to = new EntityState();
 			to.entityIndex = CConstVar.MAX_GENTITIES - 1;
 			if(CConstVar.ShowNet != 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -1)){
-				CLog.Info("remove entity: %d", number);
+				CLog.Info("remove entity: {0}", number);
 			}
 			return;
 		}
@@ -312,7 +312,7 @@ public class MsgPacket{
 
 		if(CConstVar.ShowNet != 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -1)){
 			print = 1;
-			CLog.Info("delta count %d: #-%d", curPos * 3, to.entityIndex);
+			CLog.Info("delta count {0}: #-{1}", curPos * 3, to.entityIndex);
 		}else{
 			print = 0;
 		}
@@ -341,13 +341,13 @@ public class MsgPacket{
 							field.name.SetValue(to, trunc);
 
 							if(print > 0){
-								CLog.Info("Read Delta Entity %s:%d", field.name, trunc);
+								CLog.Info("Read Delta Entity {0}:{1}", field.name, trunc);
 							}
 						}else{
 							//完整的浮点值
 							field.name.SetValue(to, ReadBits(32));
 							if(print > 0){
-								CLog.Info("Read Delta Entity %s:%d", field.name, field.name.GetValue(to));
+								CLog.Info("Read Delta Entity {0}:{1}", field.name, field.name.GetValue(to));
 							}
 						}
 					}
@@ -357,7 +357,7 @@ public class MsgPacket{
 					}else{
 						field.name.SetValue(to, ReadBits(field.bits));
 						if(print > 0){
-							CLog.Info("Read Delta Entity %s:%d", field.name, field.name.GetValue(to));
+							CLog.Info("Read Delta Entity {0}:{1}", field.name, field.name.GetValue(to));
 						}
 					}
 				}
@@ -375,7 +375,7 @@ public class MsgPacket{
 			}else{
 				endBit = (curPos - 1) * 8 + bit - CConstVar.GENTITYNUM_BITS;
 			}
-			CLog.Info("Read Delta Entity Finished. (%d bits)", endBit - startBit);
+			CLog.Info("Read Delta Entity Finished. ({0} bits)", endBit - startBit);
 		}
 
 	}

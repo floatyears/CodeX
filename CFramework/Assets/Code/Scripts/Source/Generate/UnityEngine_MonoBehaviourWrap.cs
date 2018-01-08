@@ -300,8 +300,8 @@ public class UnityEngine_MonoBehaviourWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			UnityEngine.MonoBehaviour obj = (UnityEngine.MonoBehaviour)o;
-			bool ret = obj.runInEditMode;
-			LuaDLL.lua_pushboolean(L, ret);
+			// bool ret = obj.runInEditMode;
+			// LuaDLL.lua_pushboolean(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -339,7 +339,7 @@ public class UnityEngine_MonoBehaviourWrap
 			o = ToLua.ToObject(L, 1);
 			UnityEngine.MonoBehaviour obj = (UnityEngine.MonoBehaviour)o;
 			bool arg0 = LuaDLL.luaL_checkboolean(L, 2);
-			obj.runInEditMode = arg0;
+			// obj.runInEditMode = arg0;
 			return 0;
 		}
 		catch(Exception e)

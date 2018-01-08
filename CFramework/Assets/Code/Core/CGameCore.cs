@@ -12,6 +12,8 @@ public class CGameCore {
 
 	private int updateNum = 0;
 
+	private List<CModule> updateModules;
+
 	private int fixedUpdateNum = 0;
 
 	//游戏初始化
@@ -19,6 +21,7 @@ public class CGameCore {
 	{
 		CPath.Init();
 
+		updateModules = new List<CModule>(20);
 		modules = new List<CModule>(10);
 		AddModule("Network", new CNetwork());
 		AddModule("AssetManager", new CAssetsManager());
@@ -29,11 +32,15 @@ public class CGameCore {
 		AddModule("UIManager", new CUIManager());
 		AddModule("SceneManager", new CSceneManager());
 
+		
+
 		fixedModules = new List<CModule>(3);
 		fixedModules.Add(new Server());
 		fixedModules[0].Init();
 		
 		fixedUpdateNum = fixedModules.Count;
+		updateNum = updateModules.Count;
+		
 		//fixedModules.Add();
 		//CDataModel.Player.CsAccountLogin();
 	}
@@ -44,6 +51,10 @@ public class CGameCore {
 	{
 		modules.Add(module);
 		module.Init();
+
+		if(module.needUpdate && !updateModules.Contains(module)){
+			updateModules.Add(module);
+		}
 	}
 
 	public void DiposeModule(string name)
@@ -64,9 +75,9 @@ public class CGameCore {
 	// Update is called once per frame
 	public void Update () 
 	{
-		for(int i = 0; i <= updateNum; i++)
+		for(int i = 0; i < updateNum; i++)
 		{
-			modules[i].Update();
+			updateModules[i].Update();
 		}
 	}
 

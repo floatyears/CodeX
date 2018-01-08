@@ -112,7 +112,6 @@ public class CModelInputEvent : CModelBase {
 			return;
 		}
 		CNetwork.Instance.WritePacket();
-
 		
 	}
 	
@@ -253,7 +252,7 @@ public class CModelInputEvent : CModelBase {
 
 			if(journal == 1) //写入到到文件
 			{
-				File.WriteAllText(CPath.demoPath,"test");
+				// File.WriteAllText(CPath.demoPath,"test");
 			}
 		}
 		return ev;

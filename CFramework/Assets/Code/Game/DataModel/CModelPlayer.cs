@@ -251,7 +251,7 @@ public class CModelPlayer : CModelBase
 		}
 		AdjustPositionForMover(predictedPlayerState.origin, predictedPlayerState.groundEntityNum, gamestate.physicsTime, gamestate.time, out predictedPlayerState.origin, predictedPlayerState.viewangles, out predictedPlayerState.viewangles);
 		if(CConstVar.ShowMiss > 0){
-			if(predictedPlayerState.eventSequence > oldPlayerState.eventSequence + CConstVar.MAX_PS_EVENT){
+			if(predictedPlayerState.eventSequence > oldPlayerState.eventSequence + CConstVar.MAX_PS_EVENTS){
 				CLog.Info("dropped event");
 			}
 		}
@@ -430,7 +430,32 @@ public struct LerpFrame
 	public int frameTime;
 
 	public float backLerp;
-	
+
+	public float yawAngle;
+
+	public bool yawing;
+
+	public float pitchAngle;
+
+	public bool pitching;
+
+	public int animatioinNumber;
+
+	public int animationTime;
+
+	public void Reset(){
+		oldFrame = 0;
+		oldFrameTime = 0;
+		frame = 0;
+		frameTime = 0;
+		backLerp = 0;
+		yawAngle = 0f;
+		yawing = false;
+		pitchAngle = 0f;
+		pitching = false;
+		animatioinNumber = 0;
+		animationTime = 0;
+	}
 }
 
 //PlayerEntity需要记录更多的信息
@@ -441,6 +466,9 @@ public struct PlayerEntity
 	public LerpFrame legs; //腿
 
 	public LerpFrame flag;
+
+	public LerpFrame head;
+	
 	
 	public int painTime; //收到伤害时间
 
@@ -484,7 +512,7 @@ public class PlayerState{
 
 	public int[] eventParams;
 
-	public int externalEvent;
+	public EntityEventType externalEvent;
 
 	public int externalEventParam;
 
@@ -509,11 +537,6 @@ public class PlayerState{
 	public int pm_framecount;
 
 	public int entityEventSequence;
-}
-
-public enum PlayerPersistant{
-	SCORE = 0,
-	LENGTH = 1,
 }
 
 public struct PMove{

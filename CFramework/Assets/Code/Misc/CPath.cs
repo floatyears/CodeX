@@ -39,6 +39,11 @@ public class CPath {
 			dataPath = Application.dataPath;
 			streamingAssetsPath = Application.streamingAssetsPath;
 			demoPath = Application.persistentDataPath + "/demo.play";
+#else
+			persistentDataPath = Application.persistentDataPath;
+			dataPath = Application.dataPath;
+			streamingAssetsPath = Application.streamingAssetsPath;
+			demoPath = Application.persistentDataPath + "/demo.play";
 			
 #endif
 	}

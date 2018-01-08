@@ -73,6 +73,7 @@ public class CNetwork : CModule{
 		//udp相关
 		updSocket = new CSocketUDP();
 		updSocket.Init();
+		updSocket.BeginReceive();
 
 		//loopback
 		loopbacks = new Loopback[2];
@@ -181,13 +182,13 @@ public class CNetwork : CModule{
 			}
 			if(packet.CurSize < 4)
 			{
-				CLog.Info("%s: wrong packet", from.Address);
+				CLog.Info("{0}: wrong packet", from.Address);
 				return;
 			}
 
 			if(from != connection.NetChan.remoteAddress)
 			{
-				CLog.Info("%s: sequenced packet without connection", from);
+				CLog.Info("{0}: sequenced packet without connection", from);
 				return;
 			}
 
@@ -258,11 +259,11 @@ public class CNetwork : CModule{
 		{
 			if(fragmented)
 			{
-				CLog.Info("%s recv %d : s=%d fragment=%d,%d", netChan.src, packet.CurSize, sequence, fragmentStart, fragmentLength);
+				CLog.Info("{0} recv {1} : s={2} fragment={3},{4}", netChan.src, packet.CurSize, sequence, fragmentStart, fragmentLength);
 
 			}else
 			{
-				CLog.Info("%s recv %d : s=%d", netChan.remoteAddress, packet.CurSize, sequence);
+				CLog.Info("{0} recv {1} : s={2}", netChan.remoteAddress, packet.CurSize, sequence);
 			}
 		}
 		
@@ -282,7 +283,7 @@ public class CNetwork : CModule{
 		{
 			if(CConstVar.ShowNet > 0 || CConstVar.ShowPacket > 0)
 			{
-				CLog.Info("%s: Dropped %d packets at %d", netChan.remoteAddress, netChan.dropped, sequence);
+				CLog.Info("{0}: Dropped {1} packets at {2}", netChan.remoteAddress, netChan.dropped, sequence);
 			}
 		}
 
@@ -302,7 +303,7 @@ public class CNetwork : CModule{
 			{
 				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
-					CLog.Info("%s:Dropped a message fragment", netChan.remoteAddress);
+					CLog.Info("{0}:Dropped a message fragment", netChan.remoteAddress);
 				}
 				return false;
 			}
@@ -312,7 +313,7 @@ public class CNetwork : CModule{
 			{
 				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
-					CLog.Info("%s:illegal fragment length", netChan.remoteAddress);
+					CLog.Info("{0}:illegal fragment length", netChan.remoteAddress);
 				}
 				return false;
 			}
@@ -329,7 +330,7 @@ public class CNetwork : CModule{
 			{
 				if(CConstVar.ShowPacket > 0 || CConstVar.ShowNet > 0)
 				{
-					CLog.Info("$s:fragmentLength %d > packet.Data Length", netChan.remoteAddress, netChan.fragmentLength);
+					CLog.Info("{0}:fragmentLength {1} > packet.Data Length", netChan.remoteAddress, netChan.fragmentLength);
 				}
 				return false;
 			}
@@ -359,7 +360,7 @@ public class CNetwork : CModule{
 		int cmd;
 		if(CConstVar.ShowNet == 1)
 		{
-			CLog.Info("%s --------------\n", packet.CurSize);
+			CLog.Info("{0} --------------\n", packet.CurSize);
 		}
 
 		packet.Oob = false;
@@ -387,9 +388,9 @@ public class CNetwork : CModule{
 
 			if(CConstVar.ShowNet >= 2){
 				if(cmd < 0){
-					CLog.Info("%s: BAD CMD %d", packet.CurPos, cmd);
+					CLog.Info("{0}: BAD CMD {1}", packet.CurPos, cmd);
 				}else{
-					CLog.Info("%s packet", ((SVCCmd)cmd).ToString());
+					CLog.Info("{0} packet", ((SVCCmd)cmd).ToString());
 				}
 			}
 
@@ -427,7 +428,7 @@ public class CNetwork : CModule{
 		var cmd = CDataModel.CmdBuffer;
 		cmd.TokenizeString(s, false);
 		string c = cmd.Argv(0);
-		CLog.Info("Client Packet %s : %s", from, c);
+		CLog.Info("Client Packet {0} : {1}", from, c);
 
 		var connection = CDataModel.Connection;
 		if(c == "challengeResponse")
@@ -707,7 +708,7 @@ public class CNetwork : CModule{
 
 		if(count >= 1){
 			if(CConstVar.ShowNet > 0){
-				CLog.Info("packet user cmd: %d", count);
+				CLog.Info("packet user cmd: {0}", count);
 			}
 
 			if(CConstVar.NoDelta > 0 || !clActive.snap.valid || connection.demoWaiting || connection.serverMessageSequence != clActive.snap.messageNum){
@@ -744,7 +745,7 @@ public class CNetwork : CModule{
 		connection.lastPacketSentTime = realTime;
 
 		if(CConstVar.ShowNet > 0){
-			CLog.Info("send packet:%d", buf.CurPos);
+			CLog.Info("send packet:{0}", buf.CurPos);
 		}
 
 		//客户端发送数据
@@ -764,7 +765,7 @@ public class CNetwork : CModule{
 		MsgPacket send = new MsgPacket();
 		byte[] sendBuf = new byte[CConstVar.PACKET_MAX_LEN];
 		if(length > CConstVar.PACKET_MAX_LEN){
-			CLog.Info("Netchan transmit overflow, length = %d", length);
+			CLog.Info("Netchan transmit overflow, length = {0}", length);
 		}
 		netChan.unsentFragmentStart = 0;
 
@@ -799,13 +800,13 @@ public class CNetwork : CModule{
 		netChan.lastSentSize = send.CurSize;
 
 		if(CConstVar.ShowPacket > 0){
-			CLog.Info("%s send %d : s = %d ack = %d", netChan.src, send.CurSize * 4, netChan.outgoingSequence - 1, netChan.incomingSequence);
+			CLog.Info("{0} send {1} : s = {2} ack = {3}", netChan.src, send.CurSize * 4, netChan.outgoingSequence - 1, netChan.incomingSequence);
 		}
 	}
 
 	public void SendPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
 		if(CConstVar.ShowPacket > 0){ // && *(int *)data == -1
-			CLog.Info("send packet %d", length * 4);
+			CLog.Info("send packet {0}", length * 4);
 		}
 
 		if(IPAddress.IsLoopback(to.Address)){
@@ -897,10 +898,10 @@ public class CNetwork : CModule{
 
 	private void QueuePacket(int length, byte[] data, IPEndPoint to, int delay){
 		if(delay > 999) delay = 999;
-		var newPacket = new PacketQueue();
+		var newPacket = new PacketQueue(to);
 		newPacket.packet.CurSize = length;
 		newPacket.packet.WriteData(data, 0, length);
-		newPacket.to = to;
+		// newPacket.to = to;
 		newPacket.release = CDataModel.InputEvent.Milliseconds() +  (int)((float)delay/CConstVar.timeScale);
 
 		packetQueue.Enqueue(newPacket);
@@ -1000,4 +1001,11 @@ public struct PacketQueue{
 	public int release;
 
 	public MsgPacket packet;
+
+	public PacketQueue(IPEndPoint to){
+		this.to = to;
+		packet = new MsgPacket();
+		release = 0;
+	}
+
 }

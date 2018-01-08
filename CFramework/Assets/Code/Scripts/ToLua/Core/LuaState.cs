@@ -166,10 +166,10 @@ namespace LuaInterface
                     string msg = string.Format("toluaDir path not exists: {0}, configer it in LuaConst.cs", LuaConst.luaDir);
                     throw new LuaException(msg);
                 }
-
+                
+#endif
                 AddSearchPath(LuaConst.toluaDir);
                 AddSearchPath(LuaConst.luaDir);
-#endif
                 if (LuaFileUtils.Instance.GetType() == typeof(LuaFileUtils))
                 {
                     AddSearchPath(LuaConst.luaResDir);

@@ -631,8 +631,8 @@ public class UnityEngine_LightWrap
 		{
 			o = ToLua.ToObject(L, 1);
 			UnityEngine.Light obj = (UnityEngine.Light)o;
-			UnityEngine.LightmapBakeType ret = obj.lightmapBakeType;
-			ToLua.Push(L, ret);
+			// UnityEngine.LightmapBakeType ret = obj.lightmapBakeType;
+			// ToLua.Push(L, ret);
 			return 1;
 		}
 		catch(Exception e)
@@ -1050,7 +1050,7 @@ public class UnityEngine_LightWrap
 			o = ToLua.ToObject(L, 1);
 			UnityEngine.Light obj = (UnityEngine.Light)o;
 			UnityEngine.LightmapBakeType arg0 = (UnityEngine.LightmapBakeType)ToLua.CheckObject(L, 2, typeof(UnityEngine.LightmapBakeType));
-			obj.lightmapBakeType = arg0;
+			// obj.lightmapBakeType = arg0;
 			return 0;
 		}
 		catch(Exception e)

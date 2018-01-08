@@ -32,11 +32,16 @@ public class CSocketUDP {
 	public void Init()
 	{
 		recvSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+		// recvSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		
 		sendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+		sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast | SocketOptionName.NoDelay, 1);
 		
 		buffer = new byte[CConstVar.BUFFER_LIMIT];
 		remoteEP = new IPEndPoint(IPAddress.Any, 0); //可以接受任何ip和端口的消息
+		
 		recvSocket.Bind(remoteEP);
+		// recvSocket.Listen();
 
 		// IPAddress.IsLoopback(remoteEP.Address);
 		packetBuffer = new MsgPacket[2];
@@ -99,7 +104,7 @@ public class CSocketUDP {
 	public void BeginReceive()
 	{
 		var tmpEP = remoteEP as EndPoint;
-		recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.None,ref tmpEP, ReceiveCallback, recvSocket);
+		recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.Broadcast | SocketFlags.OutOfBand, ref tmpEP, ReceiveCallback, recvSocket);
 
 		// if(!socket.ReceiveFromAsync(socketAsyncEventArgs[socketArgsIndex]))
 		// {
@@ -156,14 +161,22 @@ public class CSocketUDP {
 
 	//network层已经做了fragment的拆分处理
 	public void SendMsg(byte[] bytes, int length, IPEndPoint to){
-		sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+		if(CConstVar.ShowNet > 0) CLog.Info("send msg, length {0}, to {1}", length, to);
+		// if(to.Address == IPAddress.Broadcast){
+		// 	sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.Broadcast | SocketFlags.OutOfBand, to, SendCallback, sendSocket);
+		// }else{
+			// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName)
+			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+		// }
 	}
+
 
 	private void SendCallback(IAsyncResult ar){
 		int count = sendSocket.EndSendTo(ar);
-
 		if(count > 0){
-			CLog.Info("Send Packet Finish. length: %d", count);
+			CLog.Info("Send Packet Finish. length: {0}", count);
+		}else{
+			CLog.Info("send zero bytes");
 		}
 	}
 	

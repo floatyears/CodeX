@@ -10,6 +10,7 @@ public static class LuaBinder
 		float t = Time.realtimeSinceStartup;
 		L.BeginModule(null);
 		DebuggerWrap.Register(L);
+		AnimationStateWrap.Register(L);
 		L.BeginModule("UnityEngine");
 		UnityEngine_ComponentWrap.Register(L);
 		UnityEngine_BehaviourWrap.Register(L);
@@ -54,7 +55,6 @@ public static class LuaBinder
 		UnityEngine_CapsuleColliderWrap.Register(L);
 		UnityEngine_AnimationWrap.Register(L);
 		UnityEngine_AnimationClipWrap.Register(L);
-		UnityEngine_AnimationStateWrap.Register(L);
 		UnityEngine_AnimationBlendModeWrap.Register(L);
 		UnityEngine_QueueModeWrap.Register(L);
 		UnityEngine_PlayModeWrap.Register(L);

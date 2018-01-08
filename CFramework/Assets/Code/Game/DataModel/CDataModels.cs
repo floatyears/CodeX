@@ -88,9 +88,11 @@ public class CDataModel : CModule {
 		AddModel<CModelScene>(out scene);
 		AddModel<CModelPlayer>(out player);
 		AddModel<CModelConnection>(out connection);
-		AddModel<CModelGameState>(out gameState);
 		AddModel<CModelInputEvent>(out inputEvent);
+		AddModel<CModelGameState>(out gameState);
 		AddModel<CModelCMD>(out cmdBuffer);
+
+		needUpdate = true;
 	}
 	
 	private void AddModel<T>(out T instance) where T : CModelBase, new()

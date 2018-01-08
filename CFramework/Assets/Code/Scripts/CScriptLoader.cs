@@ -15,6 +15,8 @@ public class CScriptLoader : LuaFileUtils {
 	public CScriptLoader()
 	{
 		instance = this;
+		// this.AddSearchPath(LuaConst.luaDir);
+		// this.AddSearchPath(LuaConst.toluaDir);
 	}
 
 	public override byte[] ReadFile(string fileName)

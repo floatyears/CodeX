@@ -40,7 +40,13 @@ public class CModelGameState : CModelBase {
 
 	public int serverCommandSequence;
 
-	/*------非延迟-------*/
+	public List<ClientEntity> triggerEntities;
+
+	public List<ClientEntity> solidEntities;
+
+	public ClientInfo[] clientInfos;
+
+	/*------客户端延迟的处理（处理之后客户端相对服务器没有延迟）-------*/
 	public int lastPredictedCommand;
 
 	public int lastServerTime;
@@ -83,7 +89,7 @@ public class CModelGameState : CModelBase {
 
 	private int eventSequence;
 
-	private int[] predictableEvents;
+	private EntityEventType[] predictableEvents;
 
 	private float stepChange;
 
@@ -125,6 +131,8 @@ public class CModelGameState : CModelBase {
 	// Use this for initialization
 	public override void Init () {
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
+		triggerEntities = new List<ClientEntity>();
+		solidEntities = new List<ClientEntity>();
 		ClearState();
 
 		update = Update;
@@ -153,7 +161,7 @@ public class CModelGameState : CModelBase {
 		clientActive.serverID = 0;
 		clientActive.serverTime = 0;
 		clientActive.serverTimeDelta = 0;
-		clientActive.snap = null;
+		clientActive.snap = new ClientSnapshot();
 		clientActive.snapshots = new ClientSnapshot[CConstVar.PACKET_BACKUP];
 		clientActive.timeoutCount = 0;
 		clientActive.userCmdValue = 0;
@@ -293,7 +301,7 @@ public class CModelGameState : CModelBase {
 		connection.connectPacketCount = 0;
 
 		//清除本地客户端状态
-		CDataModel.GameState.ClearState();
+		CDataModel.GameState.ClearState(); //Com_Memset( &cl, 0, sizeof( cl ) );
 
 		//gamestate总会标记一个服务器command sequence
 		connection.serverCommandSequence = packet.ReadInt();
@@ -486,9 +494,9 @@ public class CModelGameState : CModelBase {
 			latestSnapshotNum = n;
 		}
 
-		while(snap != null){
+		while(snap == null){
 			snapshot = ReadNextSnapshot();
-			if(snapshot != null){
+			if(snapshot == null){
 				return;
 			}
 
@@ -498,11 +506,11 @@ public class CModelGameState : CModelBase {
 		}
 
 		do{
-			if(nextSnap != null){
+			if(nextSnap == null){
 				snapshot = ReadNextSnapshot();
 
 				//如果没有下一帧，就必须外插值
-				if(snapshot != null){
+				if(snapshot == null){
 					break;
 				}
 
@@ -576,14 +584,43 @@ public class CModelGameState : CModelBase {
 			}
 
 			if(demoPlayback || (snap.playerState.pmFlags & PMoveFlags.FOLLOW) == PMoveFlags.NONE || CConstVar.NoPredict || CConstVar.SynchronousClients){
-				TransitionPlayerState(ps, ops);
+				TransitionPlayerState(ps, ref ops);
 			}
 		}
 	}
 
-	private void TransitionPlayerState(PlayerState playerState, PlayerState oplayerState){
+	//状态的变化，比较两帧之间的状态改变然后进行对应的处理
+	private void TransitionPlayerState(PlayerState playerState, ref PlayerState oplayerState){
+		//检查跟随模式的变化
+		if(playerState.clientNum != oplayerState.clientNum){
+			thisFrameTeleport = true;
+			//保证不会有任何非预料的过渡效果
+			oplayerState = playerState;
+		}
 
+		//收到伤害的效果
+		if(playerState.damageEvent != oplayerState.damageEvent && playerState.damageCount > 0){
+			// CG_DamageFeedback( int yawByte, int pitchByte, int damage )
+		}
+
+		//重生
+		if(playerState.persistant[(int)PlayerStatePersistant.PERS_SPAWN_COUNT] != oplayerState.persistant[(int)PlayerStatePersistant.PERS_SPAWN_COUNT]){
+			//CG_Respawn();
+		}
+
+		if(mapRestart){
+			//CG_Respawn();
+			mapRestart = false;
+		}
+
+		if(snap.playerState.pmType != PMoveType.INTERMISSION && playerState.persistant[(int)PlayerStatePersistant.PERS_TEAM] != (int)TeamType.TEAM_SPECTATOR){
+			//CG_CheckLocalSounds( ps, ops );
+		}
+
+		CheckPlayerstateEvents(playerState, oplayerState);
 	}
+
+	
 
 	private void TransitionEntity(ref ClientEntity cEntity){
 		cEntity.currentState = cEntity.nextState;
@@ -592,6 +629,7 @@ public class CModelGameState : CModelBase {
 		//如果entity不在最后一帧或者是传送的，就重置
 		if(!cEntity.interpolate){
 			ResetEntity(ref cEntity);
+			// cEntity.Reset();
 		}
 
 		//清除下一个状态
@@ -600,14 +638,226 @@ public class CModelGameState : CModelBase {
 		CheckEvents(ref cEntity);
 	}
 
+	private void CheckPlayerstateEvents(PlayerState playerState, PlayerState oplayerState){
+		ClientEntity clientEntity;
+		EntityEventType evt = 0;
+		if(playerState.externalEvent > 0 && playerState.externalEvent != oplayerState.externalEvent){
+			clientEntity = clientEntities[playerState.clientNum];
+			clientEntity.currentState.eventID = playerState.externalEvent;
+			clientEntity.currentState.eventParam = playerState.externalEventParam;
+			EntityEvent(clientEntity, clientEntity.lerpOrigin);
+		}
+
+		clientEntity = preditedPlayerEntity; //clientEntities[playerState.clientNum];
+
+		for(int i = playerState.eventSequence - CConstVar.MAX_PS_EVENTS; i < eventSequence; i++){
+			//如果有一个新的可预测的事件
+			if(i >= oplayerState.eventSequence 
+			//或者服务器告诉我们播放另外一个事件而不是我们已经做出预测的事件
+			//或者服务器告诉我们有些东西改变了我们的预测，从而引起了不同的事件
+			|| (i > oplayerState.eventSequence - CConstVar.MAX_PS_EVENTS && playerState.events[i & (CConstVar.MAX_PS_EVENTS - 1)] != oplayerState.events[i & (CConstVar.MAX_PS_EVENTS - 1)])){
+				evt = playerState.events[i & (CConstVar.MAX_PS_EVENTS - 1)];
+				clientEntity.currentState.eventID = evt;
+				clientEntity.currentState.eventParam = playerState.eventParams[i & (CConstVar.MAX_PS_EVENTS - 1)];
+				EntityEvent(clientEntity, clientEntity.lerpOrigin);
+
+				predictableEvents[i & (CConstVar.MAX_PREDICTED_EVENTS - 1)] = evt;
+			}
+		}
+	}
+
 	private void CheckEvents(ref ClientEntity cEntity){
+		//检查entity only的事件
+		if(cEntity.currentState.entityType > EntityType.EVENTS_COUNT){
+			if(cEntity.previousEvent > 0){
+				return;
+			}
+
+			if((cEntity.currentState.entityFlags & EntityFlags.PLAYER_EVENT) > EntityFlags.NONE){
+				cEntity.currentState.entityIndex = cEntity.currentState.otherEntityIdx;
+			}
+			cEntity.previousEvent = (EntityEventType)1;
+			cEntity.currentState.eventID = (EntityEventType)((int)cEntity.currentState.entityType - (int)EntityType.EVENTS_COUNT);
+		}else{
+			if(cEntity.currentState.eventID == cEntity.previousEvent){
+				return;
+			}
+			if(cEntity.currentState.eventID == cEntity.previousEvent){
+				return;
+			}
+			cEntity.previousEvent = cEntity.currentState.eventID;
+			if(((int)cEntity.currentState.eventID & ~CConstVar.EVENT_BITS) == 0){
+				return;
+			}
+		}
+
+		CUtils.BG_EvaluateTrajectory(cEntity.currentState.pos, snap.serverTime, out cEntity.lerpOrigin);
+
+		EntityEvent(cEntity, cEntity.lerpOrigin);
+	}
+
+	private void EntityEvent(ClientEntity cEntity, Vector3 position){
+		EntityState es = cEntity.currentState;
+		EntityEventType evt = (EntityEventType)((int)es.eventID & ~CConstVar.EVENT_BITS);
+
+		if(evt == 0){
+			return;
+		}
+		int idx = es.clientNum;
+		if(idx < 0 || idx >= CConstVar.MAX_CLIENTS){
+			idx = 0;
+		}
+		// clieni
+		var ci = clientInfos[idx];
+		switch(evt){
+			case EntityEventType.FOOTSTEP:
+				break;
+			case EntityEventType.FOOTWADE:
+				break;
+			case EntityEventType.SWIM:
+				break;
+			case EntityEventType.STEP_4:
+				break;
+			case EntityEventType.STEP_8:
+				break;
+			case EntityEventType.STEP_12:
+				break;
+			case EntityEventType.STEP_16:
+				break;
+			case EntityEventType.FALL_SHORT:
+				break;
+			case EntityEventType.FALL_MEDIUM:
+				break;
+			case EntityEventType.FALL_FAR:
+				break;
+
+			case EntityEventType.JUMP_PAD:
+				break;
+			case EntityEventType.JUMP:
+				break;
+
+			case EntityEventType.ITEM_PICKUP:
+				break;
+			case EntityEventType.GLOBAL_ITEM_PICKUP:
+				break;
+
+			case EntityEventType.CAST_SKILL_0:
+				break;
+			case EntityEventType.CAST_SKILL_1:
+				break;
+			case EntityEventType.CAST_SKILL_2:
+				break;
+			case EntityEventType.CAST_SKILL_3:
+				break;
+			case EntityEventType.CAST_SKILL_4:
+				break;
+			case EntityEventType.CAST_SKILL_5:
+				break;
+			case EntityEventType.CAST_SKILL_6:
+				break;
+			case EntityEventType.CAST_SKILL_7:
+				break;
+
+			case EntityEventType.USE_ITEM_0:
+				break;
+			case EntityEventType.USE_ITEM_1:
+				break;
+			case EntityEventType.USE_ITEM_2:
+				break;
+			case EntityEventType.USE_ITEM_3:
+				break;
+			case EntityEventType.USE_ITEM_4:
+				break;
+			case EntityEventType.USE_ITEM_5:
+				break;
+			case EntityEventType.USE_ITEM_6:
+				break;
+			case EntityEventType.USE_ITEM_7:
+				break;
+			case EntityEventType.USE_ITEM_8:
+				break;
+			case EntityEventType.USE_ITEM_9:
+				break;
+
+			case EntityEventType.ITEM_RESPAWN:
+				break;
+			case EntityEventType.ITEM_POP:
+				break;
+
+			case EntityEventType.PLAYER_TELEPORT_IN:
+				break;
+			case EntityEventType.PLAYER_TELEPORT_OUT:
+				break;
+
+			case EntityEventType.GENERAL_SOUND:
+				break;
+			case EntityEventType.GLOBAL_SOUND:
+				break;
+			case EntityEventType.GLOBAL_ITEM_SOUND:
+				break;
+
+			case EntityEventType.MISSILE_HIT:
+				break;
+			case EntityEventType.MISSILE_MISS:
+				break;
+
+			case EntityEventType.HEALTH_REGEN:
+				break;
+			case EntityEventType.MANA_REGEN:
+				break;
+			case EntityEventType.DEBUG_LINE:
+				break;
+		}
 
 	}
 
 	private void ResetEntity(ref ClientEntity cEntity){
+		//如果这个entity被更新的前一帧至少是在窗口事件之内，我们可以重置前一个事件
+		if(cEntity.snapShotTime < time - CConstVar.EVENT_VALID_MSEC){
+			cEntity.previousEvent = 0;
+		}
 
+		cEntity.trailTime = snap.serverTime;
+
+		cEntity.lerpOrigin = cEntity.currentState.origin;
+		cEntity.lerpAngles = cEntity.currentState.angles;
+		if(cEntity.currentState.entityType == EntityType.PLAYER){
+			ResetPlayerState(ref cEntity);
+		}
 	}
 
+	private void ResetPlayerState(ref ClientEntity cEntity){
+		cEntity.errorTime = -99999; //保证没有添加任何的错误衰减
+		cEntity.extrapolated = false;
+
+		var lf = cEntity.playerEntity.legs;
+		lf.frameTime = lf.oldFrameTime = time;
+		// lf.oldFrame = lf.frame = lf.animation.firstFrame;
+		
+		// CG_SetLerpFrameAnimation(ci, lf, animationNumber);
+		lf = cEntity.playerEntity.torso;
+		lf.frameTime = lf.oldFrameTime = time;
+		// lf.oldFrame = lf.frame = lf.animation.firstFrame;
+
+		CUtils.BG_EvaluateTrajectory(cEntity.currentState.pos, time, out cEntity.lerpOrigin);
+		CUtils.BG_EvaluateTrajectory(cEntity.currentState.apos, time, out cEntity.lerpAngles);
+		
+		cEntity.rawOrigin = cEntity.lerpOrigin;
+		cEntity.rawAngles = cEntity.lerpAngles;
+
+		cEntity.playerEntity.legs.Reset();
+		cEntity.playerEntity.legs.yawAngle = cEntity.rawAngles[CConstVar.YAW];
+
+		cEntity.playerEntity.torso.Reset();
+		cEntity.playerEntity.torso.yawAngle = cEntity.rawAngles[CConstVar.YAW];
+		cEntity.playerEntity.torso.pitchAngle = cEntity.rawAngles[CConstVar.PITCH];
+
+		cEntity.playerEntity.head.Reset();
+		cEntity.playerEntity.head.yawAngle = cEntity.rawAngles[CConstVar.YAW];
+		cEntity.playerEntity.head.pitchAngle = cEntity.rawAngles[CConstVar.PITCH];
+	}
+
+	//命令字符串已经被序列化了
 	private void ExecuteNewServerCommands(int latestSequence){
 		while(serverCommandSequence < latestSequence){
 			if(GetServerCommand(++serverCommandSequence)){
@@ -708,17 +958,69 @@ public class CModelGameState : CModelBase {
 	}
 
 	private void SetInitialSnapshot(SnapShot snapshot){
-		int i;
 		ClientEntity clientEntity;
 		EntityState state;
 
 		snap = snapshot;
+		CUtils.PlayerStateToEntityState(snap.playerState, clientEntities[snap.playerState.clientNum].currentState, false);
+		BuildSolidList();
 
+		ExecuteNewServerCommands(snap.serverCommandSequence);
+		
+		for(int i = 0; i < snap.numEntities; i++){
+			state = snap.entities[i];
+			clientEntity = clientEntities[state.clientNum];
+
+			clientEntity.currentState.CopyTo(state);
+			clientEntity.interpolate = false;
+			clientEntity.currentValid = true;
+
+			// clientEntity.Reset();
+			ResetEntity(ref clientEntity);
+
+			CheckEvents(ref clientEntity);
+		}
 	}
 
 	private void AddLagometerSnapshotInfo(SnapShot snap){
 
 	}
+
+	//设置了snap的值之后，此函数会构造一个实际上是静态的物体的子列表，使得碰撞查更加高效
+	private void BuildSolidList(){
+		SnapShot s;
+		EntityState e;
+		ClientEntity ce;
+		if(nextSnap != null && !nextFrameTeleport && !thisFrameTeleport){
+			s = nextSnap;
+		}else{
+			s = snap;
+		}
+
+		solidEntities.Clear();
+		triggerEntities.Clear();
+		for(int i = 0; i < s.numEntities; i++){
+			ce = clientEntities[s.entities[i].entityIndex];
+			e = ce.currentState;
+
+			if(e.entityType == EntityType.ITEM || e.entityType == EntityType.PUSH_TRIGGER || e.entityType == EntityType.TELEPORT){
+				triggerEntities.Add(ce);
+				continue;
+			}
+
+			if(ce.nextState.solid > 0){
+				solidEntities.Add(ce);
+				continue;
+			}
+
+		}
+	}
+
+	// private void ExecuteNewServerCommands(int latestSequence){
+	// 	while(serverCommandSequence < snap.serverCommandSequence){
+
+	// 	}
+	// }
 
 	private void GetCurrentSnapshotNum(ref int snapshotNum,ref int serverTime){
 		snapshotNum = clientActive.snap.messageNum;
@@ -736,9 +1038,8 @@ public class CModelGameState : CModelBase {
 		byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
 		IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, 0);
 		for(int i = 0; i < 2; i++){
-			for(int j = 0; j < CConstVar.SERVER_PORT; j++){
+			for(int j = 0; j < CConstVar.NUM_SERVER_PORTS; j++){
 				to.Port = CConstVar.SERVER_PORT + j;
-
 				CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
 			}
 		}
@@ -753,7 +1054,7 @@ public struct ClientActive
 {
 	public int timeoutCount;
 
-	public ClientSnapshot snap;
+	public ClientSnapshot snap; //最后收到的服务器消息
 
 	public int serverTime;
 
@@ -803,6 +1104,7 @@ public struct ClientActive
 
 	public void Init()
 	{
+		snap = new ClientSnapshot();
 		entityBaselines = new EntityState[CConstVar.MAX_SNAPSHOT_ENTITIES * CConstVar.PACKET_BACKUP];
 	}
 }
@@ -900,4 +1202,43 @@ public struct ServerInfo{
 	public int humanPlayers;
 
 	public int needPass;
+}
+
+//每个玩家的信息
+public struct ClientInfo{
+	public bool infoValid;
+
+	public string name;
+
+	public int score;
+}
+
+public enum PlayerStatePersistant{
+	PERS_SCORE,						// !!! MUST NOT CHANGE, SERVER AND GAME BOTH REFERENCE !!!
+	PERS_HITS,						// total points damage inflicted so damage beeps can sound on change
+	PERS_RANK,						// player rank or team rank
+	PERS_TEAM,						// player team
+	PERS_SPAWN_COUNT,				// incremented every respawn
+	PERS_PLAYEREVENTS,				// 16 bits that can be flipped for events
+	PERS_ATTACKER,					// clientnum of last damage inflicter
+	PERS_ATTACKEE_ARMOR,			// health/armor of last person we attacked
+	PERS_KILLED,					// count of the number of times you died
+	// player awards tracking
+	PERS_IMPRESSIVE_COUNT,			// two railgun hits in a row
+	PERS_EXCELLENT_COUNT,			// two successive kills in a short amount of time
+	PERS_DEFEND_COUNT,				// defend awards
+	PERS_ASSIST_COUNT,				// assist awards
+	PERS_GAUNTLET_FRAG_COUNT,		// kills with the guantlet
+	PERS_CAPTURES					// captures
+
+}
+
+//队伍类型
+public enum TeamType{
+	TEAM_FREE,
+	TEAM_RED,
+	TEAM_BLUE,
+	TEAM_SPECTATOR,
+
+	TEAM_NUM_TEAMS
 }
