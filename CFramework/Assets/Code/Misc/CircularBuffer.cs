@@ -81,4 +81,9 @@ public class CircularBuffer<T> {
 			return length == bufferSize;
 		}
 	}
+
+	public void Reset(){
+		length = 0;
+		tail = head;
+	}
 }

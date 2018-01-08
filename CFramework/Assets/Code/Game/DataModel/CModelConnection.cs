@@ -79,7 +79,7 @@ public class CModelConnection : CModelBase {
 
 	private string[] timeDemoDurations;
 
-	public IPAddress ServerIP = IPAddress.Parse("127.0.0.1:8001");
+	public IPAddress ServerIP = IPAddress.Parse("127.0.0.1");
 
 
 	private NetChan netChan;
@@ -147,6 +147,8 @@ public struct NetChan{
 	public NetSrc src;
 	public int dropped; //between last packet and previous
 
+	public bool isBot;
+
 	public IPEndPoint remoteAddress;
 
 	public int qport; //qport value to write when transmitting
@@ -183,6 +185,14 @@ public struct NetChan{
 	{
 		Array.Copy(data,start,fragmentBuffer,fragmentLength,length);
 		fragmentLength += length;
+	}
+
+	public void SetUp(NetSrc src, IPEndPoint from, int challenge, int qport){
+		this.src = src;
+		this.remoteAddress = from;
+		this.qport = qport;
+		this.incomingSequence = 0;
+		this.outgoingSequence = 1;
 	}
 }
 

@@ -58,6 +58,18 @@ public struct ClientEntity{
 	public Vector3 lerpAngles;
 }
 
+public class SvEntityState{
+
+	public SvEntityState nextEntityInWorldSector;
+	public EntityState baseline;
+
+	public int numClusters;
+
+	public int clusterNums;
+
+	public int snapshotCounter;
+}
+
 public struct EntityState{
 	public int entityID;
 
@@ -100,6 +112,8 @@ public struct EntityState{
 	public EventType eventID;
 
 	public int eventParam;
+
+	public int generic1;
 
 }
 

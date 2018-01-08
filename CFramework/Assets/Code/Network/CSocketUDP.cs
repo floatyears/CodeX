@@ -53,8 +53,21 @@ public class CSocketUDP {
 	public void InitHuffmanMsg()
 	{
 		huffmanMsg = new HuffmanMsg();
-		huffmanMsg.decompresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
-		huffmanMsg.compresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
+		var a = huffmanMsg.decompresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
+		var b = huffmanMsg.compresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
+		for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
+			a[i] = new HuffmanNode();
+			b[i] = new HuffmanNode();
+		}
+
+		a = huffmanMsg.decompresser.nodeList = new HuffmanNode[768];
+		b = huffmanMsg.compresser.nodeList = new HuffmanNode[768];
+		for(int i = 0; i < 768; i ++){
+			a[i] = new HuffmanNode();
+			b[i] = new HuffmanNode();
+		}
+		
+		// huffmanMsg.compresser.loc = new HuffmanNode[768];
 
 		huffmanMsg.decompresser.tree = huffmanMsg.decompresser.lhead = huffmanMsg.decompresser.ltail = 
 			huffmanMsg.decompresser.loc[CConstVar.HUFF_MAX] = huffmanMsg.decompresser.nodeList[huffmanMsg.decompresser.blocNode++];
@@ -110,7 +123,7 @@ public class CSocketUDP {
 				//已经丢掉的包，不处理
 			}else
 			{
-				if(remoteEP != connection.NetChan.remoteAddress)
+				if(remoteEP.Address.Equals(connection.NetChan.remoteAddress.Address))
 				{
 					CLog.Error(string.Format("%s:sequence packet without connection",remoteEP.Address));
 				}else{

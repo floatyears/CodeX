@@ -17,6 +17,8 @@ public class CGameCore {
 	//游戏初始化
 	public void Init()
 	{
+		CPath.Init();
+
 		modules = new List<CModule>(10);
 		AddModule("Network", new CNetwork());
 		AddModule("AssetManager", new CAssetsManager());
@@ -70,7 +72,7 @@ public class CGameCore {
 
 	//fixed更新，比如帧同步这一块儿全是在FixedUpdate中更新
 	public void FixedUpdate() {
-		for(int i = 0; i <= fixedUpdateNum; i++)
+		for(int i = 0; i < fixedUpdateNum; i++)
 		{
 			fixedModules[i].Update();
 		}

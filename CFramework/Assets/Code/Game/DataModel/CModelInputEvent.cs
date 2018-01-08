@@ -219,6 +219,15 @@ public class CModelInputEvent : CModelBase {
 		return ev.eventTime;
 	}
 
+	public int TimVal(int minMsec){
+		int timeVal = Milliseconds() - CDataModel.GameState.frameTime;
+		if(timeVal >= minMsec){
+			return 0;
+		}else{
+			return minMsec - timeVal;
+		}
+	}
+
 	public SysEvent GetEvent()
 	{
 		if(pushedEventsHead > pushedEventsTail)
@@ -244,7 +253,7 @@ public class CModelInputEvent : CModelBase {
 
 			if(journal == 1) //写入到到文件
 			{
-				File.WriteAllText("","");
+				File.WriteAllText(CPath.demoPath,"test");
 			}
 		}
 		return ev;
