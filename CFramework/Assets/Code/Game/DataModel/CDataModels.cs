@@ -118,6 +118,7 @@ public class CDataModel : CModule {
 				if(!updateList.Contains(instance)) updateList.Add(instance);
 			}
 		}
+		instance.Init();
 	}
 
 	public void DispatchMessage(FlatBuffers.ByteBuffer buffer)

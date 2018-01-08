@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Reflection;
+using System.Net;
 
 public class CModelGameState : IModel {
 
@@ -113,6 +114,13 @@ public class CModelGameState : IModel {
 			return clientActive;
 		}
 	}
+
+	/*--------本地服务器信息----------*/
+	private int numLocalServers = 0;
+
+	private int pingUpdateSource = 0;
+
+	private ServerInfo[] localServers;
 
 	// Use this for initialization
 	public void Init () {
@@ -714,6 +722,25 @@ public class CModelGameState : IModel {
 		snapshotNum = clientActive.snap.messageNum;
 		serverTime = clientActive.snap.serverTime;
 	}
+
+	public void LocalServers(){
+		numLocalServers = 0;
+		pingUpdateSource = 0;
+
+		// for(int i = 0; i < CConstVar.MAX_OTHER_SERVERS; i++){
+		// 	localServers = new ServerInfo[CConstVar.MAX_OTHER_SERVERS];
+		// }
+
+		byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
+		IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, 0);
+		for(int i = 0; i < 2; i++){
+			for(int j = 0; j < CConstVar.SERVER_PORT; j++){
+				to.Port = CConstVar.SERVER_PORT + j;
+
+				CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
+			}
+		}
+	}
 	
 	public void Dispose () {
 		
@@ -841,4 +868,34 @@ public struct NetField{
 	public int offset;
 
 	public int bits; //0表示浮点数
+}
+
+public struct ServerInfo{
+	public IPEndPoint address;
+
+	public string hostName;
+
+	public string game;
+
+	public int netType;
+
+	public int gameType;
+
+	public int clients;
+
+	public int maxClients;
+
+	public int minPing;
+
+	public int maxPing;
+
+	public int ping;
+
+	public bool visible;
+
+	public int punkBuster;
+
+	public int humanPlayers;
+
+	public int needPass;
 }

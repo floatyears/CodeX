@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Net;
+using System.Text;
+using System;
 
 public class Server : CModule {
 
@@ -27,6 +29,38 @@ public class Server : CModule {
 
 	private IPEndPoint authorizeAddress;
 
+	//server none static
+	private bool restarting;
+
+	private int serverID;
+
+	private int restartedServerId;
+
+	private int checksumFeed;
+
+	private int checksumFeedServerId;
+
+	private int snapshotCounter;
+
+	//每一帧的时间（1000/CConstVar.SV_FPS）
+	private int timeResidual;
+
+	private int nextFrameTime;
+
+	private SvEntityState[] svEntities;
+
+	private SharedEntity[] gEntities;
+
+	private int gEntitySize;
+
+	private int numEntities;
+
+	// private PlayerState[] gameClients;
+
+	private int restartTime;
+
+	// private int time;
+
 	private static Server instance;
 
 	public static Server Instance{
@@ -38,6 +72,21 @@ public class Server : CModule {
 	public override void Init()
 	{
 		instance = this;
+		clients = new ClientNode[CConstVar.MAX_CLIENTS];
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			clients[i] = new ClientNode();
+		}
+		svEntities = new SvEntityState[CConstVar.MAX_GENTITIES];
+
+		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
+		
+		inited = true;
+
+		// if()
+	}
+
+	public void Startup(){
+		
 	}
 
 	public void RunServerPacket(IPEndPoint from, MsgPacket packet)
@@ -145,7 +194,7 @@ public class Server : CModule {
 		packet.BeginReadOOB();
 		packet.ReadInt(); //skip -1 marker
 
-		if(packet.ReadChars(7) == "connect")
+		if(packet.ReadChars(7, 4) == "connect")
 		{
 			HuffmanMsg.Decompress(packet, 12);
 		}
@@ -165,6 +214,9 @@ public class Server : CModule {
 			case "getinfo":
 				SVCInfo(from);
 				break;
+			case "getchallenge":
+				SVCGetChallenge(from);
+				break;
 			case "connect":
 				DerectConnect(from);
 				break;
@@ -181,17 +233,264 @@ public class Server : CModule {
 
 	private void SVCStatus(IPEndPoint from)
 	{
+		var status = StringBuilderCache.Acquire();
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var cl = clients[i];
+			if(cl.state >= ClientState.CONNECTED){
+				var ps = cl.playerState;
+				status.Append(ps.persistant[(int)PlayerPersistant.SCORE]).Append(" ").Append(cl.ping).Append(" ").Append(cl.name);
+			}
+		}
 
+		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("statusResponse\n%s\n%s", "\\infostring$", status.ToString()));
+		StringBuilderCache.Release(status);
+	}
+
+	private void SVCGetChallenge(IPEndPoint from){
+		
 	}
 
 	private void SVCInfo(IPEndPoint from)
 	{
+		var infoStr = StringBuilderCache.Acquire();
+		
+		int humans = 0;
+		int count = 0;
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			if(clients[i].state >= ClientState.CONNECTED){
+				count++;
+				if(clients[i].netChan.isBot){
+					humans++;
+				}
+			}
+		}
+		infoStr.Append("infoResponse").Append("\n");
+		infoStr.Append("\\").Append("challenge").Append("$").Append(CDataModel.CmdBuffer.Argv(1));
+		infoStr.Append("\\").Append("protocal").Append("$").Append(CConstVar.Protocol);
+		infoStr.Append("\\").Append("clients").Append("$").Append(count);
+		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
+		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
+		infoStr.Append("\\").Append("sv_maxclients").Append("$").Append(CConstVar.MAX_CLIENTS);
+		infoStr.Append("\\").Append("minPing").Append("$").Append(CConstVar.minPing);
+		infoStr.Append("\\").Append("maxPing").Append("$").Append(CConstVar.maxPing);
 
+
+		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, infoStr.ToString());
 	}
 
 	private void DerectConnect(IPEndPoint from)
 	{
+		ClientNode cl = null;
+		int newClIdx = 0;
+		ClientNode newcl = null;
+		// ClientNode temp = new ClientNode();
 
+		string ip;
+		var userinfo = CDataModel.CmdBuffer.Argv(1);
+		int version = System.Convert.ToInt32(GetValueForKey(userinfo, "protocol"));
+
+		if(version != CConstVar.Protocol){
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("server protocol mismatches with client. server:%d, client:%d", CConstVar.Protocol, version));
+			return;
+		}
+
+		int chNum = System.Convert.ToInt32(GetValueForKey(userinfo, "challenge"));
+		int qport = System.Convert.ToInt32(GetValueForKey(userinfo, "qport"));
+
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			cl = clients[i];
+			if(cl.state == ClientState.FREE){
+				continue;
+			}
+
+			if(from.Address.Equals(cl.netChan.remoteAddress.Address) && (cl.netChan.qport == qport || from.Port == cl.netChan.remoteAddress.Port)){
+				if(time - cl.lastConnectTime < CConstVar.reconnectLimit * 1000){
+					CLog.Info("%s: reconnect rejected : too soon", from);
+					return;
+				}
+				break;
+			}
+		}
+
+		if(IPAddress.IsLoopback(from.Address)){
+			ip = "localhost";
+		}else{
+			ip = from.Address.ToString();
+		}
+
+		SetValueForKey(userinfo, "ip", ip);
+		if(IPAddress.IsLoopback(from.Address)){
+			int ping;
+			SvChanllenge ch;
+			int i;
+			for(i = 0; i < CConstVar.MAX_CHALLENGES; i++){
+				if(from.Address.Equals(challenges[i].adr.Address)){
+					if(chNum == challenges[i].challenge){
+						break;
+					}
+				}
+			}
+
+			if(i == CConstVar.MAX_CHALLENGES){
+				CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("no or bad challenge for your address %s", from));
+				return;
+			}
+
+			ch = challenges[i];
+			if(ch.wasrefused){
+				return;
+			}
+			ping = time - ch.pingTime;
+
+			//局域网不判断ping
+			if(!CNetwork.IsLANAddress(from.Address)){
+				if(CConstVar.minPing > 0 && ping < CConstVar.minPing){
+					CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
+					ch.wasrefused = true;
+					return;
+				}
+
+				if(CConstVar.maxPing > 0 && ping < CConstVar.maxPing){
+					CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
+					ch.wasrefused = true;
+					return;
+				}
+			}
+
+			ch.connected = true;
+		}
+
+		//  = temp;
+
+		Action newClient = ()=>{
+			// newcl = temp;
+			if(newcl == null) newcl = new ClientNode();
+			SharedEntity ent = gEntities[newClIdx];
+			newcl.gEntity = ent;
+			newcl.challenge = chNum;
+		
+			newcl.netChan.SetUp(NetSrc.SERVER, from, qport, chNum);
+			newcl.netChanQueue.Reset();
+			newcl.userInfo = userinfo;
+
+			//发送连接消息给客户端
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connect response %d", chNum));
+
+			newcl.state = ClientState.CONNECTED;
+			newcl.lastSnapshotTime = 0;
+			newcl.lastPacketTime = time;
+			newcl.lastConnectTime = time;
+
+			//当收到来自客户端的第一条消息，就会发现这是来自不同的serverid，而gamestate消息没有发送，强制传输
+			newcl.gamestateMessageNum = -1;
+
+			int count = 0;
+			for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+				if(clients[i].state >= ClientState.CONNECTED){
+					count++;
+				}
+			}
+			if(count == 1 || count == CConstVar.MAX_CLIENTS){
+				nextHeartbeatTime = -999999;
+			}
+		};
+		
+		//如果有一个这个ip的连接，重用它
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			cl = clients[i];
+			if(cl.state == ClientState.FREE){
+				continue;
+			}
+
+			if(from.Address.Equals(cl.netChan.remoteAddress.Address) && (cl.netChan.qport == qport || from.Port == cl.netChan.remoteAddress.Port)){
+				CLog.Info("%s: reconnect rejected : too soon", from);
+				newcl = cl;
+				newClIdx = i;
+				newClient();
+				break;
+			}
+		}
+
+		//找到一个client
+		//如果CConstVar.PrivateClients > 0, 那么会为"password"设置为的客户端保留位置
+		//
+		string pwd = GetValueForKey(userinfo, "password");
+		int startIdx = 0;
+		if(pwd == CConstVar.PrivatePwd){
+			//跳过预留的位置
+			startIdx = CConstVar.PrivateClients;
+		}
+
+		newcl = null;
+		for(int i = startIdx; i < CConstVar.MAX_CLIENTS; i++){
+			cl = clients[i];
+			if(cl.state == ClientState.FREE){
+				newcl = cl;
+				newClIdx = i;
+				break;
+			}
+		}
+
+		if(newcl == null){
+			if(IPAddress.IsLoopback(from.Address)){
+				int count = 0;
+				for(int i = startIdx; i < CConstVar.MAX_CLIENTS; i++){
+					cl = clients[i];
+					if(cl.netChan.isBot){
+						count++;
+					}
+				}
+
+				//如果都是机器人
+				if(count >= CConstVar.MAX_CLIENTS - startIdx){
+					DropClient(clients[CConstVar.MAX_CLIENTS - 1],"only bots on server");
+					newcl = clients[CConstVar.MAX_CLIENTS -1];
+					newClIdx = CConstVar.MAX_CLIENTS -1;
+				}else{
+					CLog.Error("server is full on local connect");
+					return;
+				}
+			}
+			else{
+				CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is full");
+				CLog.Info("Rejected a connection. %s", from);
+				return;
+			}
+		}
+
+		//有一个新的客户端，所有重置reliableSequence和reliableAcknowledge
+		if(cl != null){
+			cl.reliableAcknowledge = 0;
+			cl.reliableSequence = 0;
+
+		}
+
+		newClient();
+	}
+
+	
+
+	public static string GetValueForKey(string s, string key){
+		string newkey = "//" + key;
+		int start = s.IndexOf(newkey);
+		if(start < 0) return "";
+		int end = s.IndexOf("//", start);
+		if(end < 0) end = s.Length + 1;
+		return s.Substring(start + newkey.Length + 1, end - start - newkey.Length + 1);
+	}
+
+	public static void SetValueForKey(string s, string key, string value){
+		string newkey = "//" + key;
+		int start = s.IndexOf(newkey);
+		if(start >= 0){
+			int end = s.IndexOf("//", start);
+			if(end < 0){
+				end = s.Length + 1;
+			}
+			s.Replace(s.Substring(start, end), "//" + key + "$" + value);
+		}else{
+			s += "//" + key + "$" + value;
+		}
 	}
 
 	private void RemoteCommand(IPEndPoint from, MsgPacket msg)
@@ -202,7 +501,79 @@ public class Server : CModule {
 	//模块更新
 	public override void Update()
 	{
-		
+		//先发送缓冲的消息
+		int minMsec = FrameMsec();
+		int timeVal = 0;
+		//TODO：需要根据帧率来发送包，但是Unity里面没办法控制Update的更新时间。
+		do{
+			int timeValSV = SendQueuedPackets();
+			timeVal = CDataModel.InputEvent.TimVal(FrameMsec());
+			if(timeValSV < timeVal){
+				timeVal = timeValSV;
+			}
+			if(timeVal > 1){
+				CLog.Info("run too fast, need slow down");
+				break;
+			}
+		}while(CDataModel.InputEvent.TimVal(minMsec) > 0);
+
+
+		int startTime;
+		//可以允许暂停，直到本地客户端连上之后。
+		if(CheckPaused()){
+			return;
+		}
+		if(CConstVar.SV_FPS < 1){
+			CConstVar.SV_FPS = 10;
+		}
+		int fMsec = (int)(1000 / CConstVar.SV_FPS * CConstVar.timeScale);
+		if(fMsec < 1){
+			CConstVar.timeScale = CConstVar.SV_FPS / 1000f;
+			fMsec = 1;
+		}
+
+		timeResidual += (int)(Time.deltaTime*1000);
+
+		//如果time接近于32位整数的最大值，就踢掉所有的客户端连接，而不是每个地方都进行检查
+		if(time > 0x70000000){
+			ShutDown("Restarting server due to time wrapping");
+			return;
+		}
+		//如果有很多玩家一直在地图里面不断的玩，可能会出现这个问题
+		if(nextSnapshotEntities >= 0x7FFFFFFE - numSnapshotEntities){
+			ShutDown("Restarting server due to numSnapshotEntities wrapping");
+		}
+
+		if(restartTime > 0 && time > restartTime){
+			restartTime = 0;
+			return;
+		}
+
+		if(CConstVar.ComSpeeds > 0){
+			startTime = CDataModel.InputEvent.Milliseconds();
+		}else{
+			startTime = 0;
+		}
+
+		CalcPings();
+
+		//如果帧率过低，就需要在同一帧里面多次模拟
+		int multiSimulation = 0;
+		while(timeResidual > fMsec){
+			timeResidual -= fMsec;
+			time += fMsec;
+		}
+
+		if(CConstVar.ComSpeeds > 0){
+			CConstVar.TimeGame = CDataModel.InputEvent.Milliseconds() - startTime;
+		}
+
+		CheckTimeouts();
+		SendClientMessages();
+	}
+
+	private void RunGameSimulation(){
+
 	}
 
 	//释放
@@ -211,16 +582,185 @@ public class Server : CModule {
 
 	}
 
+	//更新client.ping
 	private void CalcPings(){
+		int total = 0;
+		int count = 0;
+		int delta = 0;
 
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var cl = clients[i];
+			if(cl.state != ClientState.ACTIVE){
+				cl.ping = 999;
+				continue;
+			}
+			if(cl.gEntity == null){
+				cl.ping = 999;
+				continue;
+			}
+			if((cl.gEntity.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
+				cl.ping = 0;
+				continue;
+			}
+
+			
+			for(int j = 0; j < CConstVar.PACKET_BACKUP; j++){
+				if(cl.frames[j].messageAcked <= 0){
+					continue;
+				}
+				delta = cl.frames[i].messageAcked - cl.frames[j].messageSent;
+				count++;
+				total += delta;
+			}
+			if(count == 0){
+				cl.ping = 999;
+			}else{
+				cl.ping = total/count;
+				if(cl.ping > 999){
+					cl.ping = 999;
+				}
+			}
+
+			clients[i].playerState.ping = cl.ping;
+		}
 	}
 
 	private bool CheckPaused(){
+		int count = 0;
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var cl = clients[i];
+			if(cl.state >= ClientState.ACTIVE && !cl.netChan.isBot){
+				count++;
+			}
+		}
+		if(count > 1){
+			CConstVar.SV_PAUSE = false;
+			return false;
+		}
+		if(!CConstVar.SV_PAUSE){
+			CConstVar.SV_PAUSE = true;
+		}
 		return false;
 	}
 
 	private void CheckTimeouts(){
+		int droppoint = time - 1000 * CConstVar.SV_TimeOut;
+		int zombiepoint = time - 1000 * CConstVar.SV_ZombieTime;
 
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var cl = clients[i];
+			//在切换关卡的时候message time可能错乱
+			if(cl.lastPacketTime > time){
+				cl.lastPacketTime = time;
+			}
+
+			if(cl.state == ClientState.ZOMBIE && cl.lastPacketTime < zombiepoint){
+				cl.state = ClientState.FREE;
+				CLog.Info("Going from zombie to free for client %d", i);
+				continue;
+			}
+
+			if(cl.state == ClientState.CONNECTED && cl.lastPacketTime < droppoint){
+				//等待几帧再断开，防止调试出现的等待
+				if(++cl.timeoutCount > 5){
+					DropClient(cl, "time out");
+					cl.state = ClientState.FREE;
+				}
+			}else{
+				cl.timeoutCount = 0;
+			}
+		}
+	}
+
+	//返回处理下一个服务器帧的毫米时间
+	private int FrameMsec(){
+		if(CConstVar.SV_FPS > 0){
+			int frameMsec = (int)(1000f/CConstVar.SV_FPS);
+			if(frameMsec < timeResidual){
+				return 0;
+			}else{
+				return frameMsec - timeResidual;
+			}
+		}else{
+			return 1;
+		}
+	}
+
+	private void ShutDown(string message){
+
+	}
+
+	private void DropClient(ClientNode client, string message){
+
+	}
+
+	private int SendQueuedPackets(){
+		//发送出fragments包，因为现在是空闲时间
+		int delayT = SendQueueMessages();
+		if(delayT >= 0){
+			return delayT;
+		}else{
+			return 0;
+		}
+		// int timeVal = 0;
+		// if(delayT >= 0){
+		// 	timeVal = delayT;
+		// }
+
+		// if()
+		// if(delayT )
+	}
+
+	private int SendQueueMessages(){
+		int retval = -1;
+		int nextFragT = 0;
+		ClientNode cl;
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			cl = clients[i];
+			if(cl.state > 0){
+				nextFragT = RateMsec(cl);
+				if(nextFragT == 0){
+					nextFragT = SVNetChanTransmitNextFragment(cl);
+				}
+				if(nextFragT >= 0 && (retval == -1 || retval > nextFragT)){
+					retval = nextFragT;
+				}
+			}
+		}
+		return retval;
+	}
+
+	//发送下一个fragment和下一个队列中的packet。返回下一个消息可以被发送的毫秒数（基于收到的客户端帧率）
+	//如果没有发送包，就返回-1
+	private int SVNetChanTransmitNextFragment(ClientNode cl){
+		if(cl.netChan.unsentFragments){
+			CNetwork.Instance.NetChanTransmitNextFrame(ref cl.netChan);
+			return RateMsec(cl);
+		}else if(!cl.netChanQueue.IsEmpty){
+			SVNetChanTransmitNextFragment(cl);
+			return RateMsec(cl);
+		}
+		return -1;
+	}
+
+	//返回的是下一个消息可以发送的时间（基于帧率的设定，服务器的帧率和客户端的不一样）。
+	private int RateMsec(ClientNode client){
+		int msgSize = client.netChan.lastSentSize;
+		int rate = client.rate;
+
+		if(rate > CConstVar.SV_MAX_RATE) rate = CConstVar.SV_MAX_RATE;
+		if(rate < CConstVar.SV_MIN_RATE) rate = CConstVar.SV_MIN_RATE;
+
+		// if(client.netChan.remoteAddress.Add ipv6
+		msgSize += CConstVar.UDPIP_HEADER_SIZE;
+		int rateMsec = msgSize * 1000 / ((int)(rate * CConstVar.timeScale));
+		rate = CDataModel.InputEvent.Milliseconds() - client.netChan.lastSentTime;
+
+		if(rate > rateMsec){
+			return 0;
+		}else{
+			return rateMsec - rate;
+		}
 	}
 
 	private void SendMessageToClient(MsgPacket msg, ClientNode client){
@@ -229,8 +769,10 @@ public class Server : CModule {
 		frame.messageSent = time;
 		frame.messageAcked = -1;
 
+		//SV_NetChan_Transimit, 发送报文
 		msg.WriteByte((byte)SVCCmd.EOF);
 
+		//如果有没有发送的fragment，把它们放入缓冲并以正确的顺序发送
 		if(client.netChan.unsentFragments || client.netChanQueue.IsEmpty ){
 			CLog.Info("NetChan Transimit: unsent fragments, stacked");
 			NetChanBuffer netChanBuffer = new NetChanBuffer();
@@ -249,18 +791,25 @@ public class Server : CModule {
 	private void SendClientSnapshot(ClientNode client){
 		byte[] msg_buf = new byte[CConstVar.MAX_MSG_LEN];
 
+		//构建snapshot
 		BuildClientSnapshot(client);
 
-		if(client.gentity != null && (client.gentity.r.svFlags & SVFlags.NO_CLIENT) != SVFlags.NONE){
+		//机器人有自己的构建方法，不需要发送
+		if(client.gEntity != null && (client.gEntity.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
 			return;
 		}
+
+
 		MsgPacket msg = new MsgPacket();
 		msg.AllowOverflow = true;
 
+		//让客户端知道服务器已经收到的可靠消息。
 		msg.WriteInt(client.lastClientCommand);
 
+		//发送任何可靠的服务器指令
 		UpdateServerCommandsToClient(client, msg);
 
+		//发送所有的相应的entityState和playerState
 		WriteSnapshotToClient(client, msg);
 
 		if(msg.Overflowed){
@@ -269,11 +818,133 @@ public class Server : CModule {
 		}
 
 		SendMessageToClient(msg, client);
+	}
+
+	//决定哪一个entity对客户端是可见的，并复制playerState。
+	//这个函数处理多个递归的入口，但是渲染器不会。
+	//对于其他玩家看到的视野，clent可以是client.gentity以外的东西
+	private void BuildClientSnapshot(ClientNode client){
+		snapshotCounter++;
+		SvClientSnapshot frame = client.frames[client.netChan.outgoingSequence & CConstVar.PACKET_MASK];
+
+		frame.numEntities = 0;
+		SharedEntity clEnt = client.gEntity;
+		if(client != null || client.state == ClientState.ZOMBIE){
+			return;
+		}
+
+		PlayerState ps = client.playerState;
+		frame.playerState = ps;
+
+		int clientNum = frame.playerState.clientNum;
+		if(clientNum < 0 || clientNum > CConstVar.MAX_GENTITIES){
+			CLog.Error("SvEntity for gEntity: bad gEnt");
+		}
+		var svEnt = svEntities[clientNum];
+		svEnt.snapshotCounter = snapshotCounter;
+
+		Vector3 org = ps.origin;
+		org[2] += ps.viewHeight;
+
+		var entitiesIndex = new List<int>(CConstVar.MAX_SNAPSHOT_ENTITIES);
+
+		AddEntitiesVisibleFromPoint(org, frame, entitiesIndex, false);
+
+		entitiesIndex.Sort();
+
+		frame.numEntities = 0;
+		frame.firstEntity = nextSnapshotEntities;
+		for(int i = 0; i < entitiesIndex.Count; i++){
+			var ent = gEntities[i];
+			snapshotEntities[nextSnapshotEntities % numSnapshotEntities] = ent.s;
+			nextSnapshotEntities++;
+			if(nextSnapshotEntities >= 0x7FFFFFFE){
+				CLog.Error("SV: nextSnapshotEntities wraped");
+			}
+			frame.numEntities++;
+		}
 
 	}
 
-	private void BuildClientSnapshot(ClientNode client){
+	//
+	private void AddEntitiesVisibleFromPoint(Vector3 origin, SvClientSnapshot frame, List<int> entitiesIndex, bool portal){
+		for(int e = 0; e < numEntities; e++){
+			SharedEntity ent = gEntities[e];
 
+			//没有连入的entity就不发送
+			if(!ent.r.linked){
+				continue;
+			}
+
+			if(ent.s.entityIndex != e){
+				CLog.Error("SV: entity index mismatch, fixing");
+				ent.s.entityIndex = e;
+			}
+
+			//entities能被标记为发送给一个客户端
+			if((ent.r.svFlags & SVFlags.SINGLE_CLIENT) != SVFlags.NONE){
+				if(ent.r.singleClinet != frame.playerState.clientNum){
+					continue;
+				}
+			}
+
+			//entities可以标记为发送给每个人但是只有一个客户端
+			if((ent.r.svFlags & SVFlags.NOTSINGLE_CLIENT) != SVFlags.NONE){
+				if(ent.r.singleClinet == frame.playerState.clientNum){
+					continue;
+				}
+			}
+
+			//entities可以标记为发送给指定掩码的客户端
+			if((ent.r.svFlags & SVFlags.CLIENT_MASK) != SVFlags.NONE){
+				if(frame.playerState.clientNum > 32){
+					CLog.Error("SVFlags.CLIENT_MASK: clientNum >= 32");
+				}
+				if((~ent.r.singleClinet & (1 << frame.playerState.clientNum)) >0){
+					continue;
+				}
+			}
+
+			if(ent == null || ent.s.entityIndex < 0 || ent.s.entityIndex >= CConstVar.MAX_GENTITIES){
+				CLog.Error("SV: entity index not in range");
+			}
+			var svEnt = svEntities[ent.s.entityIndex];
+
+			//不要添加两次entity
+			if(svEnt.snapshotCounter == snapshotCounter){
+				continue;
+			}
+
+			//广播的entities总会发送
+			if((ent.r.svFlags & SVFlags.BROADCAST) != SVFlags.NONE){
+				AddEntToSnapshot(svEnt, ent, entitiesIndex);
+				continue;
+			}
+
+			//这里需要进行判断是否可见等
+			AddEntToSnapshot(svEnt, ent, entitiesIndex);
+
+			if((ent.r.svFlags & SVFlags.PORTAL) != SVFlags.NONE){
+				Vector3 dir = ent.s.origin - origin;
+				if(dir.magnitude > ent.s.generic1){
+					continue;
+				}
+
+				AddEntitiesVisibleFromPoint(ent.s.origin2, frame, entitiesIndex, true);
+			}
+		}
+	}
+
+	private void AddEntToSnapshot(SvEntityState svEntity, SharedEntity gEnt, List<int> entitiesIndex){
+		//如果已经添加了，就不再次添加
+		if(svEntity.snapshotCounter == snapshotCounter){
+			return;
+		}
+		svEntity.snapshotCounter = snapshotCounter;
+		if(entitiesIndex.Count >= CConstVar.MAX_SNAPSHOT_ENTITIES){
+			return;
+		}
+		entitiesIndex.Add(gEnt.s.entityIndex);
 	}
 
 	private void UpdateServerCommandsToClient(ClientNode client, MsgPacket msg){
@@ -379,16 +1050,48 @@ public class Server : CModule {
 
 	}
 
-	private void NetChanFreeQueue(ClientNode client)
-	{
-		while(client.netChanQueue.IsEmpty){
-			
+	private void SendClientMessages(){
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var c = clients[i];
+			if(c.state == ClientState.FREE){
+				continue;
+			}
+
+			//如果packetqueue仍然是满的，就丢掉这个snapshot，否则增量压缩就会出问题
+			if(c.netChan.unsentFragments || !c.netChanQueue.IsEmpty){
+				c.rateDelayed = true;
+				continue;
+			}
+
+			if(!IPAddress.IsLoopback(c.netChan.remoteAddress.Address) || CConstVar.LanForceRate && CNetwork.IsLANAddress(c.netChan.remoteAddress.Address)){
+				if(time - c.lastSnapshotTime < c.snapshotMsec * CConstVar.timeScale){
+					continue;
+				}
+				if(RateMsec(c) > 0){
+					c.rateDelayed = true;
+					continue;
+				} 
+			}
+
+			//生成并发送新的消息
+			SendClientSnapshot(c);
+			c.lastSnapshotTime = time;
+			c.rateDelayed = true;
 		}
 	}
 
-	private void MasterHeartbeat(){
+	private void NetChanFreeQueue(ClientNode client)
+	{
+		while(client.netChanQueue.IsEmpty){
 
+		}
 	}
+
+	
+
+	// private PlayerState GetClientPlayer(int index){
+	// 	PlayerState ps = gameClients[index];
+	// }
 }
 
 public class ClientNode
@@ -418,7 +1121,7 @@ public class ClientNode
 
 	public string lastClientString;
 
-	public SharedEntity gentity;
+	public SharedEntity gEntity;
 
 	public string name;
 
@@ -450,7 +1153,11 @@ public class ClientNode
 
 	public bool[] csUpdated;
 
+	public PlayerState playerState;
+
 	public ClientNode(){
+		state = ClientState.FREE;
+		netChan = new NetChan();
 		netChanQueue = new CircularBuffer<NetChanBuffer>(10); 
 	}
 }
@@ -469,7 +1176,7 @@ public class NetChanBuffer{
 
 public enum ClientState
 {
-	FREE = 1,
+	FREE = 0,
 	ZOMBIE,
 	CONNECTED,
 	PRIMED,

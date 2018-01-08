@@ -511,6 +511,11 @@ public class PlayerState{
 	public int entityEventSequence;
 }
 
+public enum PlayerPersistant{
+	SCORE = 0,
+	LENGTH = 1,
+}
+
 public struct PMove{
 	public PlayerState playerState;
 

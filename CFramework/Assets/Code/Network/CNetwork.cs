@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using FlatBuffers;
 using System;
 using System.Net;
+using System.Text;
 
 //CNetwork主要负责对收到的协议进行派发和处理，不关注协议的解析部分
 //TCP和UDP可以同时使用，对延迟要求高的部分使用UDP，对延迟要求不高的部分使用TCP
@@ -106,7 +107,7 @@ public class CNetwork : CModule{
 		}
 
 		//写入packet
-		WritePacket();
+		// WritePacket();
 
 		//udp 的处理
 		FlushPacketQueue();
@@ -555,7 +556,27 @@ public class CNetwork : CModule{
 
 	private void ServerInfoPacket(IPEndPoint from, MsgPacket msg)
 	{
-		
+		string infoString = msg.ReadString();
+
+		string gameName = Server.GetValueForKey(infoString, "gamename");
+
+		bool gameMismatch = string.IsNullOrEmpty(gameName) || gameName != CConstVar.GameName;
+		if(gameMismatch){
+			CLog.Info("GameName mismatch in info packet: %s", infoString);
+			return;
+		}
+		int proto = Convert.ToInt32(Server.GetValueForKey(infoString, "protocol"));
+		if(proto != CConstVar.Protocol){
+			CLog.Info("Different protocal info packet:%s", infoString);
+			return;
+		}
+
+		for(int i = 0; i < CConstVar.MAX_PING_REQUESTS; i++){
+			// if()
+		}
+
+		// if()
+
 	}
 
 	private void WriteDemoMessage(MsgPacket packet, int headerBytes)
@@ -783,7 +804,7 @@ public class CNetwork : CModule{
 		}
 	}
 
-	private void SendPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
+	public void SendPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
 		if(CConstVar.ShowPacket > 0){ // && *(int *)data == -1
 			CLog.Info("send packet %d", length * 4);
 		}
@@ -803,6 +824,25 @@ public class CNetwork : CModule{
 			updSocket.SendMsg(data, length, to);
 		}
 
+	}
+
+	//发送一个文字信息在out of band
+	public void OutOfBandSend(NetSrc src, IPEndPoint address, string format){
+		var charArr = format.ToCharArray();
+		
+		char[] a = new char[4 + charArr.Length];
+		a[0] = Convert.ToChar(-1);
+		a[1] = Convert.ToChar(-1);
+		a[0] = Convert.ToChar(-1);
+		a[0] = Convert.ToChar(-1);
+		
+		Array.Copy(charArr, 0, a, 4, charArr.Length);
+		
+		var byts = Encoding.Default.GetBytes(a);
+
+		SendPacket(src, byts.Length, byts, address);
+
+		// SendPacket(src, str)
 	}
 
 	private static void SendLoopPacket(NetSrc src, int length, byte[] data, IPEndPoint to){

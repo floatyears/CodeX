@@ -197,8 +197,11 @@ public class MsgPacket{
 	}
 
 	//读取char
-	public string ReadChars(int len)
+	public string ReadChars(int len,int start)
 	{
+		if(start >= 0){
+			
+		}
 		return "";
 	}
 

@@ -42,6 +42,10 @@ public struct HuffmanTree
 
 	public HuffmanNode[] nodeList;
 
+	// public HuffmanTree(int size){
+
+	// }
+
 }
 
 //定义为class可以指向引用地址
@@ -62,5 +66,10 @@ public class HuffmanNode
 	public HuffmanNode prev;
 
 	public HuffmanNode head;
+
+	public HuffmanNode(){
+		weight = 0;
+		symbol = 0;
+	}
 
 }

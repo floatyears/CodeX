@@ -16,6 +16,8 @@ public class CPath {
 
 	//资源目录
 	public static string assetsPath;
+
+	public static string demoPath;
 	
 	public static void Init()
 	{
@@ -24,15 +26,20 @@ public class CPath {
 			dataPath = Application.dataPath;
 			streamingAssetsPath = Application.streamingAssetsPath;
 			assetsPath = Application.dataPath + "!assets/";
+			demoPath = Application.persistentDataPath + "/demo.play";
 #elif UNITY_IOS
 			persistentDataPath = Application.persistentDataPath;
 			dataPath = Application.dataPath;
 			streamingAssetsPath = Application.streamingAssetsPath;
 			assetsPath = Application.streamingAssetsPath;
+			demoPath = Application.persistentDataPath + "/demo.play";
+			
 #elif UNITY_ANDROID
 			persistentDataPath = Application.persistentDataPath;
 			dataPath = Application.dataPath;
 			streamingAssetsPath = Application.streamingAssetsPath;
+			demoPath = Application.persistentDataPath + "/demo.play";
+			
 #endif
 	}
 }

@@ -94,7 +94,11 @@ public class CModelInputEvent : IModel {
 			}
 		}
 
+		
+
 		CreateNewUserCommands();
+
+		
 	}
 	
 	// Update is called once per frame
@@ -200,6 +204,15 @@ public class CModelInputEvent : IModel {
 		return ev.eventTime;
 	}
 
+	public int TimVal(int minMsec){
+		int timeVal = Milliseconds() - CDataModel.GameState.frameTime;
+		if(timeVal >= minMsec){
+			return 0;
+		}else{
+			return minMsec - timeVal;
+		}
+	}
+
 	public SysEvent GetEvent()
 	{
 		if(pushedEventsHead > pushedEventsTail)
@@ -225,7 +238,7 @@ public class CModelInputEvent : IModel {
 
 			if(journal == 1) //写入到到文件
 			{
-				File.WriteAllText("","");
+				File.WriteAllText(CPath.demoPath,"test");
 			}
 		}
 		return ev;

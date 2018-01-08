@@ -47,6 +47,28 @@ public class CConstVar {
 
 	public static int PadPackets = 1;
 
+	public static int MAX_CLIENTS = 20;
+
+	public static int SV_FPS = 20;
+
+	public static int TimeGame = 0;
+
+	public static int minPing = 20;
+
+	public static int maxPing = 2000;
+
+	public static int reconnectLimit = 10;
+
+	public static int PrivateClients = 1;
+
+	public static int SERVER_PORT = 27960;
+
+	public static string PrivatePwd = "server_passwd";
+
+	public static string GameName = "test_game";
+	
+	public static bool SV_PAUSE = false;
+
 	public static bool NoPredict = false;
 
 	public static bool SynchronousClients = false;
@@ -54,6 +76,8 @@ public class CConstVar {
 	public static bool OptimizePrediction = true;
 
 	public const bool LanForcePackets = false;
+
+	public const bool LanForceRate = false;
 	
 
 	/*-------------预定义数据-----------*/
@@ -138,6 +162,23 @@ public class CConstVar {
 
 	public const int ROLL = 2;
 
+	public const int SV_MAX_RATE = 3000;
+
+	public const int SV_MIN_RATE = 2000;
+
+	public const int UDPIP_HEADER_SIZE = 28;
+
+	public const int UDPIP6_HEADER_SIZE = 48;
+
+	public const int Protocol = 8002;
+
+	public const int SV_TimeOut = 10000;
+
+	public const int SV_ZombieTime = 10000;
+
+	public const int MAX_OTHER_SERVERS = 10;
+
+	public const int MAX_PING_REQUESTS = 32;
 
 	public static NetField[] entityStateFields = new NetField[]{
 		
@@ -151,6 +192,6 @@ public class CConstVar {
 		0x0001FFFF,	0x0003FFFF,	0x0007FFFF,	0x000FFFFF,
 		0x001FFFFf,	0x003FFFFF,	0x007FFFFF,	0x00FFFFFF,
 		0x01FFFFFF,	0x03FFFFFF,	0x07FFFFFF,	0x0FFFFFFF,
-		0x1FFFFFFF,	0x3FFFFFFF,	0x7FFFFFFF,	System.Convert.ToInt32(0xFFFFFFFF),
+		0x1FFFFFFF,	0x3FFFFFFF,	0x7FFFFFFF,	unchecked((int)0xFFFFFFFF),
 	};
 }
