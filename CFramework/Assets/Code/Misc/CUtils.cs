@@ -67,5 +67,9 @@ public class CUtils {
 		
 	}
 
+	public static int Random(){
+		return 10;
+	}
+
 	
 }

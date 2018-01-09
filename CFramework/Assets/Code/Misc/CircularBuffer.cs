@@ -54,7 +54,7 @@ public class CircularBuffer<T> {
 	{
 		if(!IsEmpty)
 		{
-			T tmp = buffer[head];
+			T tmp = buffer[tail];
 			return tmp;
 		}else
 		{

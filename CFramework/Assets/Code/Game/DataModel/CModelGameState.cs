@@ -315,7 +315,7 @@ public class CModelGameState : CModelBase {
 			if(cmd == (int)SVCCmd.CONFIG_STRING){
 				int len;
 
-				i = packet.ReadShot();
+				i = packet.ReadShort();
 				if(i < 0 || i > CConstVar.MAX_CONFIGSTRINGS){
 					CLog.Error(" configstring > MAX_CONFIGSTRING");
 				}
@@ -1035,7 +1035,17 @@ public class CModelGameState : CModelBase {
 		// 	localServers = new ServerInfo[CConstVar.MAX_OTHER_SERVERS];
 		// }
 
-		byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
+		//C#没有直接的八进制表示，\377是八进制，转换为十进制是255，
+		// byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
+		
+		var bytes = System.Text.Encoding.UTF8.GetBytes("getinfo xxx");
+		byte[] message = new byte[4 + bytes.Length];//
+		message[0] = 0xff;
+		message[1] = 0xff;
+		message[2] = 0xff;
+		message[3] = 0xff;
+		 
+		System.Array.Copy(bytes,0, message, 4, bytes.Length);
 		for(int i = 0; i < 2; i++){
 			for(int j = 0; j < CConstVar.NUM_SERVER_PORTS; j++){
 				IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, CConstVar.SERVER_PORT + j);

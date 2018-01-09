@@ -63,7 +63,7 @@ public class CModelCMD : CModelBase {
 			CLog.Error("cmd token string bigger than max");
 			return;
 		}
-		Array.Copy(cmdCmd, textIn.ToCharArray(), textIn.Length);
+		Array.Copy(textIn.ToCharArray(), cmdCmd, textIn.Length);
 		var zeroChar = '\0';
 		for(int i = textIn.Length; i < CConstVar.BIG_INFO_STRING; i++){
 			cmdCmd[i] = zeroChar;

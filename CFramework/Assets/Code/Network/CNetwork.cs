@@ -46,7 +46,7 @@ public class CNetwork : CModule{
 	private Loopback[] loopbacks;
 
 	//
-	private CircularBuffer<PacketQueue> packetQueue;
+	private CircularBuffer<PacketQueue> sendPacketQueue;
 
 
 	public static CNetwork Instance
@@ -68,7 +68,6 @@ public class CNetwork : CModule{
 		}
 		csocket = new CSocket();
 		csocket.Init();
-
 		//
 		//udp相关
 		updSocket = new CSocketUDP();
@@ -79,7 +78,10 @@ public class CNetwork : CModule{
 		loopbacks = new Loopback[2];
 
 		//队列
-		packetQueue = new CircularBuffer<PacketQueue>(10);
+		sendPacketQueue = new CircularBuffer<PacketQueue>(10);
+
+		needUpdate = true;
+		
 	}
 
 	public void Connect()
@@ -103,6 +105,18 @@ public class CNetwork : CModule{
 			if(builder != null)
 			{
 				sendStack.Pop().Invoke(builder);
+			}
+		}
+
+		while(!updSocket.packetBuffer.IsEmpty){
+			var packet = updSocket.packetBuffer.Dequeue();
+			if(CDataModel.Connection.ServerRunning){ //服务器接收到消息
+				Server.Instance.RunServerPacket(packet.remoteEP, packet);
+			}else{
+				var network = CNetwork.Instance;
+				if(network != null) {
+					network.PacketEvent(packet, packet.remoteEP);
+				}
 			}
 		}
 
@@ -202,7 +216,7 @@ public class CNetwork : CModule{
 			int headerBytes = packet.CurPos;
 
 			//记录最后接收到的消息，这样它可以在客户端信息中返回，允许服务器检测丢失的gamestate
-			connection.serverMessageSequence = CNetwork.LittleInt(packet.ReadInt(0));
+			connection.serverMessageSequence = CNetwork.LittleInt(packet.ReadFirstInt());
 			connection.lastPacketTime = CDataModel.GameState.time;
 
 			ParseMessage(packet);
@@ -235,7 +249,7 @@ public class CNetwork : CModule{
 		//如果是服务器，那就读取qport
 		if(netChan.src == NetSrc.SERVER)
 		{
-			packet.ReadShot(); //
+			packet.ReadShort(); //
 		}
 
 		int checkSum = packet.ReadInt();
@@ -247,8 +261,8 @@ public class CNetwork : CModule{
 		//读取fragment信息
 		if(fragmented)
 		{
-			fragmentStart = packet.ReadShot();
-			fragmentLength = packet.ReadShot();
+			fragmentStart = packet.ReadShort();
+			fragmentLength = packet.ReadShort();
 		}else
 		{
 			fragmentStart = 0;
@@ -418,6 +432,8 @@ public class CNetwork : CModule{
 	}
 
 	//处理广播消息等。
+	//第一个字节用来区分game channel的消息（-1表示connectionless数据，1表示有数据）
+	//而在c#中并没有暴露底层的接口来支持显式发送oob，所以用第一位来表示是否是带外数据
 	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
 	{
 		int challenge = 0;
@@ -813,7 +829,6 @@ public class CNetwork : CModule{
 			SendLoopPacket(src, length, data, to);
 			return;
 		}
-
 		// if(to.Address.)
 
 		if(src == NetSrc.CLIENT && CConstVar.PacketDelayClient > 0){
@@ -823,25 +838,21 @@ public class CNetwork : CModule{
 		}else{
 			updSocket.SendMsg(data, length, to);
 		}
-
 	}
 
-	//发送一个文字信息在out of band
+	//发送一个文字信息在out of band，用于"connect"
+	//而在c#中并没有暴露底层的接口来支持显式发送oob，所以用第一位来表示是否是带外数据
 	public void OutOfBandSend(NetSrc src, IPEndPoint address, string format){
-		var charArr = format.ToCharArray();
+		var charArr = System.Text.Encoding.Default.GetBytes(format);
 		
-		char[] a = new char[4 + charArr.Length];
-		a[0] = Convert.ToChar(-1);
-		a[1] = Convert.ToChar(-1);
-		a[0] = Convert.ToChar(-1);
-		a[0] = Convert.ToChar(-1);
+		byte[] a = new byte[4 + charArr.Length];
+		a[0] = 0xff;
+		a[1] = 0xff;
+		a[2] = 0xff;
+		a[3] = 0xff;
 		
 		Array.Copy(charArr, 0, a, 4, charArr.Length);
-		
-		var byts = Encoding.Default.GetBytes(a);
-
-		SendPacket(src, byts.Length, byts, address);
-
+		SendPacket(src, a.Length, a, address);
 		// SendPacket(src, str)
 	}
 
@@ -900,23 +911,24 @@ public class CNetwork : CModule{
 		if(delay > 999) delay = 999;
 		var newPacket = new PacketQueue(to);
 		newPacket.packet.CurSize = length;
+		newPacket.to = to;
 		newPacket.packet.WriteData(data, 0, length);
 		// newPacket.to = to;
 		newPacket.release = CDataModel.InputEvent.Milliseconds() +  (int)((float)delay/CConstVar.timeScale);
 
-		packetQueue.Enqueue(newPacket);
+		sendPacketQueue.Enqueue(newPacket);
 		// while(packetQueue.IsEmpty())
 	}
 
 	//清空缓存中的消息，必须在当前帧进行处理，超过当前帧可能会造成下一帧的数据错误
 	public void FlushPacketQueue(){
 		int time = CDataModel.InputEvent.Milliseconds();
-		while(!packetQueue.IsEmpty){
-			var packet = packetQueue.Dequeue();
+		while(!sendPacketQueue.IsEmpty){
+			var packet = sendPacketQueue.Peek();
 			if(packet.release >= time){ //延迟操作
 				break;
 			}
-
+			sendPacketQueue.Dequeue();
 			updSocket.SendMsg(packet.packet.Data, packet.packet.CurSize, packet.to);
 		}
 	}

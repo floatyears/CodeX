@@ -4,6 +4,10 @@ using UnityEngine;
 using System;
 
 public class MsgPacket{
+
+	static char[] readStr = new char[CConstVar.MAX_STRING_CHARS];
+
+	static char[] bigStr = new char[CConstVar.BIG_INFO_STRING];
 	bool allowOverflow;
 
 	bool overflowed;
@@ -17,6 +21,8 @@ public class MsgPacket{
 	int curPos;
 
 	int bit;
+
+	public System.Net.IPEndPoint remoteEP;
 
 	public MsgPacket()
 	{
@@ -39,7 +45,7 @@ public class MsgPacket{
 	{
 		if(start < 0) start = curSize;
 		Array.Copy(data, dataStart, bytes, start, length);
-		// curSize = start + length;
+		curSize = start + length;
 		curPos = start + length;
 	}
 
@@ -116,84 +122,105 @@ public class MsgPacket{
 		return 0L;
 	}
 
-	public int ReadInt(int start = -1)
-	{
-		if(start < 0)
-		{
-			start = curPos;
-		}else{
 
+	public int ReadFirstInt(){
+		return System.BitConverter.ToInt32(Data, 0);
+	}
+
+	public int ReadInt()
+	{
+		int c = ReadBits(32);
+		if(curPos > curSize){
+			c = -1;
 		}
-		return 0;
+		return c;
 	}
 
 	public int ReadByte()
 	{
-		return 0;
+		int c = (char)ReadBits(8);
+		if(curPos > curSize){
+			return -1;
+		}
+		return c;
 	}
 
 	public int ReadBits(int bits)
 	{
-		int value, get, i, nbits;
+		int value, get = 0, i, nbits;
 		bool sgn;
 
 		value = 0;
-		if(bits < 0)
-		{
+		if(bits < 0){
 			bits = -bits;
 			sgn = true;
 		}else{
 			sgn = false;
 		}
-		if(oob)
-		{
-			if(bits == 8)
-			{
+		if(oob){
+			if(bits == 8){
 				value = bytes[curPos];
 				curPos++;
 				bit += 8;
-			}else if(bits == 16)
-			{
-				short temp;
-
-			}else if(bits == 32)
-			{
-
+			}else if(bits == 16){
+				value = CopyLittleShort();
+				curPos += 2;
+				bit += 16;
+			}else if(bits == 32){
+				curPos += 4;
+				bit += 32;
 			}else{
 				CLog.Error("can't read %d bits", bits);
 			}
 		}else{
 			nbits = 0;
-			if((bits & 7) != 0)
-			{
+			if((bits & 7) != 0){
 				nbits = bits & 7;
-				for(i = 0; i < nbits; i++)
-				{
-					// value |= (Huff)
+				for(i = 0; i < nbits; i++){
+					value |= (HuffmanMsg.GetBit(bytes, ref bit) << i);
 				}
 				bits = bits - nbits;
 			}
-			if(bits != 0)
-			{
-				for(i=0; i < bits; i+= 8)
-				{
-					// value |= (get << (i + nbits));
+			if(bits != 0){
+				for(i=0; i < bits; i+= 8){
+					HuffmanMsg.OffsetReceive(HuffmanMsg.decompresser.tree, ref get, bytes, ref bit);
+					value |= (get << (i + nbits));
 				}
 			}
+			curPos = (bit >> 3) + 1;
 		}
 
-		if(sgn)
-		{
+		if(sgn){
 			if((value & ( 1 << (bits - 1))) != 0){
-				value |= -1 ^ ((1 - bits) - 1);
+				value |= -1 ^ ((1 << bits) - 1);
 			}
 		}
 		return value;
 	}
 
-	public short ReadShot()
+	private short CopyLittleShort(){
+		byte[] tmp = new byte[2];
+		tmp[1] = bytes[curPos];
+		tmp[0] = bytes[curPos+1];
+		return System.BitConverter.ToInt16(tmp, 0);
+	}
+
+	private int CopyLittleLong(){
+		byte[] tmp = new byte[4];
+		tmp[0] = bytes[curPos+3];
+		tmp[1] = bytes[curPos+2];
+		tmp[2] = bytes[curPos+1];
+		tmp[3] = bytes[curPos];
+		return System.BitConverter.ToInt32(tmp, 0);
+	}
+
+	public int ReadShort()
 	{
-		return 0;
+		int c = ReadBits(16);
+		if(curPos > curSize){
+			c = -1;
+		}
+		return c;
 	}
 
 	//读取char
@@ -207,17 +234,74 @@ public class MsgPacket{
 
 	public string ReadStringLine()
 	{
-		return "";
+		int l = 0,c;
+		do{
+			c = ReadByte();
+			if(c == -1 || c == 0 || c == '\n'){
+				break;
+			}
+			//翻译所有的格式化字符串
+			if(c == '%'){
+				c = '.';
+			}
+			if(c > 127){
+				c = '.';
+			}
+
+			readStr[l] = (char)c;
+			l++;
+		}while(l < CConstVar.MAX_STRING_CHARS - 1);
+
+		readStr[l] = (char)0;
+		return new string(readStr,0,l);
 	}
 
 	public string ReadString()
 	{
-		return "";
+		int l = 0,c;
+		do{
+			c = ReadByte();
+			if(c == -1 || c == 0){
+				break;
+			}
+			//翻译所有的格式化字符串
+			if(c == '%'){
+				c = '.';
+			}
+			if(c > 127){
+				c = '.';
+			}
+
+			readStr[l] = (char)c;
+			l++;
+		}while(l < CConstVar.MAX_STRING_CHARS - 1);
+
+		readStr[l] = (char)0;
+		return new string(readStr,0,l);
 	}
 
 	public string ReadBigString()
 	{
-		return "";
+		int l = 0,c;
+		do{
+			c = ReadByte();
+			if(c == -1 || c == 0){
+				break;
+			}
+			//翻译所有的格式化字符串
+			if(c == '%'){
+				c = '.';
+			}
+			if(c > 127){
+				c = '.';
+			}
+
+			bigStr[l] = (char)c;
+			l++;
+		}while(l < CConstVar.BIG_INFO_STRING - 1);
+		
+		readStr[l] = (char)0;
+		return new string(readStr, 0, l);
 	}
 
 	public int ReadDeltaKey(int key, int oldV, int bits){
@@ -461,7 +545,66 @@ public class MsgPacket{
 
 	public void WriteBits(int value, int bits)
 	{
-		
+		int i;
+		//溢出检查
+		if(CConstVar.BUFFER_LIMIT - curSize < 4){
+			overflowed = true;
+			return;
+		}
+
+		if(bits == 0 || bits < -31 || bits > 32){
+			CLog.Error("Packet WriteBits: bad bits {0}", bits);
+		}
+
+		if(bits != 32){
+			if(bits > 0){
+				if((value > ((1 << bits) - 1)) || value < 0){
+					// overflowes++;
+				}
+			}else{
+				int r = 1 << (bits - 1);
+				if((value > r - 1) || value < -r){
+					// overflowes++;
+				}
+			}
+		}
+		if(bits < 0){
+			bits = - bits;
+		}
+		if(oob){
+			if(bits == 8){
+				bytes[curSize] = (byte)value;
+				curSize += 1;
+				bit += 8;
+			}else if(bits == 16){
+				value = CopyLittleShort();
+				curSize += 2;
+				bit += 16;
+			}else if(bits ==32){
+				value = CopyLittleLong();
+				curSize += 4;
+				bit += 32;
+			}else{
+				CLog.Error("Can't write {0} bits", bits);
+			}
+		}else{
+			value &= (int)(0xffffffff >> (32 - bits));
+			if((bits & 7) != 0){
+				int nbits = bits & 7;
+				for(i = 0; i < nbits; i++){
+					HuffmanMsg.PutBit((value & 1), bytes, ref bit);
+					value = (value >> 1);
+				}
+				bits = bits - nbits;
+			}
+			if(bits != 0){
+				for(i = 0; i < bits; i += 8){
+					HuffmanMsg.OffsetTransmit(HuffmanMsg.compresser, (value & 0xff), bytes, bit);
+					value = (value >> 8);
+				}
+			}
+			curSize = (bit >> 3) + 1;
+		}
 	}
 
 	public void WriteString(string value)

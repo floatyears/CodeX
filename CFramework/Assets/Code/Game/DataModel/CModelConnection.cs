@@ -94,6 +94,9 @@ public class CModelConnection : CModelBase {
 	private bool serverRunning;
 
 	public bool ServerRunning{
+		set{
+			serverRunning = value;
+		}
 		get{
 			return serverRunning;
 		}
@@ -103,6 +106,7 @@ public class CModelConnection : CModelBase {
 	public override void Init()
 	{
 		inited = true;
+		netChan = new NetChan();
 	}
 	
 	public void NetChanSetup(NetSrc src, IPEndPoint from, int qport, int challenge)

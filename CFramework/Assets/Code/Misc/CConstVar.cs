@@ -77,9 +77,12 @@ public class CConstVar {
 
 	public static bool OptimizePrediction = true;
 
+	public static bool IsLocalNetwork = true;
+
 	public const bool LanForcePackets = false;
 
 	public const bool LanForceRate = false;
+
 	
 
 	/*-------------预定义数据-----------*/
@@ -112,6 +115,8 @@ public class CConstVar {
 
 	public const int HUFF_MAX = 256;
 
+	public const int HUFF_INTERNAL_NODE = HUFF_MAX + 1;
+
 	public const int HUFF_LEN = 768;
 
 	//MTU的大小是1400，一般默认设置是500，所以不能大于500
@@ -137,6 +142,8 @@ public class CConstVar {
 	public const int ComSpeeds = 1;
 
 	public const int MAX_STRING_TOKENS = 1024;
+
+	public const int MAX_STRING_CHARS = 1024;
 
 	public const int BIG_INFO_STRING = 8192;
 

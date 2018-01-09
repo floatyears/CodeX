@@ -79,8 +79,9 @@ public class Server : CModule {
 		svEntities = new SvEntityState[CConstVar.MAX_GENTITIES];
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
-		inited = true;
 
+		CDataModel.Connection.ServerRunning = true;
+		inited = true;
 	}
 
 	public void Startup(){
@@ -131,7 +132,7 @@ public class Server : CModule {
 		int i;
 		int qport;
 
-		if(packet.CurSize >= 4 && packet.ReadInt() == -1)
+		if(packet.CurSize >= 4 && packet.ReadFirstInt() == -1)
 		{
 			SV_ConnectionlessPacket(from, packet);
 		}
@@ -139,7 +140,7 @@ public class Server : CModule {
 		packet.BeginReadOOB();
 		packet.ReadInt(); //sequence number
 
-		qport = packet.ReadShot() & 0xffff;
+		qport = packet.ReadShort() & 0xffff;
 
 		for(i = 0; i < CConstVar.maxClient; i ++)
 		{
@@ -188,7 +189,6 @@ public class Server : CModule {
 
 	public void SV_ConnectionlessPacket(IPEndPoint from, MsgPacket packet)
 	{
-
 		packet.BeginReadOOB();
 		packet.ReadInt(); //skip -1 marker
 

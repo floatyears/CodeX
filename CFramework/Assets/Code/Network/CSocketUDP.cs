@@ -17,78 +17,52 @@ public class CSocketUDP {
 
 	private byte[] buffer;
 
+	private byte[] sendBuffer;
+
 	private int socketArgsLimit = 2;
 
-	private MsgPacket[] packetBuffer;
+	// private MsgPacket[] packetBuffer;
+	public CircularBuffer<MsgPacket> packetBuffer;
 
 	private int curPacket;
 
-	private IPEndPoint remoteEP;
+	// private IPEndPoint remoteEP;
 
 	private IPEndPoint destEP;
 
-	private HuffmanMsg huffmanMsg;
+	// private HuffmanMsg huffmanMsg;
+
 
 	public void Init()
 	{
 		recvSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		recvSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		// recvSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 		
 		sendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		if(CConstVar.IsLocalNetwork){
+			sendSocket.EnableBroadcast = true;
+			recvSocket.EnableBroadcast = true;
+		}
 		
 		buffer = new byte[CConstVar.BUFFER_LIMIT];
-		remoteEP = new IPEndPoint(IPAddress.Any, 0); //可以接受任何ip和端口的消息
+		sendBuffer = new byte[CConstVar.BUFFER_LIMIT];
+		var localEP = new IPEndPoint(IPAddress.Any, CConstVar.SERVER_PORT); //可以接受任何ip和端口的消息
 		
-		recvSocket.Bind(remoteEP);
+		recvSocket.Bind(localEP);
+		// packetBuffer = new MsgPacket[2];
+		packetBuffer = new CircularBuffer<MsgPacket>(10);
 		// recvSocket.Listen();
 
+		// remoteEP = new IPEndPoint(IPAddress.Any, 0);
 		// IPAddress.IsLoopback(remoteEP.Address);
-		packetBuffer = new MsgPacket[2];
 		curPacket = 0;
 
-		InitHuffmanMsg();
+		HuffmanMsg.Init();
 	}
 
 	public void Dispose()
 	{
-
-	}
-	
-	public void InitHuffmanMsg()
-	{
-		huffmanMsg = new HuffmanMsg();
-		var a = huffmanMsg.decompresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
-		var b = huffmanMsg.compresser.loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
-		for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
-			a[i] = new HuffmanNode();
-			b[i] = new HuffmanNode();
-		}
-
-		a = huffmanMsg.decompresser.nodeList = new HuffmanNode[768];
-		b = huffmanMsg.compresser.nodeList = new HuffmanNode[768];
-		for(int i = 0; i < 768; i ++){
-			a[i] = new HuffmanNode();
-			b[i] = new HuffmanNode();
-		}
-		
-		// huffmanMsg.compresser.loc = new HuffmanNode[768];
-
-		huffmanMsg.decompresser.tree = huffmanMsg.decompresser.lhead = huffmanMsg.decompresser.ltail = 
-			huffmanMsg.decompresser.loc[CConstVar.HUFF_MAX] = huffmanMsg.decompresser.nodeList[huffmanMsg.decompresser.blocNode++];
-
-		huffmanMsg.decompresser.tree.symbol = CConstVar.HUFF_MAX;
-		huffmanMsg.decompresser.tree.weight = 0;
-		huffmanMsg.decompresser.lhead.next = huffmanMsg.decompresser.lhead.prev = null;
-		huffmanMsg.decompresser.tree.parent = huffmanMsg.decompresser.tree.left = huffmanMsg.decompresser.tree.right = null;
-
-		huffmanMsg.compresser.tree = huffmanMsg.compresser.lhead = 
-			huffmanMsg.decompresser.loc[CConstVar.HUFF_MAX] = huffmanMsg.decompresser.nodeList[huffmanMsg.decompresser.blocNode++];
-
-		huffmanMsg.compresser.tree.symbol = CConstVar.HUFF_MAX;
-		huffmanMsg.decompresser.tree.weight = 0;
-		huffmanMsg.decompresser.lhead.next = huffmanMsg.decompresser.lhead.prev = null;
-		huffmanMsg.decompresser.tree.parent = huffmanMsg.decompresser.tree.left = huffmanMsg.decompresser.tree.right = null;
 
 	}
 
@@ -103,59 +77,58 @@ public class CSocketUDP {
 
 	public void BeginReceive()
 	{
-		var tmpEP = remoteEP as EndPoint;
-		recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.Broadcast | SocketFlags.OutOfBand, ref tmpEP, ReceiveCallback, recvSocket);
-
-		// if(!socket.ReceiveFromAsync(socketAsyncEventArgs[socketArgsIndex]))
-		// {
-
-		// }
+		var tmpEP = new IPEndPoint(IPAddress.Any, 0) as EndPoint;
+		recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.None, ref tmpEP, ReceiveCallback, null);
 	}
 
+	//异步的实现，C#会自动用多线程来处理（此处需要对多线程进行判断）
+	//TODO:因为多线程的关系，线程外的数据不是安全的
 	private void ReceiveCallback(IAsyncResult ar)
 	{
-		int count = recvSocket.EndReceive(ar);
+		var tmpEP = new IPEndPoint(IPAddress.Any,0);
+		EndPoint tmp = tmpEP as EndPoint;
+		int count = recvSocket.EndReceiveFrom(ar, ref tmp);
+		// IPEndPoint _remote = ar.AsyncState as IPEndPoint;
 		if(count > 0)
 		{
-			CLog.Info("udp socket recieved: {0}", count);
+			CLog.Info("udp socket recieved: {0}, adr:{1}", count, tmp);
 			
-			var connection = CDataModel.Connection;
-			if(connection.state < ConnectionState.CONNECTED)
-			{
-				return; //网络还没连上，不处理消息
-			}
-			//随机丢包处理
-			if(CConstVar.NET_DROP_SIM > 0 && CConstVar.NET_DROP_SIM < 100 && UnityEngine.Random.Range(1,100) < CConstVar.NET_DROP_SIM)
-			{
-				//已经丢掉的包，不处理
-			}else
-			{
-				if(remoteEP.Address.Equals(connection.NetChan.remoteAddress.Address))
+#if CFRAMEWORK_DEBUG
+			try{
+#endif
+				var connection = CDataModel.Connection;
+				// if(connection.state < ConnectionState.CONNECTED)
+				// {
+				// 	return; //网络还没连上，不处理消息
+				// }
+				//随机丢包处理
+				if(CConstVar.NET_DROP_SIM > 0 && CConstVar.NET_DROP_SIM < 100 && CUtils.Random() < CConstVar.NET_DROP_SIM)
 				{
-					CLog.Error(string.Format("%s:sequence packet without connection",remoteEP.Address));
-				}else{
-					var packet = packetBuffer[~curPacket];
+					//已经丢掉的包，不处理
+				}else
+				{
+					// TODO: 线程的关系，暂时不能用缓冲，后面再改写
+					// var packet = packetBuffer[~curPacket];
+					// 
+					MsgPacket packet = new MsgPacket();
+					packetBuffer.Enqueue(packet);
+					packet.CurPos = 0;
+					packet.remoteEP = tmp as IPEndPoint;
 					packet.WriteData(buffer, 0, count); //把缓冲内的数据写入到packet
-
-					var network = CNetwork.Instance;
-					if(network == null) return;
-					if(CDataModel.Connection.ServerRunning){ //服务器接收到消息
-						Server.Instance.RunServerPacket(remoteEP, packet);
+					if(buffer[0] == 0 || buffer[1] == 0 || buffer[2] == 0 || buffer[3] == 1){ //ip v 4
+						packet.CurPos = 10;
 					}else{
-						network.PacketEvent(packet, remoteEP);
+						packet.CurPos = 0;
 					}
 				}
+#if CFRAMEWORK_DEBUG
+			}catch(Exception e){
+				CLog.Error("packet process error:", e.Message);
 			}
+#endif
 			
-			if(remoteEP == null) {
-				remoteEP = new IPEndPoint(IPAddress.Any, 0);
-			}
-			else{
-				remoteEP.Address = IPAddress.Any;
-				remoteEP.Port = 0;
-			}
-			var ep = remoteEP as EndPoint;
-			recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.None, ref ep, ReceiveCallback, recvSocket);
+			var ep = new IPEndPoint(IPAddress.Any, 0) as EndPoint;
+			recvSocket.BeginReceiveFrom(buffer, 0, CConstVar.BUFFER_LIMIT, SocketFlags.None, ref ep, ReceiveCallback, null);
 		}else{
 			CLog.Error("udp socket has recevied no byte");
 		}
@@ -164,12 +137,23 @@ public class CSocketUDP {
 	//network层已经做了fragment的拆分处理
 	public void SendMsg(byte[] bytes, int length, IPEndPoint to){
 		if(CConstVar.ShowNet > 0) CLog.Info("send msg, length {0}, to {1}", length, to);
-		// if(to.Address == IPAddress.Broadcast){
-		// 	sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.Broadcast | SocketFlags.OutOfBand, to, SendCallback, sendSocket);
-		// }else{
-			// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName)
+		if(to.Address == IPAddress.Broadcast){ //直接发送数据
+			//Array.Copy(bytes,0,sendBuffer,0,length);
+			
 			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
-		// }
+		}else{
+			// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName)
+			sendBuffer[0] = 0;
+			sendBuffer[1] = 0;
+			sendBuffer[2] = 0;
+			sendBuffer[3] = 1; //IP
+
+			Array.Copy(to.Address.GetAddressBytes(),0,sendBuffer,4, 4);
+			sendBuffer[8] = (byte)(to.Port >> 8);
+			sendBuffer[9] = (byte)(to.Port);
+			Array.Copy(bytes,0,sendBuffer, 10, length); //前10个字节是保留的
+			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+		}
 	}
 
 
