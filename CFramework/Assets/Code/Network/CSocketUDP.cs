@@ -32,10 +32,10 @@ public class CSocketUDP {
 	public void Init()
 	{
 		recvSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		// recvSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+		recvSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 		
 		sendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-		sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast | SocketOptionName.NoDelay, 1);
+		sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
 		
 		buffer = new byte[CConstVar.BUFFER_LIMIT];
 		remoteEP = new IPEndPoint(IPAddress.Any, 0); //可以接受任何ip和端口的消息
@@ -117,6 +117,8 @@ public class CSocketUDP {
 		int count = recvSocket.EndReceive(ar);
 		if(count > 0)
 		{
+			CLog.Info("udp socket recieved: {0}", count);
+			
 			var connection = CDataModel.Connection;
 			if(connection.state < ConnectionState.CONNECTED)
 			{

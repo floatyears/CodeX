@@ -13,6 +13,7 @@ PluginImporter:
       second:
         enabled: 0
         settings:
+          Exclude Android: 1
           Exclude Editor: 0
           Exclude Linux: 0
           Exclude Linux64: 0
@@ -21,12 +22,20 @@ PluginImporter:
           Exclude OSXIntel64: 0
           Exclude OSXUniversal: 0
           Exclude Win: 0
-          Exclude Win64: 1
+          Exclude Win64: 0
+          Exclude iOS: 1
+    data:
+      first:
+        Android: Android
+      second:
+        enabled: 0
+        settings:
+          CPU: ARMv7
     data:
       first:
         Any: 
       second:
-        enabled: 1
+        enabled: 0
         settings: {}
     data:
       first:
@@ -104,9 +113,17 @@ PluginImporter:
       first:
         Standalone: Win64
       second:
-        enabled: 0
+        enabled: 1
         settings:
           CPU: None
+    data:
+      first:
+        iPhone: iOS
+      second:
+        enabled: 0
+        settings:
+          CompileFlags: 
+          FrameworkDependencies: 
   userData: 
   assetBundleName: 
   assetBundleVariant: 

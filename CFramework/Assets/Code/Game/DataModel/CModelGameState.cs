@@ -1036,10 +1036,9 @@ public class CModelGameState : CModelBase {
 		// }
 
 		byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
-		IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, 0);
 		for(int i = 0; i < 2; i++){
 			for(int j = 0; j < CConstVar.NUM_SERVER_PORTS; j++){
-				to.Port = CConstVar.SERVER_PORT + j;
+				IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, CConstVar.SERVER_PORT + j);
 				CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
 			}
 		}
