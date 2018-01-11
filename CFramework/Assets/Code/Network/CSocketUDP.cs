@@ -47,7 +47,7 @@ public class CSocketUDP {
 		
 		buffer = new byte[CConstVar.BUFFER_LIMIT];
 		sendBuffer = new byte[CConstVar.BUFFER_LIMIT];
-		var localEP = new IPEndPoint(IPAddress.Any, CConstVar.SERVER_PORT); //可以接受任何ip和端口的消息
+		var localEP = new IPEndPoint(IPAddress.Any, CConstVar.SERVER_PORT + 1); //可以接受任何ip和端口的消息
 		
 		recvSocket.Bind(localEP);
 		// packetBuffer = new MsgPacket[2];
@@ -91,7 +91,7 @@ public class CSocketUDP {
 		// IPEndPoint _remote = ar.AsyncState as IPEndPoint;
 		if(count > 0)
 		{
-			CLog.Info("udp socket recieved: {0}, adr:{1}", count, tmp);
+			CLog.Info("udp socket recieved: {0}, fropm adr:{1}", count, tmp);
 			
 #if CFRAMEWORK_DEBUG
 			try{
@@ -141,6 +141,7 @@ public class CSocketUDP {
 			//Array.Copy(bytes,0,sendBuffer,0,length);
 			
 			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+			
 		}else{
 			// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName)
 			sendBuffer[0] = 0;
@@ -160,7 +161,7 @@ public class CSocketUDP {
 	private void SendCallback(IAsyncResult ar){
 		int count = sendSocket.EndSendTo(ar);
 		if(count > 0){
-			CLog.Info("Send Packet Finish. length: {0}", count);
+			CLog.Info("Send Packet Finish. length: {0}, rmeote addr:{1}", count, recvSocket.RemoteEndPoint);
 		}else{
 			CLog.Info("send zero bytes");
 		}

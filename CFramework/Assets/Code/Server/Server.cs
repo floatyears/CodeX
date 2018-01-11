@@ -262,7 +262,7 @@ public class Server : CModule {
 				}
 			}
 		}
-		infoStr.Append("infoResponse").Append("\n");
+		infoStr.Append("infoResponse\n");
 		infoStr.Append("\\").Append("challenge").Append("$").Append(CDataModel.CmdBuffer.Argv(1));
 		infoStr.Append("\\").Append("protocal").Append("$").Append(CConstVar.Protocol);
 		infoStr.Append("\\").Append("clients").Append("$").Append(count);

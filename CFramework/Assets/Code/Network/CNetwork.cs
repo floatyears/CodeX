@@ -821,9 +821,9 @@ public class CNetwork : CModule{
 	}
 
 	public void SendPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
-		if(CConstVar.ShowPacket > 0){ // && *(int *)data == -1
-			CLog.Info("send packet {0}", length * 4);
-		}
+		// if(CConstVar.ShowPacket > 0){ // && *(int *)data == -1
+		// 	CLog.Info("send packet {0}", length * 4);
+		// }
 
 		if(IPAddress.IsLoopback(to.Address)){
 			SendLoopPacket(src, length, data, to);
