@@ -214,6 +214,10 @@ public class MsgPacket{
 		return System.BitConverter.ToInt32(tmp, 0);
 	}
 
+	public int ReadPort(){
+		return System.BitConverter.ToInt16(bytes, 8);
+	}
+
 	public int ReadShort()
 	{
 		int c = ReadBits(16);

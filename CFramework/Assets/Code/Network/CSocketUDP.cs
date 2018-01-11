@@ -44,12 +44,23 @@ public class CSocketUDP {
 			sendSocket.EnableBroadcast = true;
 			recvSocket.EnableBroadcast = true;
 		}
+		recvSocket.Blocking = false;
+		sendSocket.Blocking = false;		
 		
 		buffer = new byte[CConstVar.BUFFER_LIMIT];
 		sendBuffer = new byte[CConstVar.BUFFER_LIMIT];
-		var localEP = new IPEndPoint(IPAddress.Any, CConstVar.SERVER_PORT + 1); //可以接受任何ip和端口的消息
+		var localEP = new IPEndPoint(IPAddress.Any, CConstVar.SERVER_PORT); //可以接受任何ip和端口的消息
 		
-		recvSocket.Bind(localEP);
+		for(int i =0; i < 10; i++){
+			try{
+				localEP.Port = CConstVar.SERVER_PORT + i;
+				recvSocket.Bind(localEP);
+				break;
+			}catch(Exception e){
+
+			}
+		}
+		
 		// packetBuffer = new MsgPacket[2];
 		packetBuffer = new CircularBuffer<MsgPacket>(10);
 		// recvSocket.Listen();
@@ -112,13 +123,16 @@ public class CSocketUDP {
 					// 
 					MsgPacket packet = new MsgPacket();
 					packetBuffer.Enqueue(packet);
-					packet.CurPos = 0;
-					packet.remoteEP = tmp as IPEndPoint;
+					// packet.remoteEP.Port = packet.ReadPort();
 					packet.WriteData(buffer, 0, count); //把缓冲内的数据写入到packet
 					if(buffer[0] == 0 || buffer[1] == 0 || buffer[2] == 0 || buffer[3] == 1){ //ip v 4
 						packet.CurPos = 10;
-					}else{
+						packet.remoteEP = tmp as IPEndPoint;
+						packet.remoteEP.Port = packet.ReadPort();
+					}else{ //oob数据，暂时是广播的数据
 						packet.CurPos = 0;
+						packet.remoteEP = new IPEndPoint(IPAddress.Broadcast, 0);
+						
 					}
 				}
 #if CFRAMEWORK_DEBUG
@@ -139,7 +153,6 @@ public class CSocketUDP {
 		if(CConstVar.ShowNet > 0) CLog.Info("send msg, length {0}, to {1}", length, to);
 		if(to.Address == IPAddress.Broadcast){ //直接发送数据
 			//Array.Copy(bytes,0,sendBuffer,0,length);
-			
 			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
 			
 		}else{

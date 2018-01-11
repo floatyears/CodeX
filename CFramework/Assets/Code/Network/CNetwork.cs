@@ -852,6 +852,7 @@ public class CNetwork : CModule{
 		a[3] = 0xff;
 		
 		Array.Copy(charArr, 0, a, 4, charArr.Length);
+
 		SendPacket(src, a.Length, a, address);
 		// SendPacket(src, str)
 	}

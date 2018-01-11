@@ -1038,18 +1038,11 @@ public class CModelGameState : CModelBase {
 		//C#没有直接的八进制表示，\377是八进制，转换为十进制是255，
 		// byte[] message = System.Text.Encoding.UTF8.GetBytes(@"\377\377\377\377getinfo xxx");
 		
-		var bytes = System.Text.Encoding.UTF8.GetBytes("getinfo xxx");
-		byte[] message = new byte[4 + bytes.Length];//
-		message[0] = 0xff;
-		message[1] = 0xff;
-		message[2] = 0xff;
-		message[3] = 0xff;
-		 
-		System.Array.Copy(bytes,0, message, 4, bytes.Length);
 		for(int i = 0; i < 2; i++){
 			for(int j = 0; j < CConstVar.NUM_SERVER_PORTS; j++){
 				IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, CConstVar.SERVER_PORT + j);
-				CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
+				// CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
+				CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, to, "getinfo xxx");
 			}
 		}
 	}
