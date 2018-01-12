@@ -185,7 +185,7 @@ public class CNetwork : CModule{
 		}else{
 
 			connection.lastPacketTime = CDataModel.GameState.realTime;
-			if(packet.CurSize >= 4 && packet.ReadInt() == -1)
+			if(packet.CurSize >= 4 && packet.ReadFirstInt() == -1)
 			{
 				ConnectionlessPacket(from, packet);
 				return;
@@ -578,12 +578,12 @@ public class CNetwork : CModule{
 
 		bool gameMismatch = string.IsNullOrEmpty(gameName) || gameName != CConstVar.GameName;
 		if(gameMismatch){
-			CLog.Info("GameName mismatch in info packet: %s", infoString);
+			CLog.Info("GameName mismatch in info packet: {0}", infoString);
 			return;
 		}
 		int proto = Convert.ToInt32(Server.GetValueForKey(infoString, "protocol"));
 		if(proto != CConstVar.Protocol){
-			CLog.Info("Different protocal info packet:%s", infoString);
+			CLog.Info("Different protocal info packet:{0}", infoString);
 			return;
 		}
 
@@ -816,7 +816,7 @@ public class CNetwork : CModule{
 		netChan.lastSentSize = send.CurSize;
 
 		if(CConstVar.ShowPacket > 0){
-			CLog.Info("{0} send {1} : s = {2} ack = {3}", netChan.src, send.CurSize * 4, netChan.outgoingSequence - 1, netChan.incomingSequence);
+			CLog.Info("{0} send {1} : s = {2} ack = {3}", netChan.src, send.CurSize, netChan.outgoingSequence - 1, netChan.incomingSequence);
 		}
 	}
 

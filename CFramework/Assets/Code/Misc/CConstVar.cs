@@ -17,6 +17,8 @@ public class CConstVar {
 
 	public static int Qport = 8001;
 
+	public static int LocalPort = 0;
+
 	public static int maxClient = 20;
 
 	public static int PMoveMsec = 10;
@@ -82,6 +84,8 @@ public class CConstVar {
 	public const bool LanForcePackets = false;
 
 	public const bool LanForceRate = false;
+
+	public const string	 ServerAddress = "";
 
 	
 

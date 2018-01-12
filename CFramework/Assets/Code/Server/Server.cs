@@ -202,14 +202,16 @@ public class Server : CModule {
 		cmd.TokenizeString(s, false);
 
 		string c = cmd.Argv(0);
-		CLog.Info("SV packet {0} : {1}", from, c);
+		CLog.Info("SV received packet {0} : {1}", from, c);
 
 		switch(c)
 		{
 			case "getstatus":
 				SVCStatus(from);
 				break;
-			case "getinfo":
+			case "getinfo": //带上客户端的端口号
+				int port = Convert.ToInt32(cmd.Argv(2));
+				if(port > 0) from.Port = port;
 				SVCInfo(from);
 				break;
 			case "getchallenge":
@@ -265,15 +267,18 @@ public class Server : CModule {
 		infoStr.Append("infoResponse\n");
 		infoStr.Append("\\").Append("challenge").Append("$").Append(CDataModel.CmdBuffer.Argv(1));
 		infoStr.Append("\\").Append("protocal").Append("$").Append(CConstVar.Protocol);
+		infoStr.Append("\\").Append("port").Append("$").Append(CConstVar.LocalPort);
 		infoStr.Append("\\").Append("clients").Append("$").Append(count);
 		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
-		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
+		infoStr.Append("\\").Append("gamename").Append("$").Append("moba");
 		infoStr.Append("\\").Append("sv_maxclients").Append("$").Append(CConstVar.MAX_CLIENTS);
 		infoStr.Append("\\").Append("minPing").Append("$").Append(CConstVar.minPing);
 		infoStr.Append("\\").Append("maxPing").Append("$").Append(CConstVar.maxPing);
 
 
 		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, infoStr.ToString());
+
+		StringBuilderCache.Release(infoStr);
 	}
 
 	private void DerectConnect(IPEndPoint from)

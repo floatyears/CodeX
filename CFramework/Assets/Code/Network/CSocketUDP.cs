@@ -53,8 +53,10 @@ public class CSocketUDP {
 		
 		for(int i =0; i < 10; i++){
 			try{
-				localEP.Port = CConstVar.SERVER_PORT + i;
+				CConstVar.LocalPort = localEP.Port = CConstVar.SERVER_PORT + i;
 				recvSocket.Bind(localEP);
+
+				// OpenSocks(CConstVar.LocalPort);
 				break;
 			}catch(Exception e){
 
@@ -77,13 +79,20 @@ public class CSocketUDP {
 
 	}
 
-	public void Connect(string ip, int port)
+	public void OpenSocks(int port)
 	{
-		this.ip = IPAddress.Parse(ip);
-		this.port = port;
+		// this.ip = IPAddress.Parse(ip);
+		// this.port = port;
 		//socket.Connect(new IPEndPoint(this.ip, this.port));
-		destEP = new IPEndPoint(this.ip, this.port);
-		sendSocket.Bind(destEP);
+		// destEP = new IPEndPoint(this.ip, this.port);
+		// sendSocket.Bind(destEP);
+		var server = IPAddress.Parse(CConstVar.ServerAddress);
+
+		recvSocket.Connect(server, CConstVar.SERVER_PORT);
+	}
+
+	public int GetLocalPort(){
+		return (recvSocket.LocalEndPoint as IPEndPoint).Port;
 	}
 
 	public void BeginReceive()
@@ -102,7 +111,7 @@ public class CSocketUDP {
 		// IPEndPoint _remote = ar.AsyncState as IPEndPoint;
 		if(count > 0)
 		{
-			CLog.Info("udp socket recieved: {0}, fropm adr:{1}", count, tmp);
+			CLog.Info("udp socket recieved: {0}, from adr:{1}", count, tmp);
 			
 #if CFRAMEWORK_DEBUG
 			try{

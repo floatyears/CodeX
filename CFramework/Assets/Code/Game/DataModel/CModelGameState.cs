@@ -1042,7 +1042,7 @@ public class CModelGameState : CModelBase {
 			for(int j = 0; j < CConstVar.NUM_SERVER_PORTS; j++){
 				IPEndPoint to = new IPEndPoint(IPAddress.Broadcast, CConstVar.SERVER_PORT + j);
 				// CNetwork.Instance.SendPacket(NetSrc.CLIENT, message.Length, message, to);
-				CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, to, "getinfo xxx");
+				CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, to, "getinfo xxx " + CConstVar.LocalPort);
 			}
 		}
 	}
