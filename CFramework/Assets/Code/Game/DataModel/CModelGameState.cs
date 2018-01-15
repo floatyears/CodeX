@@ -1135,9 +1135,11 @@ public class CModelGameState : CModelBase {
 
 	public void ConnectServer(ServerInfo server){
 		var str = StringBuilderCache.Acquire();
-		str.Append("connect\n");
+		str.Append("connect ");
 		str.Append("\\protocol$").Append(CConstVar.Protocol);
-		str.Append("\\qport$").Append(CConstVar.Protocol);
+		str.Append("\\qport$").Append(CConstVar.Qport);
+		str.Append("\\challenge$").Append(1234);
+		str.Append("\\port$").Append(CConstVar.LocalPort);
 		// str.Append("\\password$").Append(CConstVar.Protocol);
 		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, str.ToString());
 		StringBuilderCache.Release(str);

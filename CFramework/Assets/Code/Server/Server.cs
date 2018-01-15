@@ -77,6 +77,13 @@ public class Server : CModule {
 			clients[i] = new ClientNode();
 		}
 		svEntities = new SvEntityState[CConstVar.MAX_GENTITIES];
+		for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
+			svEntities[i] = new SvEntityState();
+		}
+		gEntities = new SharedEntity[CConstVar.MAX_GENTITIES];
+		for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
+			gEntities[i] = new SharedEntity();
+		}
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
 
@@ -192,10 +199,10 @@ public class Server : CModule {
 		packet.BeginReadOOB();
 		packet.ReadInt(); //skip -1 marker
 
-		if(packet.ReadChars(7, 4) == "connect")
-		{
-			HuffmanMsg.Decompress(packet, 12);
-		}
+		// if(packet.ReadChars(7, 4) == "connect")
+		// {
+		// 	HuffmanMsg.Decompress(packet, 12);
+		// }
 
 		string s = packet.ReadStringLine();
 		var cmd = CDataModel.CmdBuffer;
@@ -300,6 +307,9 @@ public class Server : CModule {
 
 		int chNum = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "challenge"));
 		int qport = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "qport"));
+
+		int port = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "port"));
+		from.Port = port;
 
 		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
 			cl = clients[i];
@@ -752,7 +762,7 @@ public class Server : CModule {
 		msg.WriteByte((byte)SVCCmd.EOF);
 
 		//如果有没有发送的fragment，把它们放入缓冲并以正确的顺序发送
-		if(client.netChan.unsentFragments || client.netChanQueue.IsEmpty ){
+		if(client.netChan.unsentFragments || !client.netChanQueue.IsEmpty ){
 			CLog.Info("NetChan Transimit: unsent fragments, stacked");
 			NetChanBuffer netChanBuffer = new NetChanBuffer();
 
@@ -1001,7 +1011,7 @@ public class Server : CModule {
 		int oldNum, newNum;
 		int fromNumEnts;
 
-		if(from != null){
+		if(from == null){
 			fromNumEnts = 0;
 		}else{
 			fromNumEnts = from.numEntities;
@@ -1138,6 +1148,11 @@ public class ClientNode
 		state = ClientState.FREE;
 		netChan = new NetChan();
 		netChanQueue = new CircularBuffer<NetChanBuffer>(10); 
+		frames = new SvClientSnapshot[CConstVar.PACKET_BACKUP];
+		for(int i = 0; i < CConstVar.PACKET_BACKUP; i++){
+			frames[i] = new SvClientSnapshot();
+		}
+		gEntity = new SharedEntity();
 	}
 }
 
@@ -1174,6 +1189,10 @@ public class SvClientSnapshot
 	public int messageAcked;
 
 	public int messageSize; //用来
+
+	public SvClientSnapshot(){
+		playerState = new PlayerState();
+	}
 }
 
 public struct SvChanllenge

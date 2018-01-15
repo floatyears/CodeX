@@ -230,10 +230,11 @@ public class MsgPacket{
 	//读取char
 	public string ReadChars(int len,int start)
 	{
-		if(start >= 0){
-			
+		var chars = new char[len];
+		for(int i = 0; i < len; i++){
+			chars[i] = Convert.ToChar(bytes[i+start]);
 		}
-		return "";
+		return new string(chars);
 	}
 
 	public string ReadStringLine()
@@ -485,25 +486,24 @@ public class MsgPacket{
 
 	}
 	
+	public void WriteFirstInt(int value){
+		var byts = BitConverter.GetBytes(value);
+		Array.Copy(byts, bytes, bytes.Length);
+	}
 
-	public void WriteInt(int value, int pos = -1)
+	public void WriteInt(int value)
 	{
-		if(pos < 0)
-		{
-			pos = curPos;
-		}
-
-		
+		WriteBits(value, 32);
 	}
 
 	public void WriteShort(short value)
 	{
-		
+		WriteBits(value, 16);
 	}
 
 	public void WriteByte(byte value)
 	{
-		
+		WriteBits(value, 8);
 	}
 
 	public void WirteDeltaUserCmdKey(int key, ref UserCmd from, ref UserCmd to){
@@ -613,7 +613,24 @@ public class MsgPacket{
 
 	public void WriteString(string value)
 	{
-		
+		if(string.IsNullOrEmpty(value)){
+			WriteByte(System.Text.Encoding.Default.GetBytes("")[0]);
+		}else{
+			if(value.Length > CConstVar.MAX_STRING_CHARS){
+				WriteByte(System.Text.Encoding.Default.GetBytes("")[0]);
+				CLog.Error("WriteString: MAX_STRING_CHARS overflow");
+				return;
+			}
+
+			var byts = System.Text.Encoding.Default.GetBytes(value);
+			for(int i = 0; i < byts.Length; i++){
+				if(byts[i] > 127 || byts[i] == (byte)'%'){
+					byts[i] = (byte)'.';
+				}
+			}
+
+			WriteData(byts, -1, byts.Length);
+		}
 	}
 
 	public void Copy(MsgPacket dest, byte[] data, int length){

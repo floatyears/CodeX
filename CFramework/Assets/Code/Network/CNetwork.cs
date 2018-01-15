@@ -350,7 +350,7 @@ public class CNetwork : CModule{
 			}
 
 			//保证前面的还是sequence
-			packet.WriteInt(CNetwork.LittleInt(sequence), 0);
+			packet.WriteFirstInt(CNetwork.LittleInt(sequence));
 			packet.WriteData(netChan.fragmentBuffer, 4, netChan.fragmentLength);
 			// packet.CurSize = netChan.fragmentLength + 4;
 			netChan.fragmentLength = 0;
@@ -715,7 +715,7 @@ public class CNetwork : CModule{
 		netChan.lastSentSize = send.CurSize;
 
 		if(CConstVar.ShowPacket > 0){
-			CLog.Info("{0} send {1} : s = {2} ack = {3}", netChan.src, send.CurSize, netChan.outgoingSequence - 1, netChan.incomingSequence);
+			CLog.Info("{0} send {1} : outgoSeq = {2} incomSeq = {3}", netChan.src, send.CurSize, netChan.outgoingSequence - 1, netChan.incomingSequence);
 		}
 	}
 

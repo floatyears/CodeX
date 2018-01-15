@@ -201,7 +201,9 @@ public class CConstVar {
 
 	public const int EVENT_BITS = 0x100 | 0x200;
 
-	
+	public const int MAX_STATS = 16;
+
+	public const int MAX_PERSISTANT = 16;
 
 	public static NetField[] entityStateFields = new NetField[]{
 		

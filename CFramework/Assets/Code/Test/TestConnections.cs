@@ -76,7 +76,7 @@ public class TestConnections : MonoBehaviour {
 			var server = CDataModel.GameState.localServers[i];
 			if(server != null){
 				if(GUILayout.Button(server.hostName)){
-					
+					CDataModel.GameState.ConnectServer(server);
 				}
 			}
 		}

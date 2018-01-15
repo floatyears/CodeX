@@ -537,6 +537,14 @@ public class PlayerState{
 	public int pm_framecount;
 
 	public int entityEventSequence;
+
+	public PlayerState(){
+		delta_angles = new int[3];
+		events = new EntityEventType[CConstVar.MAX_PS_EVENTS];
+		eventParams = new int[CConstVar.MAX_PS_EVENTS];
+		states = new int[CConstVar.MAX_STATS];
+		persistant = new int[CConstVar.MAX_PERSISTANT];
+	}
 }
 
 public struct PMove{
