@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Reflection;
 using System.Net;
+using System.Net.Sockets;
+using System;
 
 public class CModelGameState : CModelBase {
 
@@ -126,13 +128,14 @@ public class CModelGameState : CModelBase {
 
 	private int pingUpdateSource = 0;
 
-	private ServerInfo[] localServers;
+	public ServerInfo[] localServers;
 
 	// Use this for initialization
 	public override void Init () {
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
 		triggerEntities = new List<ClientEntity>();
 		solidEntities = new List<ClientEntity>();
+		localServers = new ServerInfo[CConstVar.MAX_PING_REQUESTS];
 		ClearState();
 
 		update = Update;
@@ -347,6 +350,89 @@ public class CModelGameState : CModelBase {
 		//处理server id和其他信息
 		SystemInfoChanged(s);
 
+	}
+
+	public void ServerInfoPacket(IPEndPoint from, MsgPacket msg)
+	{
+		string infoString = msg.ReadString();
+
+		string gameName = CUtils.GetValueForKey(infoString, "gamename");
+
+		bool gameMismatch = string.IsNullOrEmpty(gameName) || gameName != CConstVar.GameName;
+		if(gameMismatch){
+			CLog.Info("GameName mismatch in info packet: {0}", infoString);
+			return;
+		}
+
+		var protoStr = CUtils.GetValueForKey(infoString, "protocol");
+		int proto = 0;
+		if(string.IsNullOrEmpty(protoStr) || (proto = Convert.ToInt32(protoStr)) == 0 || proto != CConstVar.Protocol){
+			CLog.Info("Different protocal info packet:{0}", infoString);
+			return;
+		}
+
+		for(int i = 0; i < CConstVar.MAX_PING_REQUESTS; i++){
+			var server = localServers[i];
+			if(server == null || server.address.Port > 0 && server.time == 0 && from.Equals(server.address)){
+				if(server == null){
+					server = new ServerInfo();
+				}
+				server.address = from;
+				server.time = CDataModel.InputEvent.Milliseconds() - server.start;
+				CLog.Info("ping time {0} from {1}", server.time, from);
+
+				server.info = infoString;
+
+				int type = 0;
+				if(IPAddress.IsLoopback(from.Address) || from.AddressFamily == AddressFamily.InterNetwork){
+					type = 1;
+				}else if(from.AddressFamily == AddressFamily.InterNetworkV6){
+					type = 2;
+				}
+				
+				CUtils.SetValueForKey(ref server.info, "nettype", type.ToString());
+
+				for (i = 0; i < CConstVar.MAX_OTHER_SERVERS; i++) {
+					if (from.Equals(server.address)) {
+						SetServerInfo(server, server.info, server.time);
+					}
+				}
+
+				localServers[i] = server;
+				
+				break;
+			}
+		}
+
+		// if()
+
+	}
+
+	public void SetServerInfo(ServerInfo server, string info, int ping){
+		if (!string.IsNullOrEmpty(info)){
+			server.clients = Convert.ToInt32(CUtils.GetValueForKey(info, "clients"));
+			server.hostName = CUtils.GetValueForKey(info, "hostname");
+			server.maxClients = Convert.ToInt32(CUtils.GetValueForKey(info, "sv_maxclients"));
+			// server.game = CUtils.GetValueForKey(info, "game");
+			// server.gameType = Convert.ToInt32(CUtils.GetValueForKey(info, "gametype"));
+			server.netType = Convert.ToInt32(CUtils.GetValueForKey(info, "nettype"));
+			server.minPing = Convert.ToInt32(CUtils.GetValueForKey(info, "minPing"));
+			server.maxPing = Convert.ToInt32(CUtils.GetValueForKey(info, "maxPing"));
+			server.address.Port = Convert.ToInt32(CUtils.GetValueForKey(info, "port"));
+			// server.punkBuster = Convert.ToInt32(CUtils.GetValueForKey(info, "punkbuster"));
+			// server.humanPlayers = Convert.ToInt32(CUtils.GetValueForKey(info, "g_humanplayers"));
+			// server.needPass = Convert.ToInt32(CUtils.GetValueForKey(info, "g_needpass"));
+		}
+		server.ping = ping;
+	}
+
+	public void ServerStatusResponse(IPEndPoint from, MsgPacket msg)
+	{
+
+	}
+
+	public void ServerResponsePacket(IPEndPoint from, MsgPacket msg, bool extended)
+	{
 
 	}
 
@@ -1027,7 +1113,7 @@ public class CModelGameState : CModelBase {
 		serverTime = clientActive.snap.serverTime;
 	}
 
-	public void LocalServers(){
+	public void GetLocalServers(){
 		numLocalServers = 0;
 		pingUpdateSource = 0;
 
@@ -1045,6 +1131,15 @@ public class CModelGameState : CModelBase {
 				CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, to, "getinfo xxx " + CConstVar.LocalPort);
 			}
 		}
+	}
+
+	public void ConnectServer(ServerInfo server){
+		var str = StringBuilderCache.Acquire();
+		str.Append("connect\n");
+		str.Append("\\protocol$").Append(CConstVar.Protocol);
+		str.Append("\\qport$").Append(CConstVar.Protocol);
+		// str.Append("\\password$").Append(CConstVar.Protocol);
+		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, );
 	}
 	
 	public override void Dispose () {
@@ -1176,7 +1271,7 @@ public struct NetField{
 	public int bits; //0表示浮点数
 }
 
-public struct ServerInfo{
+public class ServerInfo{
 	public IPEndPoint address;
 
 	public string hostName;
@@ -1204,6 +1299,13 @@ public struct ServerInfo{
 	public int humanPlayers;
 
 	public int needPass;
+
+	//---------
+	public int start;
+
+	public int time;
+
+	public string info;
 }
 
 //每个玩家的信息

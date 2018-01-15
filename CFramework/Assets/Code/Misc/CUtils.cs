@@ -67,6 +67,30 @@ public class CUtils {
 		
 	}
 
+	public static string GetValueForKey(string s, string key){
+		string newkey = "\\" + key;
+		int start = s.IndexOf(newkey);
+		if(start < 0) return "";
+		int end = s.IndexOf("\\", start+1);
+		if(end < 0) end = s.Length;
+		return s.Substring(start + newkey.Length + 1, end - start - newkey.Length - 1);
+	}
+
+	public static void SetValueForKey(ref string s, string key, string value){
+		string newkey = "\\" + key;
+		int start = s.IndexOf(newkey);
+		if(start >= 0){
+			int end = s.IndexOf("\\", start+1);
+			if(end < 0){
+				end = s.Length;
+			}
+			s.Replace(s.Substring(start, end), "\\" + key + "$" + value);
+		}else{
+			s += "\\" + key + "$" + value;
+		}
+	}
+	
+
 	public static int Random(){
 		return 10;
 	}

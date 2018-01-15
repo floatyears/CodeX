@@ -140,7 +140,8 @@ public class CSocketUDP {
 						packet.remoteEP.Port = packet.ReadPort();
 					}else{ //oob数据，暂时是广播的数据
 						packet.CurPos = 0;
-						packet.remoteEP = new IPEndPoint(IPAddress.Broadcast, 0);
+						packet.remoteEP = tmp as IPEndPoint;
+						// packet.remoteEP = new IPEndPoint(IPAddress.Broadcast, 0);
 						
 					}
 				}

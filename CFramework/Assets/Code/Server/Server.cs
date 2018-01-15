@@ -218,7 +218,7 @@ public class Server : CModule {
 				SVCGetChallenge(from);
 				break;
 			case "connect":
-				DerectConnect(from);
+				DirectConnect(from);
 				break;
 			case "rcon":
 				RemoteCommand(from, packet);
@@ -266,10 +266,11 @@ public class Server : CModule {
 		}
 		infoStr.Append("infoResponse\n");
 		infoStr.Append("\\").Append("challenge").Append("$").Append(CDataModel.CmdBuffer.Argv(1));
-		infoStr.Append("\\").Append("protocal").Append("$").Append(CConstVar.Protocol);
+		infoStr.Append("\\").Append("protocol").Append("$").Append(CConstVar.Protocol);
 		infoStr.Append("\\").Append("port").Append("$").Append(CConstVar.LocalPort);
 		infoStr.Append("\\").Append("clients").Append("$").Append(count);
 		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
+		infoStr.Append("\\").Append("hostname").Append("$").Append("test");
 		infoStr.Append("\\").Append("gamename").Append("$").Append("moba");
 		infoStr.Append("\\").Append("sv_maxclients").Append("$").Append(CConstVar.MAX_CLIENTS);
 		infoStr.Append("\\").Append("minPing").Append("$").Append(CConstVar.minPing);
@@ -281,7 +282,7 @@ public class Server : CModule {
 		StringBuilderCache.Release(infoStr);
 	}
 
-	private void DerectConnect(IPEndPoint from)
+	private void DirectConnect(IPEndPoint from)
 	{
 		ClientNode cl = null;
 		int newClIdx = 0;
@@ -290,15 +291,15 @@ public class Server : CModule {
 
 		string ip;
 		var userinfo = CDataModel.CmdBuffer.Argv(1);
-		int version = System.Convert.ToInt32(GetValueForKey(userinfo, "protocol"));
+		int version = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "protocol"));
 
 		if(version != CConstVar.Protocol){
 			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("server protocol mismatches with client. server:%d, client:%d", CConstVar.Protocol, version));
 			return;
 		}
 
-		int chNum = System.Convert.ToInt32(GetValueForKey(userinfo, "challenge"));
-		int qport = System.Convert.ToInt32(GetValueForKey(userinfo, "qport"));
+		int chNum = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "challenge"));
+		int qport = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "qport"));
 
 		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
 			cl = clients[i];
@@ -321,7 +322,7 @@ public class Server : CModule {
 			ip = from.Address.ToString();
 		}
 
-		SetValueForKey(userinfo, "ip", ip);
+		CUtils.SetValueForKey(ref userinfo, "ip", ip);
 		if(IPAddress.IsLoopback(from.Address)){
 			int ping;
 			SvChanllenge ch;
@@ -417,7 +418,7 @@ public class Server : CModule {
 		//找到一个client
 		//如果CConstVar.PrivateClients > 0, 那么会为"password"设置为的客户端保留位置
 		//
-		string pwd = GetValueForKey(userinfo, "password");
+		string pwd = CUtils.GetValueForKey(userinfo, "password");
 		int startIdx = 0;
 		if(pwd == CConstVar.PrivatePwd){
 			//跳过预留的位置
@@ -469,31 +470,6 @@ public class Server : CModule {
 		}
 
 		newClient();
-	}
-
-	
-
-	public static string GetValueForKey(string s, string key){
-		string newkey = "//" + key;
-		int start = s.IndexOf(newkey);
-		if(start < 0) return "";
-		int end = s.IndexOf("//", start);
-		if(end < 0) end = s.Length + 1;
-		return s.Substring(start + newkey.Length + 1, end - start - newkey.Length + 1);
-	}
-
-	public static void SetValueForKey(string s, string key, string value){
-		string newkey = "//" + key;
-		int start = s.IndexOf(newkey);
-		if(start >= 0){
-			int end = s.IndexOf("//", start);
-			if(end < 0){
-				end = s.Length + 1;
-			}
-			s.Replace(s.Substring(start, end), "//" + key + "$" + value);
-		}else{
-			s += "//" + key + "$" + value;
-		}
 	}
 
 	private void RemoteCommand(IPEndPoint from, MsgPacket msg)

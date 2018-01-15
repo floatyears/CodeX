@@ -436,8 +436,6 @@ public class CNetwork : CModule{
 	//而在c#中并没有暴露底层的接口来支持显式发送oob，所以用第一位来表示是否是带外数据
 	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
 	{
-		int challenge = 0;
-
 		msg.BeginReadOOB();
 		msg.ReadInt(); //skip -1
 		string s = msg.ReadStringLine();
@@ -446,93 +444,29 @@ public class CNetwork : CModule{
 		string c = cmd.Argv(0);
 		CLog.Info("Client Packet {0} : {1}", from, c);
 
-		var connection = CDataModel.Connection;
 		if(c == "challengeResponse")
 		{
-			if(CDataModel.Connection.state == ConnectionState.CONNECTING)
-			{
-				CLog.Info("Unwanted challenge response recieved. Ignored.");
-				return;
-			}
-
-			int ver = 0;
-			c = cmd.Argv(2);
-			if(!string.IsNullOrEmpty(c))
-			{
-				challenge = Convert.ToInt32(c);
-			}
-			string sver = cmd.Argv(3);
-			if(!string.IsNullOrEmpty(sver)){
-				ver = Convert.ToInt32(sver);
-			}
-
-			if(string.IsNullOrEmpty(c) || challenge != connection.challenge)
-			{
-				CLog.Info("Bad challenge for challengeResponse. Ignored.");
-				return;
-			}
-
-			//发送challenge response，而不是challenge request packets
-			connection.challenge = Convert.ToInt32(cmd.Argv(1));
-			connection.state = ConnectionState.CHALLENGING;
-			connection.connectPacketCount = 0;
-			connection.connectTime = -99999;
-
-			//使用这个地址作为新的服务器地址。这允许服务器代理处理到多个服务器的连接
-			connection.serverAddress = from;
+			CDataModel.Connection.PacketChallengeResponse(from, msg);
 			return;
 		}
 
 		//服务器连接
 		if(c == "connectResponse")
 		{
-			if(connection.state >= ConnectionState.CONNECTED)
-			{
-				CLog.Info("Dup connect recieved. Ignored.");
-				return;
-			}
-
-			if(connection.state != ConnectionState.CHALLENGING)
-			{
-				CLog.Info("connectResponse packet while not connecting. Ignored.");
-				return;
-			}
-			if(from != connection.serverAddress)
-			{
-				CLog.Info("connectResponse from wrong address. Ignored.");
-				return;
-			}
-
-			c = cmd.Argv(1);
-			if(!string.IsNullOrEmpty(c))
-			{
-				challenge = Convert.ToInt32(c);
-			}else{
-				CLog.Info("Bad connectResponse recieved. Ignored.");
-				return;
-			}
-			if(challenge != connection.challenge)
-			{
-				CLog.Info("ConnectionResponse with bad challenge received. Ignored.");
-				return;
-			}
-
-			connection.NetChanSetup(NetSrc.CLIENT, from, CConstVar.Qport, connection.challenge);
-			connection.state = ConnectionState.CONNECTED;
-			connection.lastPacketSentTime = -9999; //立即发送第一个数据包
+			CDataModel.Connection.PacketConnectResponse(from, msg);
 			return;
 		}
 
 		//服务器返回信息
 		if(c == "infoResponse")
 		{
-			ServerInfoPacket(from, msg);
+			CDataModel.GameState.ServerInfoPacket(from, msg);
 			return;
 		}
 
 		if(c == "statusResponse")
 		{
-			ServerStatusResponse(from, msg);
+			CDataModel.GameState.ServerStatusResponse(from, msg);
 			return;
 		}
 
@@ -548,50 +482,15 @@ public class CNetwork : CModule{
 
 		if(c == "getserversResponse")
 		{
-			ServerResponsePacket(from, msg, false);
+			CDataModel.GameState.ServerResponsePacket(from, msg, false);
 			return;
 		}
 
 		if(c == "getserversExtResponse")
 		{
-			ServerResponsePacket(from, msg, true);
+			CDataModel.GameState.ServerResponsePacket(from, msg, true);
 			return;
 		}
-
-	}
-
-	private void ServerStatusResponse(IPEndPoint from, MsgPacket msg)
-	{
-
-	}
-
-	private void ServerResponsePacket(IPEndPoint from, MsgPacket msg, bool extended)
-	{
-
-	}
-
-	private void ServerInfoPacket(IPEndPoint from, MsgPacket msg)
-	{
-		string infoString = msg.ReadString();
-
-		string gameName = Server.GetValueForKey(infoString, "gamename");
-
-		bool gameMismatch = string.IsNullOrEmpty(gameName) || gameName != CConstVar.GameName;
-		if(gameMismatch){
-			CLog.Info("GameName mismatch in info packet: {0}", infoString);
-			return;
-		}
-		int proto = Convert.ToInt32(Server.GetValueForKey(infoString, "protocol"));
-		if(proto != CConstVar.Protocol){
-			CLog.Info("Different protocal info packet:{0}", infoString);
-			return;
-		}
-
-		for(int i = 0; i < CConstVar.MAX_PING_REQUESTS; i++){
-			// if()
-		}
-
-		// if()
 
 	}
 

@@ -119,6 +119,79 @@ public class CModelConnection : CModelBase {
 		netChan.challenge = challenge;
 	}
 
+	public void PacketConnectResponse(IPEndPoint from, MsgPacket msg){
+		if(state >= ConnectionState.CONNECTED)
+		{
+			CLog.Info("Dup connect recieved. Ignored.");
+			return;
+		}
+
+		if(state != ConnectionState.CHALLENGING)
+		{
+			CLog.Info("connectResponse packet while not connecting. Ignored.");
+			return;
+		}
+		if(from != serverAddress)
+		{
+			CLog.Info("connectResponse from wrong address. Ignored.");
+			return;
+		}
+
+		string c = CDataModel.CmdBuffer.Argv(1);
+		if(!string.IsNullOrEmpty(c))
+		{
+			challenge = Convert.ToInt32(c);
+		}else{
+			CLog.Info("Bad connectResponse recieved. Ignored.");
+			return;
+		}
+		if(challenge != challenge)
+		{
+			CLog.Info("ConnectionResponse with bad challenge received. Ignored.");
+			return;
+		}
+
+		NetChanSetup(NetSrc.CLIENT, from, CConstVar.Qport, challenge);
+		state = ConnectionState.CONNECTED;
+		lastPacketSentTime = -9999; //立即发送第一个数据包
+	}
+
+	public void PacketChallengeResponse(IPEndPoint from, MsgPacket msg){
+		if(CDataModel.Connection.state == ConnectionState.CONNECTING)
+		{
+			CLog.Info("Unwanted challenge response recieved. Ignored.");
+			return;
+		}
+
+		int ch = 0;
+		int ver = 0;
+		var cmd = CDataModel.CmdBuffer;
+		string c = cmd.Argv(2);
+		if(!string.IsNullOrEmpty(c))
+		{
+			ch = Convert.ToInt32(c);
+		}
+		string sver = cmd.Argv(3);
+		if(!string.IsNullOrEmpty(sver)){
+			ver = Convert.ToInt32(sver);
+		}
+
+		if(string.IsNullOrEmpty(c) || ch != challenge)
+		{
+			CLog.Info("Bad challenge for challengeResponse. Ignored.");
+			return;
+		}
+
+		//发送challenge response，而不是challenge request packets
+		challenge = Convert.ToInt32(cmd.Argv(1));
+		state = ConnectionState.CHALLENGING;
+		connectPacketCount = 0;
+		connectTime = -99999;
+
+		//使用这个地址作为新的服务器地址。这允许服务器代理处理到多个服务器的连接
+		serverAddress = from;
+	}
+
 	public override void Dispose()
 	{
 		inited = false;

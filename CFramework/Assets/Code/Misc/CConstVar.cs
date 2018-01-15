@@ -69,7 +69,7 @@ public class CConstVar {
 
 	public static string PrivatePwd = "server_passwd";
 
-	public static string GameName = "test_game";
+	public static string GameName = "moba";
 	
 	public static bool SV_PAUSE = false;
 
@@ -86,6 +86,8 @@ public class CConstVar {
 	public const bool LanForceRate = false;
 
 	public const string	 ServerAddress = "";
+
+	public const int MAX_SERVER_NUM = 32;
 
 	
 

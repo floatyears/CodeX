@@ -31,6 +31,7 @@ public class TestConnections : MonoBehaviour {
 		// 	udp.BeginReceive(action, null);
 		// };
 		// udp.BeginReceive(action,null);
+		isServer = CDataModel.Connection.ServerRunning;
 	}
 	
 	// Update is called once per frame
@@ -45,23 +46,42 @@ public class TestConnections : MonoBehaviour {
 
 
 	private void OnGUI() {
-		if(GUILayout.Button("刷新服务器",GUILayout.Height(100), GUILayout.Width(300))){
-			CDataModel.GameState.LocalServers();
+		GUILayout.BeginHorizontal();
+
+		GUILayout.BeginVertical(GUILayout.Width(300));
+		if(GUILayout.Button("刷新服务器",GUILayout.Height(40), GUILayout.Width(300))){
+			CDataModel.GameState.GetLocalServers();
 		}
-		if(GUILayout.Button("清空",GUILayout.Height(100), GUILayout.Width(300))){
+		if(GUILayout.Button("清空",GUILayout.Height(40), GUILayout.Width(300))){
 			log = "";
 		}
 		if(isServer){
-			if(GUILayout.Button("关闭服务器",GUILayout.Height(100), GUILayout.Width(300))){
+			if(GUILayout.Button("关闭服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
 				CDataModel.Connection.ServerRunning = isServer;
 			}
 		}else{
-			if(GUILayout.Button("开启服务器",GUILayout.Height(100), GUILayout.Width(300))){
+			if(GUILayout.Button("开启服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
 				CDataModel.Connection.ServerRunning = isServer;
 			}
 		}
 		GUILayout.TextArea(log);
+		GUILayout.EndVertical();
+
+		GUILayout.BeginVertical(GUILayout.Width(300));
+
+		int count = CDataModel.GameState.localServers.Length;
+		for(int i = 0; i < count; i++){
+			var server = CDataModel.GameState.localServers[i];
+			if(server != null){
+				if(GUILayout.Button(server.hostName)){
+					
+				}
+			}
+		}
+
+		GUILayout.EndVertical();
+		GUILayout.EndHorizontal();
 	}
 }
