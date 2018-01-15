@@ -1139,7 +1139,8 @@ public class CModelGameState : CModelBase {
 		str.Append("\\protocol$").Append(CConstVar.Protocol);
 		str.Append("\\qport$").Append(CConstVar.Protocol);
 		// str.Append("\\password$").Append(CConstVar.Protocol);
-		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, );
+		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, str.ToString());
+		StringBuilderCache.Release(str);
 	}
 	
 	public override void Dispose () {
