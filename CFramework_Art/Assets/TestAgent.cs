@@ -29,6 +29,8 @@ public class TestAgent : MonoBehaviour {
 
 	private NavMeshAgent agent;
 
+	private float scrollDelta;
+
 	// Use this for initialization
 	void Start () {
 		cam = Camera.main;
@@ -39,9 +41,9 @@ public class TestAgent : MonoBehaviour {
 		maxX = 64f;
 		minY = 4.3f;
 		maxY = 11.6f;
-		minZ = 0f;
-		maxZ = 30f;
-		speed = new Vector3(0.022f,-0.022f,0f);
+		minZ = 50f;
+		maxZ = 100f;
+		speed = new Vector3(0.022f,-0.022f,0.1f);
 
 		agent = GetComponent<NavMeshAgent>();
 	}
@@ -52,10 +54,11 @@ public class TestAgent : MonoBehaviour {
 		// 	mouseDelta = Input.mousePosition;
 		// }
 		// if(Input.GetMouseButton(0)){
-		// 	var temp = mouseDelta;
-		// 	mouseDelta = Input.mousePosition;
-		// 	temp = mouseDelta - temp;
-		// 	temp.z = 0;
+		// 	RaycastHit hit;
+		// 	if(Physics.Raycast(cam.ScreenPointToRay(Input.mousePosition), out hit)){
+		// 		hit.collider.
+		// 	}
+		// }
 			
 		// 	if(cam != null){
 		// 		var camPos = cam.transform.position;
@@ -70,22 +73,34 @@ public class TestAgent : MonoBehaviour {
 		// }
 
 		if(Input.GetKey(KeyCode.D)){ //左
-			agent.Move(Vector3.left);
+			agent.SetDestination(agent.transform.position + Vector3.left * speed.z);// .Move(Vector3.left * speed.z);
 		}else if(Input.GetKey(KeyCode.W)){
-			agent.Move(Vector3.back);
+			// agent.Move(Vector3.back* speed.wz);
+			agent.SetDestination(agent.transform.position + Vector3.back* speed.z);
 		}else if(Input.GetKey(KeyCode.S)){
-			agent.Move(Vector3.forward);
+			// agent.Move(Vector3.forward* speed.z);
+			agent.SetDestination(agent.transform.position + Vector3.forward* speed.z);
 		}else if(Input.GetKey(KeyCode.A)){ //下
-			agent.Move(Vector3.right);
+			// agent.Move(Vector3.right* speed.z);
+			agent.SetDestination(agent.transform.position + Vector3.right* speed.z);
 		}else if(Input.GetKey(KeyCode.Space)){ //跳跃
-
+			agent.SetDestination(new Vector3(38f, 4.6f, 0f));
+			if(agent.isOnOffMeshLink){
+				var endpos = agent.currentOffMeshLinkData.endPos;
+				if(endpos != agent.transform.position){
+					agent.transform.position = Vector3.MoveTowards(agent.transform.position, endpos, agent.speed* Time.deltaTime);
+				}
+			}
 		}
 
-		if(Input.mouseScrollDelta.y !=0f){
+		if(Input.mouseScrollDelta.y != 0f){
+			scrollDelta += Input.mouseScrollDelta.y;
 			z += Input.mouseScrollDelta.y;
-			z = Mathf.Max(z, 0f);
-			z = Mathf.Min(z, 30f);
+			z = Mathf.Max(z, minZ);
+			z = Mathf.Min(z, maxZ);
 		}
+		// scrollDelta -= 
+		
 
 		var temp = transform.position;
 		temp.z = z;

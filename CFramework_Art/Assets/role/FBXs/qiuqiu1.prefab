@@ -201,8 +201,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4996647926581398}
   - component: {fileID: 95137398051823094}
-  - component: {fileID: 195997915113576266}
-  - component: {fileID: 114244678252266276}
   m_Layer: 0
   m_Name: qiuqiu1
   m_TagString: Untagged
@@ -1113,7 +1111,7 @@ Transform:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1437648646282620}
   m_LocalRotation: {x: 0.10279694, y: -0.7344569, z: -0.114215605, w: 0.66103005}
-  m_LocalPosition: {x: 50.87, y: 2.1, z: -1.11}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_Children:
   - {fileID: 4974788478858124}
@@ -1138,22 +1136,6 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
---- !u!114 &114244678252266276
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1437648646282620}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ce275b23881628b4d8cda0d4391dc83e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  minX: -64
-  maxX: 64
-  minY: 4.3
-  maxY: 11.6
-  speed: {x: 0, y: 0, z: 0}
 --- !u!137 &137069123852036020
 SkinnedMeshRenderer:
   m_ObjectHideFlags: 1
@@ -1229,24 +1211,3 @@ SkinnedMeshRenderer:
     m_Center: {x: -8.34569, y: -0.473536, z: 0.09654093}
     m_Extent: {x: 9.612091, y: 6.291369, z: 5.219596}
   m_DirtyAABB: 0
---- !u!195 &195997915113576266
-NavMeshAgent:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1437648646282620}
-  m_Enabled: 1
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 0
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
