@@ -16,7 +16,7 @@ public class CLog {
 	{
 #if UNITY_EDITOR || UNITY_STANDALONE || UNITY_IOS
 		Debug.Log(string.Format(format, msg));
-		TestConnections.AddLog(string.Format(format, msg));
+		// TestConnections.AddLog(string.Format(format, msg));
 #endif
 	}
 
@@ -24,7 +24,7 @@ public class CLog {
 	{
 #if UNITY_EDITOR || UNITY_STANDALONE || UNITY_IOS
 		Debug.Log(string.Format(format, args));
-		TestConnections.AddLog(string.Format(format, args));
+		// TestConnections.AddLog(string.Format(format, args));
 #endif
 	}
 

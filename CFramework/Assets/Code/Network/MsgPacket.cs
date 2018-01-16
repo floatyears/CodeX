@@ -603,7 +603,7 @@ public class MsgPacket{
 			}
 			if(bits != 0){
 				for(i = 0; i < bits; i += 8){
-					HuffmanMsg.OffsetTransmit(HuffmanMsg.compresser, (value & 0xff), bytes, bit);
+					HuffmanMsg.OffsetTransmit(HuffmanMsg.compresser, (value & 0xff), bytes, ref bit);
 					value = (value >> 8);
 				}
 			}
