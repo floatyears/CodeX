@@ -311,12 +311,14 @@ public class HuffmanMsg{
 				if(huff.lhead.next.weight == 1){
 					tnode2.head = huff.lhead.next.head;
 				}else{
+					CLog.Info("addref {0}",huff.blocNode);
 					tnode2.head = GetPPNode(huff);
-					tnode2.head.ptr = tnode2;
+					tnode2.head.SetValue(tnode2) ;
 				}
 			}else{
+				CLog.Info("addref {0}", huff.blocNode);
 				tnode2.head = GetPPNode(huff);
-				tnode2.head.ptr = tnode2;
+				tnode2.head.SetValue(tnode2);
 			}
 
 			huff.lhead.next = tnode2;
@@ -331,11 +333,11 @@ public class HuffmanMsg{
 					tnode.head = huff.lhead.next.head;
 				}else{
 					tnode.head = GetPPNode(huff);
-					tnode.head.ptr = tnode2;
+					tnode.head.SetValue(tnode2);
 				}
 			}else{
 				tnode.head = GetPPNode(huff);
-				tnode.head.ptr = tnode;
+				tnode.head.SetValue(tnode);
 			}
 
 			huff.lhead.next = tnode;
@@ -380,9 +382,9 @@ public class HuffmanMsg{
 			Swaplist(ref lnode, ref node);
 		}
 		if(node.prev != null && node.prev.weight == node.weight){
-			node.head.ptr = node.prev;
+			node.head.SetValue(node.prev);
 		}else{
-			node.head.ptr = null;
+			node.head.SetValue(null) ;
 			FreePPNode(huff, node.head);
 		}
 
@@ -391,6 +393,11 @@ public class HuffmanMsg{
 			node.head = node.next.head;
 		}else{
 			node.head = GetPPNode(huff);
+			try{
+				node.head.SetValue(node);
+			}catch(System.Exception e){
+				CLog.Error("error:{0}", e.Message);
+			}
 		}
 
 		if(node.parent != null){
@@ -398,7 +405,7 @@ public class HuffmanMsg{
 			if(node.prev == node.parent){
 				Swaplist(ref node, ref node.parent);
 				if(node.head.ptr == node){
-					node.head.ptr = node.parent;
+					node.head.SetValue(node.parent);
 				}
 			}
 		}
@@ -465,24 +472,28 @@ public class HuffmanMsg{
 	}
 
 	private static void FreePPNode(HuffmanTree huff, HuffNodePtr ppnode){
-		ppnode.ptr = huff.freeList.ptr;
+		ppnode.SetValue(null);//huff.freeList.ptr;
 		huff.freeList = ppnode;
 	}
 
 	private static HuffNodePtr GetPPNode(HuffmanTree huff){
 		HuffNodePtr tppnode;
-		if(huff.freeList.ptr == null){
+		if(huff.freeList == null){
 			try{
-				return huff.nodePtrs[huff.blocPtrs++];
+				var tmp = new HuffNodePtr();
+				tmp.idx = huff.blocPtrs++;
+				tmp.array = huff.nodePtrs;
+				return tmp;
 			}catch(System.Exception e){
-				CLog.Info("error:", e.Message);
+				CLog.Info("error:{0}", e.Message);
 				return null;
 			}
 		}else{
 			tppnode = huff.freeList;
-			var tmp = new HuffNodePtr();
-			tmp.ptr = tppnode.ptr.left;
-			huff.freeList = tmp;
+			huff.freeList = null;
+			// var tmp = new HuffNodePtr();
+			// tmp.ptr = tppnode.ptr.left;
+			// huff.freeList = tmp;
 			return tppnode;
 		}
 	}
@@ -576,26 +587,26 @@ public class HuffmanTree
 
 	public HuffmanNode[] nodeList;
 
-	public HuffNodePtr[] nodePtrs;
+	public HuffmanNode[] nodePtrs;
 
 	public int ptrIndex;
 
 	public HuffmanTree(bool isCompresser){
 		loc = new HuffmanNode[CConstVar.HUFF_MAX+1];
-		for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
-			loc[i] = new HuffmanNode();
-		}
+		// for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
+		// 	loc[i] = new HuffmanNode();
+		// }
 
 		nodeList = new HuffmanNode[768];
-		
 		for(int i = 0; i < 768; i ++){
 			nodeList[i] = new HuffmanNode();
 		}
 
-		nodePtrs = new HuffNodePtr[768];
-		for(int i = 0; i < 768; i++){
-			nodePtrs[i] = new HuffNodePtr();
-		}
+		nodePtrs = new HuffmanNode[768];
+		// for(int i = 0; i < 768; i++){
+		// 	nodePtrs[i] = new HuffNodePtr();
+		// 	nodePtrs[i].id = i;
+		// }
 		// huffmanMsg.compresser.loc = new HuffmanNode[768];
 
 		if(isCompresser){
@@ -604,12 +615,16 @@ public class HuffmanTree
 			tree = lhead = ltail = loc[CConstVar.HUFF_MAX] = nodeList[blocNode++];
 		}
 
-		freeList = new HuffNodePtr();
+		// freeList = new HuffNodePtr();
 
 		tree.symbol = CConstVar.HUFF_MAX;
 		tree.weight = 0;
 		lhead.next = lhead.prev = null;
 		tree.parent = tree.left = tree.right = null;
+
+		if(isCompresser){
+
+		}
 	}
 
 }
@@ -643,4 +658,15 @@ public class HuffmanNode
 
 public class HuffNodePtr{
 	public HuffmanNode ptr;
+
+	public int id;
+
+	public HuffmanNode[] array;
+
+	public int idx = 0;
+
+	public void SetValue(HuffmanNode value){
+		array[idx] = value;
+		ptr = value;
+	}
 }
