@@ -71,7 +71,7 @@ public class CSocketUDP {
 		// IPAddress.IsLoopback(remoteEP.Address);
 		curPacket = 0;
 
-		
+		// HuffmanMsg.Init();
 	}
 
 	public void Dispose()

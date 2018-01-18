@@ -64,6 +64,7 @@ public class TestConnections : MonoBehaviour {
 			if(GUILayout.Button("开启服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
 				CDataModel.Connection.ServerRunning = isServer;
+				HuffmanMsg.Init();
 			}
 		}
 		GUILayout.TextArea(log);

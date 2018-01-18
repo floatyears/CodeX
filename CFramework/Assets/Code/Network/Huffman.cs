@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System;
 using System.Runtime.InteropServices;
+using System;
 
 public class HuffmanMsg{
 
@@ -276,6 +276,15 @@ public class HuffmanMsg{
 	private static int m = 0;
 	private static int n = 0;
 
+	#if !UNITY_EDITOR && UNITY_IPHONE
+        const string HuffmanDLL = "__Internal";
+	#else
+		const string HuffmanDLL = "HuffmanInit";
+	#endif  
+
+	[DllImport(HuffmanDLL, CallingConvention = CallingConvention.Cdecl)]
+	public extern static IntPtr InitHuffman(IntPtr compressor, IntPtr decompresser);
+
 	public static void Init()
 	{
 		if(inited) return;
@@ -286,25 +295,16 @@ public class HuffmanMsg{
 		
 		for(int i = 0; i < 256; i++){
 			for(int j = 0; j < msg_hData[i]; j++){
-				// try{
-					AddRef(HuffmanMsg.compresser, (byte)i);
-				// }catch(System.Exception e){
-				// 	CLog.Info("i:{0}, j:{1}", i, j);
-				// 	break;
-				// }
-				// AddRef(HuffmanMsg.decompresser, (byte)i);
+				AddRef(HuffmanMsg.compresser, (byte)i);
+				AddRef(HuffmanMsg.decompresser, (byte)i);
 			}
 		}
-	}
-
-	public static void Update(){
-		for(int i = 0; i < 100; i++){
-if(n == 256) return;
-		if(m == msg_hData[n]) {n++; return;}
-		AddRef(HuffmanMsg.compresser, (byte)n);
-		m++;
-		}
-		
+		// IntPtr compPtr = Marshal.AllocHGlobal(Marshal.SizeOf(HuffmanTree));
+		// IntPtr decompPtr = new IntPtr();
+		// Marshal.StructureToPtr(HuffmanMsg.decompresser, compPtr, false);
+		// Marshal.StructureToPtr(HuffmanMsg.decompresser, decompPtr, false);
+		// InitHuffman(HuffmanMsg.compresser, HuffmanMsg.decompresser);
+		int a = 1;
 	}
 
 	public static void Compress(MsgPacket packet, int offset)
@@ -317,203 +317,216 @@ if(n == 256) return;
 
 	}
 
-	private static void AddRef(HuffmanTree huff, byte ch){
-		HuffNodePtr tnode;
-		HuffNodePtr tnode2;
+	unsafe private static void AddRef(HuffmanTree huff, byte ch){
 		if(huff.loc[ch] == null){
-			tnode = new HuffNodePtr(huff.nodeList[huff.blocNode++]);
-			tnode2 = new HuffNodePtr(huff.nodeList[huff.blocNode++]);
+			fixed(HuffmanNode* tnode = &huff.nodeList[huff.blocNode++])
+			{
+				fixed(HuffmanNode* tnode2 = &huff.nodeList[huff.blocNode++])
+				{
+					tnode2->symbol = CConstVar.HUFF_INTERNAL_NODE;
+					tnode2->weight = 1;
+					tnode2->next = huff.lhead->next;
+					if(huff.lhead->next != null){
+						huff.lhead->next->prev = tnode2;
+						if(huff.lhead->next->weight == 1){
+							tnode2->head = huff.lhead->next->head;
+						}else{
+							tnode2->head = GetPPNode(huff);
+							*tnode2->head = tnode2;
+						}
+					}else{
+						tnode2->head = GetPPNode(huff);
+						// tnode2.head.ptr = tnode2;
+						// Marshal.StructureToPtr(tnode2, tnode2.head.ptr, false) ;
+						*tnode2->head = tnode2;
+					}
 
-			tnode2.ptr.symbol = CConstVar.HUFF_INTERNAL_NODE;
-			tnode2.ptr.weight = 1;
-			tnode2.ptr.next = huff.lhead.ptr.next;
-			if(huff.lhead.ptr.next != null){
-				huff.lhead.ptr.next.ptr.prev = tnode2;
-				if(huff.lhead.ptr.next.ptr.weight == 1){
-					tnode2.ptr.head = huff.lhead.ptr.next.ptr.head;
-				}else{
-					CLog.Info("addref {0}",huff.blocNode);
-					tnode2.ptr.head = GetPPNode(huff);
-					// tnode2.ptr.head.ptr = tnode2;//.SetValue(tnode2) ;
-					Marshal.StructureToPtr(tnode2, tnode2.ptr.head.ptr, false);
+					huff.lhead->next = tnode2;
+					tnode2->prev = huff.lhead;
+
+					tnode->symbol = ch;
+					tnode->weight = 1;
+					tnode->next = huff.lhead->next;
+					if(huff.lhead->next != null){
+						huff.lhead->next->prev = tnode;
+						// CLog.Info("weight:{0}", huff.lhead->next->weight);
+						
+						if(huff.lhead->next->weight == 1){
+							tnode->head = huff.lhead->next->head;
+						}else{
+							CLog.Error("should never happen 1");
+							tnode->head = GetPPNode(huff);
+							// tnode.head.ptr = tnode2;
+							// Marshal.StructureToPtr(tnode2, tnode->head.ptr, false) ;
+							*tnode->head = tnode2;
+						}
+					}else{
+						CLog.Error("should never happen 2");
+						tnode->head = GetPPNode(huff);
+						// tnode.head.ptr = tnode;
+						// Marshal.StructureToPtr(tnode, tnode.head.ptr, false) ;
+						*tnode->head = tnode;
+					}
+
+					huff.lhead->next = tnode;
+					tnode->prev = huff.lhead;
+					tnode->left = tnode->right = null;
+
+					if(huff.lhead->parent != null){
+						if(huff.lhead->parent->left == huff.lhead){
+							huff.lhead->parent->left = tnode2;
+						}else{
+							huff.lhead->parent->right = tnode2;
+						}
+					}else{
+						huff.tree = tnode2;
+					}
+
+					tnode2->right = tnode;
+					tnode2->left = huff.lhead;
+
+					tnode2->parent = huff.lhead->parent;
+					huff.lhead->parent = tnode->parent = tnode2;
+
+					huff.loc[ch] = tnode;
+
+					Increment(huff,tnode2->parent);
 				}
-			}else{
-				CLog.Info("addref {0}", huff.blocNode);
-				tnode2.ptr.head = GetPPNode(huff);
-				// tnode2.ptr.head.ptr = tnode2;//.SetValue(tnode2);
-				Marshal.StructureToPtr(tnode2, tnode2.ptr.head.ptr, false);
 			}
-
-			huff.lhead.ptr.next = tnode2;
-			tnode2.ptr.prev = huff.lhead;
-
-			tnode.ptr.symbol = ch;
-			tnode.ptr.weight = 1;
-			tnode.ptr.next = huff.lhead.ptr.next;
-			if(huff.lhead.ptr.next != null){
-				huff.lhead.ptr.next.ptr.prev = tnode;
-				if(huff.lhead.ptr.next.ptr.weight == 1){
-					tnode.ptr.head = huff.lhead.ptr.next.ptr.head;
-				}else{
-					CLog.Error("should never happen 1");
-					tnode.ptr.head = GetPPNode(huff);
-					// tnode.ptr.head.ptr = tnode2;// .SetValue(tnode2);
-					Marshal.StructureToPtr(tnode2, tnode.ptr.head.ptr, false);
-				}
-			}else{
-				CLog.Error("should never happen 2");
-				tnode.ptr.head = GetPPNode(huff);
-				// tnode.ptr.head.ptr = tnode2; //.SetValue(tnode);
-				Marshal.StructureToPtr(tnode2, tnode.ptr.head.ptr, false);
-			}
-
-			huff.lhead.ptr.next = tnode;
-			tnode.ptr.prev = huff.lhead;
-			tnode.ptr.left = tnode.ptr.right = null;
-
-			if(huff.lhead.ptr.parent != null){
-				if(huff.lhead.ptr.parent.ptr.left == huff.lhead){
-					huff.lhead.ptr.parent.ptr.left = tnode2;
-				}else{
-					huff.lhead.ptr.parent.ptr.right = tnode2;
-				}
-			}else{
-				huff.tree = tnode2;
-			}
-
-			tnode2.ptr.right = tnode;
-			tnode2.ptr.left = huff.lhead;
-
-			tnode2.ptr.parent = huff.lhead.ptr.parent;
-			huff.lhead.ptr.parent = tnode.ptr.parent = tnode2;
-
-			huff.loc[ch] = tnode;
-
-			Increment(huff, tnode2.ptr.parent);
 		}else{
 			Increment(huff,huff.loc[ch]);
 		}
 	}
 
-	private static void Increment(HuffmanTree huff, HuffNodePtr node){
-		HuffNodePtr lnode;
+	unsafe private static void Increment(HuffmanTree huff, HuffmanNode* node){
+		HuffmanNode* lnode;
 		if(node == null){
 			return;
 		}
 
-		if(node.ptr.next != null && node.ptr.next.ptr.weight == node.ptr.weight){
-			lnode = Marshal.PtrToStructure(node.ptr.head.ptr, typeof(HuffNodePtr));
-			if(lnode != node.ptr.parent){
+		if(node->next != null && node->next->weight == node->weight){
+			// lnode = (HuffmanNode)Marshal.PtrToStructure(node->head, typeof(HuffmanNode)) ;
+			lnode = *node->head;
+			if(lnode != node->parent){
 				Swap(huff, lnode, node);
 			}
 			Swaplist(lnode, node);
 		}
-		if(node.ptr.prev != null && node.ptr.prev.ptr.weight == node.ptr.weight){
-			node.ptr.head.ptr = node.ptr.prev;
+		if(node->prev != null && node->prev->weight == node->weight){
+			// Marshal.StructureToPtr(node->prev, node->head.ptr, false) ;
+			*node->head = node->prev;
 		}else{
-			// node.ptr.head.SetValue(null) ;
-			node.ptr.head.ptr = null;
-			FreePPNode(huff, node.ptr.head);
+			*node->head = null;
+			FreePPNode(huff, node->head);
 		}
 
-		node.ptr.weight++;
-		if(node.ptr.next != null && node.ptr.next.ptr.weight == node.ptr.weight){
-			node.ptr.head = node.ptr.next.ptr.head;
+		node->weight++;
+		if(node->next != null && node->next->weight == node->weight){
+			node->head = node->next->head;
 		}else{
-			node.ptr.head = GetPPNode(huff);
-			try{
-				// node.ptr.head.SetValue(node);
-			}catch(System.Exception e){
-				CLog.Error("error:{0},{1}", e.Message,0);
-			}
+			node->head = GetPPNode(huff);
+			// node.head.ptr = node;
+			// Marshal.StructureToPtr(node, node.head.ptr, false) ;
+			*node->head = node;
 		}
 
-		if(node.ptr.parent != null){
-			Increment(huff, node.ptr.parent);
-			if(node.ptr.prev == node.ptr.parent){
-				Swaplist(node, node.ptr.parent);
-				if(node.ptr.head.ptr == node){
-					// node.ptr.head.SetValue(node.parent);
-					node.ptr.head.ptr = node.ptr.parent;
+		if(node->parent != null){
+			Increment(huff, node->parent);
+			if(node->prev == node->parent){
+				Swaplist(node, node->parent);
+				// var ptr = new IntPtr();
+				// Marshal.StructureToPtr(node,ptr,false);
+				if(*node->head == node){
+					// Marshal.StructureToPtr(node.parent,node.head.ptr,false) ;
+					*node->head = node->parent;
 				}
 			}
 		}
 	}
 
-	private static void Swap(HuffmanTree huff, HuffNodePtr node1, HuffNodePtr node2){
-		HuffNodePtr par1, par2;
+	unsafe private static void Swap(HuffmanTree huff, HuffmanNode* node1, HuffmanNode* node2){
+		HuffmanNode* par1;
+		HuffmanNode* par2;
 
-		par1 = node1.ptr.parent;
-		par2 = node2.ptr.parent;
+		par1 = node1->parent;
+		par2 = node2->parent;
 
 		if(par1 != null){
-			if(par1.ptr.left == node1){
-				par1.ptr.left = node2;
+			if(par1->left == node1){
+				par1->left = node2;
 			}else{
-				par1.ptr.right = node2;
+				par1->right = node2;
 			}
 		}else{
 			huff.tree = node2;
 		}
 
 		if(par2 != null){
-			if(par2.ptr.left == node2){
-				par2.ptr.left = node1;
+			if(par2->left == node2){
+				par2->left = node1;
 			}else{
-				par2.ptr.right = node1;
+				par2->right = node1;
 			}
 		}else{
 			huff.tree = node1;
 		}
 
-		node1.ptr.parent = par2;
-		node1.ptr.parent = par1;
+		node1->parent = par2;
+		node1->parent = par1;
 	}
 
-	private static void Swaplist(HuffNodePtr node1, HuffNodePtr node2){
-		HuffNodePtr par1;
-		par1 = node1.ptr.next;
-		node1.ptr.next = node2.ptr.next;
-		node2.ptr.next = par1;
+	unsafe private static void Swaplist(HuffmanNode* node1, HuffmanNode* node2){
+		HuffmanNode* par1;
+		par1 = node1->next;
+		node1->next = node2->next;
+		node2->next = par1;
 
-		par1 = node1.ptr.prev;
-		node1.ptr.prev = node2.ptr.prev;
-		node2.ptr.prev = par1;
+		par1 = node1->prev;
+		node1->prev = node2->prev;
+		node2->prev = par1;
 
-		if(node1.ptr.next == node1){
-			node1.ptr.next = node2;
+		if(node1->next == node1){
+			node1->next = node2;
 		}
-		if(node2.ptr.next == node2){
-			node2.ptr.next = node1;
+		if(node2->next == node2){
+			node2->next = node1;
 		}
-		if(node1.ptr.next != null){
-			node1.ptr.next.ptr.prev = node1;
+		if(node1->next != null){
+			node1->next->prev = node1;
 		}
-		if(node2.ptr.next != null){
-			node2.ptr.next.ptr.prev = node2;
+		if(node2->next != null){
+			node2->next->prev = node2;
 		}
-		if(node1.ptr.prev != null){
-			node1.ptr.prev.ptr.next = node1;
+		if(node1->prev != null){
+			node1->prev->next = node1;
 		}
-		if(node2.ptr.prev != null){
-			node2.ptr.prev.ptr.next = node2;
+		if(node2->prev != null){
+			node2->prev->next = node2;
 		}
 	}
 
-	private static void FreePPNode(HuffmanTree huff, HuffNodeDPointer ppnode)
-	{
-		ppnode.ptr = huff.freeList
+	unsafe private static void FreePPNode(HuffmanTree huff, HuffmanNode** ppnode){
+		// var hptr = Marshal.PtrToStructure(huff.freeList.ptr, typeof(HuffNodePtr)); //看看是否指向的
+		// Marshal.StructureToPtr(, ppnode.ptr, false);
+		*ppnode = (HuffmanNode *)huff.freeList;
+		huff.freeList = ppnode;
 		// CLog.Info("FreePPNode:ptr:{0}, node:{1}", huff.blocPtrs, huff.blocNode);
 		
 	}
 
-	private static HuffNodeDPointer GetPPNode(HuffmanTree huff){
+	unsafe private static HuffmanNode** GetPPNode(HuffmanTree huff){
+		// CLog.Info("get ppnode",huff.freeList.ptr);
+		HuffmanNode** tppnode;
 		if(huff.freeList == null){
+			// CLog.Info("getppnode:ptr:{0}, node:{1}", huff.blocPtrs, huff.blocNode);
+			
 			// try{
-			return new HuffNodeDPointer(huff.nodePtrs[huff.blocPtrs++]);
+			fixed(HuffmanNode** retVal = &huff.nodePtrs[huff.blocPtrs++]){
+				return retVal;
+			}
 			// }catch(System.Exception e){
-			// 	CLog.Info("error:{0}", e.Message);
-			// 	return null;
+				// CLog.Info("error:", e.Message);
+				// return null;
 			// }
 		}else{
 			// CLog.Info("getppnode ex:ptr:{0}, node:{1}", huff.blocPtrs, huff.blocNode);
@@ -527,8 +540,8 @@ if(n == 256) return;
 			// } node_t;
 			// tppnode = huff->freelist;
 			// huff->freelist = (node_t **)*tppnode;
-			HuffNodeDPointer tppnode = huff.freeList;//new HuffNodePtr();
-			huff.freeList = new HuffNodeDPointer(tppnode.ptr.ptr != null ? tppnode.ptr.ptr.left : null);
+			tppnode = huff.freeList;//new HuffNodePtr();
+			huff.freeList = (HuffmanNode **) *tppnode;
 
 			return tppnode;
 		}
@@ -559,13 +572,13 @@ if(n == 256) return;
 		return t;
 	}
 
-	public static void OffsetReceive(HuffNodePtr node, ref int ch, byte[] fin, ref int offset){
+	unsafe public static void OffsetReceive(HuffmanNode* node, ref int ch, byte[] fin, ref int offset){
 		bloc = offset;
-		while(node != null && node.ptr.symbol == CConstVar.HUFF_INTERNAL_NODE){
+		while(node!= null && node->symbol == CConstVar.HUFF_INTERNAL_NODE){
 			if(GetBit(fin) != 0){
-				node = node.ptr.right;
+				node = node->right;
 			}else{
-				node = node.ptr.left;
+				node = node->left;
 			}
 		}
 
@@ -573,22 +586,22 @@ if(n == 256) return;
 			ch = 0;
 			return;
 		}
-		ch = node.ptr.symbol;
+		ch = node->symbol;
 		offset = bloc;
 	}
 
-	public static void OffsetTransmit(HuffmanTree huff, int ch, byte[] fout, ref int offset){
+	unsafe public static void OffsetTransmit(HuffmanTree huff, int ch, byte[] fout, ref int offset){
 		bloc = offset;
 		Send(huff.loc[ch], null, fout);
 		offset = bloc;
 	}
 
-	private static void Send(HuffNodePtr node, HuffNodePtr child, byte[] fout){
-		if(node.ptr.parent != null){
-			Send(node.ptr.parent, node, fout);
+	unsafe private static void Send(HuffmanNode* node, HuffmanNode* child, byte[] fout){
+		if(node->parent != null){
+			Send(node->parent, node, fout);
 		}
 		if(child != null){
-			if(node.ptr.right == child){
+			if(node->right == child){
 				AddBit((char)1, fout);
 			}else{
 				AddBit((char)0, fout);
@@ -605,58 +618,60 @@ if(n == 256) return;
 	}
 }
 
-public class HuffmanTree
+[StructLayout(LayoutKind.Explicit)]
+unsafe public class HuffmanTree
 {
-	public int blocNode;
+	[FieldOffset(0)]public int blocNode;
 
-	public int blocPtrs;
+	[FieldOffset(sizeof(int))]public int blocPtrs;
 
-	public HuffNodePtr tree;
 
-	public HuffNodePtr lhead;
+	[FieldOffset(sizeof(int) * 2)]public HuffmanNode* tree;
 
-	public HuffNodePtr ltail;
+	[FieldOffset(sizeof(int) * 4)]public HuffmanNode* lhead;
 
-	public HuffNodePtr[] loc;
+	[FieldOffset(sizeof(int) * 6)]public HuffmanNode* ltail;
 
-	public HuffNodeDPointer freeList;
+	[FieldOffset(sizeof(int) * 8)]public HuffmanNode** freeList;
 
-	public HuffmanNode[] nodeList;
+	[FieldOffset(sizeof(int) * 10)]public HuffmanNode*[] loc;
 
-	public HuffNodePtr[] nodePtrs;
+	[FieldOffset(sizeof(int) * (10 + 769*2))]public HuffmanNode[] nodeList;
 
-	public int ptrIndex;
+	[FieldOffset(sizeof(int) * (10 + 1537*2))]public HuffmanNode*[] nodePtrs;
 
-	public HuffmanTree(bool isCompresser){
-		loc = new HuffNodePtr[CConstVar.HUFF_MAX+1];
+	unsafe public HuffmanTree(bool isCompresser){
+		loc = new HuffmanNode*[CConstVar.HUFF_MAX+1];
 		// for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
 		// 	loc[i] = new HuffmanNode();
 		// }
 
 		nodeList = new HuffmanNode[768];
+		
 		for(int i = 0; i < 768; i ++){
 			nodeList[i] = new HuffmanNode();
 		}
 
-		nodePtrs = new HuffNodePtr[768];
-		for(int i = 0; i < 768; i++){
-			nodePtrs[i] = new HuffNodePtr(null);
-			// nodePtrs[i].id = i;
-		}
+		nodePtrs = new HuffmanNode*[768];
+		// for(int i = 0; i < 768; i++){
+		// 	nodePtrs[i] = new HuffNodePtr();
+		// }
 		// huffmanMsg.compresser.loc = new HuffmanNode[768];
-
-		if(isCompresser){
-			tree = lhead = loc[CConstVar.HUFF_MAX] = new HuffNodePtr(nodeList[blocNode++]);
-		}else{
-			tree = lhead = ltail = loc[CConstVar.HUFF_MAX] = new HuffNodePtr(nodeList[blocNode++]);
+		fixed(HuffmanNode* tmp = &nodeList[blocNode++]){
+			if(isCompresser){
+				tree = lhead = loc[CConstVar.HUFF_MAX] = tmp;
+			}else{
+				tree = lhead = ltail = loc[CConstVar.HUFF_MAX] = tmp;
+			}
 		}
+		
 
-		freeList = new HuffNodeDPointer(null);
+		// freeList = new HuffNodePtr();
 
-		tree.ptr.symbol = CConstVar.HUFF_MAX;
-		tree.ptr.weight = 0;
-		lhead.ptr.next = lhead.ptr.prev = null;
-		tree.ptr.parent = tree.ptr.left = tree.ptr.right = null;
+		tree->symbol = CConstVar.HUFF_MAX;
+		tree->weight = 0;
+		lhead->next = lhead->prev = null;
+		tree->parent = tree->left = tree->right = null;
 
 		if(isCompresser){
 			loc[CConstVar.HUFF_MAX] = tree;
@@ -665,59 +680,33 @@ public class HuffmanTree
 
 }
 
-
 //定义为class可以指向引用地址
-public class HuffmanNode
+[StructLayout(LayoutKind.Explicit)]
+unsafe public struct HuffmanNode
 {
+	[FieldOffset(0)]public HuffmanNode* left;
 
+	[FieldOffset(sizeof(int) * 2)]public HuffmanNode* right;
 
-	public HuffNodePtr left;
+	[FieldOffset(sizeof(int) * 4)]public HuffmanNode* parent;
 
-	public HuffNodePtr right;
+	[FieldOffset(sizeof(int) * 6)]public HuffmanNode* next;
 
-	public HuffNodePtr parent;
-	
-	public HuffNodePtr next;
+	[FieldOffset(sizeof(int) * 8)]public HuffmanNode* prev;
 
-	public HuffNodePtr prev;
+	[FieldOffset(sizeof(int) * 10)]public HuffmanNode** head;
 
-	public HuffNodeDPointer head;
+	[FieldOffset(sizeof(int) * 12)]public int weight;
 
-	public int weight;
+	[FieldOffset(sizeof(int) * 13)]public int symbol;
 
-	public int symbol;
-
-	public HuffmanNode(){
-		weight = 0;
-		symbol = 0;
-		head = new HuffNodeDPointer(null);
-	}
-
-}
-
-public class HuffNodePtr{
-	public HuffmanNode ptr;
-
-	// public int idx = 0;
-
-	// public int id;
-
-	// public HuffmanNode[] array;
-
-
-	// public void SetValue(HuffmanNode value){
-	// 	array[idx] = value;
-	// 	ptr = value;
+	// public HuffmanNode(){
+	// 	weight = 0;
+	// 	symbol = 0;
+	// 	// head = new HuffNodePtr();
 	// }
-	public HuffNodePtr(HuffmanNode ptr){
-		this.ptr = ptr;
-	}
 }
 
-public class HuffNodeDPointer{
-	public IntPtr ptr;
-
-	public HuffNodeDPointer(object ptr){
-		Marshal.StructureToPtr(ptr, this.ptr, false);
-	}
-}
+// public class HuffNodePtr{
+// 	public IntPtr ptr;
+// }

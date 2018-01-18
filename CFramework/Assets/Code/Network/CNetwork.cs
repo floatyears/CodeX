@@ -82,7 +82,7 @@ public class CNetwork : CModule{
 
 		needUpdate = true;
 		
-		HuffmanMsg.Init();
+		// HuffmanMsg.Init();
 	}
 
 	public void Connect()
@@ -93,7 +93,7 @@ public class CNetwork : CModule{
 	// Update is called once per frame
 	public override void Update () 
 	{
-		HuffmanMsg.Update();
+		// HuffmanMsg.Update();
 
 		//flat buffer的处理
 		while(csocket.HasCacheMsg) //这里一次性处理的所有的协议，可以设置每帧处理的协议数量

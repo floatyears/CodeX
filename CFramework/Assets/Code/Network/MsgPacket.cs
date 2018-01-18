@@ -145,7 +145,7 @@ public class MsgPacket{
 		return c;
 	}
 
-	public int ReadBits(int bits)
+	unsafe public int ReadBits(int bits)
 	{
 		int value, get = 0, i, nbits;
 		bool sgn;

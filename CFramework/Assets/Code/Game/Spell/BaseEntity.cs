@@ -167,7 +167,7 @@ public class BaseEntity {
 
 	public void AttackTarget()
 	{
-		target.ForEachTarget((target)=> target.TakeDamage(DamageType.DAMAGE_TYPE_PURE,attribute.attackDamage));
+        target.ForEachTarget((tar) => tar.TakeDamage(DamageType.DAMAGE_TYPE_PURE, attribute.attackDamage));
 	}
 
 
