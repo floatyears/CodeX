@@ -57,6 +57,7 @@ typedef struct {
 	node_t*		loc[HMAX+1];
 	node_t**	freelist;
 
+
 	node_t		nodeList[768];
 	node_t*		nodePtrs[768];
 } huff_t;

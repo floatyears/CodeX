@@ -236,7 +236,7 @@ public class CModelGameState : CModelBase {
 			}
 		}
 
-		CLog.Info("playerstate:%d", packet.CurPos);
+		CLog.Info("playerstate:{0}", packet.CurPos);
 		if(old != null)
 		{
 			packet.ReadDeltaPlayerstate(old.playerState, newSnap.playerState);
@@ -245,7 +245,7 @@ public class CModelGameState : CModelBase {
 			packet.ReadDeltaPlayerstate(null, newSnap.playerState);
 		}
 
-		CLog.Info("packet entities:%d", packet.CurPos);
+		CLog.Info("packet entities:{0}", packet.CurPos);
 		ParseEntities(packet, old, newSnap);
 
 		//如果不合适，就弹出所有的内容，因为它已经被读出。
@@ -284,7 +284,7 @@ public class CModelGameState : CModelBase {
 
 		if(CConstVar.ShowNet == 3)
 		{
-			CLog.Info("snapshot: %d delta: %d ping:%d", clientActive.snap.messageNum, clientActive.snap.deltaNum, clientActive.snap.ping);
+			CLog.Info("snapshot: {0} delta: {1} ping:{2}", clientActive.snap.messageNum, clientActive.snap.deltaNum, clientActive.snap.ping);
 		}
 
 		clientActive.newSnapshots = true;
@@ -1138,7 +1138,20 @@ public class CModelGameState : CModelBase {
 		str.Append("connect ");
 		str.Append("\\protocol$").Append(CConstVar.Protocol);
 		str.Append("\\qport$").Append(CConstVar.Qport);
-		str.Append("\\challenge$").Append(1234);
+		str.Append("\\challenge$").Append(CDataModel.Connection.challenge);
+		str.Append("\\port$").Append(CConstVar.LocalPort);
+		// str.Append("\\password$").Append(CConstVar.Protocol);
+		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, str.ToString());
+		StringBuilderCache.Release(str);
+	}
+
+	public void ChallengeServer(ServerInfo server){
+		CDataModel.Connection.state = ConnectionState.CHALLENGING;
+		var str = StringBuilderCache.Acquire();
+		str.Append("getchallenge ");
+		// str.Append("\\protocol$").Append(CConstVar.Protocol);
+		// str.Append("\\qport$").Append(CConstVar.Qport);
+		// str.Append("\\challenge$").Append(1234);
 		str.Append("\\port$").Append(CConstVar.LocalPort);
 		// str.Append("\\password$").Append(CConstVar.Protocol);
 		CNetwork.Instance.OutOfBandSend(NetSrc.CLIENT, server.address, str.ToString());

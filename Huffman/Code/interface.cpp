@@ -1,6 +1,7 @@
 #define _DLLExport _declspec(dllexport) //标记为导出函数
 
 #include "qcommon.h"
+#include <iostream>
 
 //#include <iostream>
 //#include <string>
@@ -266,24 +267,55 @@ int msg_hData[256] = {
 
 static huffman_t		msgHuff;
 
-void MSG_initHuffman() {
+extern "C" _DLLExport void InitHuffman() {
 	int i, j;
-
 	Huff_Init(&msgHuff);
+	printf("size: %d, prt size:%d, size node_t : %d\n", sizeof(huff_t),sizeof(int *), sizeof(node_t));
 	for (i = 0; i<256; i++) {
 		for (j = 0; j<msg_hData[i]; j++) {
 			Huff_addRef(&msgHuff.compressor, (byte)i);			// Do update
-			//Huff_addRef(&msgHuff.decompressor, (byte)i);			// Do update
+			Huff_addRef(&msgHuff.decompressor, (byte)i);			// Do update
 		}
 	}
 }
 
-extern "C" _DLLExport void InitHuffman(huff_t* compressor, huff_t* decompressor){
-	int i, j;
-	for (i = 0; i<256; i++) {
-		for (j = 0; j<msg_hData[i]; j++) {
-			Huff_addRef(compressor, (byte)i);			// Do update
-			//Huff_addRef(decompressor, (byte)i);			// Do update
-		}
-	}
+//extern "C" _DLLExport huff_t* InitHuffman(huff_t* compressor, int isCompressor){
+//	int i, j;
+//	memset(compressor, 0, sizeof(huff_t));
+//	if (isCompressor == 1){
+//		// Add the NYT (not yet transmitted) node into the tree/list */
+//		compressor->tree = compressor->lhead = compressor->loc[NYT] = &(compressor->nodeList[compressor->blocNode++]);
+//		compressor->tree->symbol = NYT;
+//		compressor->tree->weight = 0;
+//		compressor->lhead->next = compressor->lhead->prev = NULL;
+//		compressor->tree->parent = compressor->tree->left = compressor->tree->right = NULL;
+//		compressor->loc[NYT] = compressor->tree;
+//	}
+//	else
+//	{
+//		// Initialize the tree & list with the NYT node 
+//		compressor->tree = compressor->lhead = compressor->ltail = compressor->loc[NYT] = &(compressor->nodeList[compressor->blocNode++]);
+//		compressor->tree->symbol = NYT;
+//		compressor->tree->weight = 0;
+//		compressor->lhead->next = compressor->lhead->prev = NULL;
+//		compressor->tree->parent = compressor->tree->left = compressor->tree->right = NULL;
+//	}
+//
+//	for (i = 0; i<256; i++) {
+//		for (j = 0; j<msg_hData[i]; j++) {
+//			Huff_addRef(compressor, (byte)i);			// Do update
+//			//Huff_addRef(decompressor, (byte)i);			// Do update
+//		}
+//	}
+//	return compressor;
+//}
+
+extern "C" _DLLExport void HuffOffsetTransmit(int ch, byte *fout, int *offset)
+{
+	Huff_offsetTransmit(&msgHuff.compressor, ch, fout, offset);
+}
+
+extern "C" _DLLExport void HuffOffsetReceive(int* ch, byte *fout, int *offset)
+{
+	Huff_offsetReceive(msgHuff.decompressor.tree, ch, fout, offset);
 }

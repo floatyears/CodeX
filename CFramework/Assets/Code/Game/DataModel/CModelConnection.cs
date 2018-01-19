@@ -120,18 +120,19 @@ public class CModelConnection : CModelBase {
 	}
 
 	public void PacketConnectResponse(IPEndPoint from, MsgPacket msg){
+		int chNum;
 		if(state >= ConnectionState.CONNECTED)
 		{
 			CLog.Info("Dup connect recieved. Ignored.");
 			return;
 		}
 
-		if(state != ConnectionState.CHALLENGING)
-		{
-			CLog.Info("connectResponse packet while not connecting. Ignored.");
-			return;
-		}
-		if(from != serverAddress)
+		// if(state != ConnectionState.CHALLENGING)
+		// {
+		// 	CLog.Info("connectResponse packet while not connecting. Ignored.");
+		// 	return;
+		// }
+		if(!from.Equals(serverAddress))
 		{
 			CLog.Info("connectResponse from wrong address. Ignored.");
 			return;
@@ -140,12 +141,12 @@ public class CModelConnection : CModelBase {
 		string c = CDataModel.CmdBuffer.Argv(1);
 		if(!string.IsNullOrEmpty(c))
 		{
-			challenge = Convert.ToInt32(c);
+			chNum = Convert.ToInt32(c);
 		}else{
 			CLog.Info("Bad connectResponse recieved. Ignored.");
 			return;
 		}
-		if(challenge != challenge)
+		if(chNum != challenge)
 		{
 			CLog.Info("ConnectionResponse with bad challenge received. Ignored.");
 			return;
@@ -163,27 +164,33 @@ public class CModelConnection : CModelBase {
 			return;
 		}
 
-		int ch = 0;
-		int ver = 0;
+		// int ch = 0;
+		// int ver = 0;
 		var cmd = CDataModel.CmdBuffer;
-		string c = cmd.Argv(2);
-		if(!string.IsNullOrEmpty(c))
-		{
-			ch = Convert.ToInt32(c);
+		var userinfo = cmd.Argv(2);
+		var port = CUtils.GetValueForKey(userinfo, "port");
+		if(!string.IsNullOrEmpty(port)){
+			// from.Port = System.Convert.ToInt32(port);
 		}
-		string sver = cmd.Argv(3);
-		if(!string.IsNullOrEmpty(sver)){
-			ver = Convert.ToInt32(sver);
-		}
+		// string c = cmd.Argv(1);
+		// if(!string.IsNullOrEmpty(c))
+		// {
+		// 	ch = Convert.ToInt32(c);
+		// }
+		// string sver = cmd.Argv(3);
+		// if(!string.IsNullOrEmpty(sver)){
+		// 	ver = Convert.ToInt32(sver);
+		// }
 
-		if(string.IsNullOrEmpty(c) || ch != challenge)
-		{
-			CLog.Info("Bad challenge for challengeResponse. Ignored.");
-			return;
-		}
+		// if(string.IsNullOrEmpty(c) || ch != challenge)
+		// {
+		// 	CLog.Info("Bad challenge for challengeResponse. Ignored.");
+		// 	return;
+		// }
 
 		//发送challenge response，而不是challenge request packets
 		challenge = Convert.ToInt32(cmd.Argv(1));
+		
 		state = ConnectionState.CHALLENGING;
 		connectPacketCount = 0;
 		connectTime = -99999;

@@ -283,28 +283,53 @@ public class HuffmanMsg{
 	#endif  
 
 	[DllImport(HuffmanDLL, CallingConvention = CallingConvention.Cdecl)]
-	public extern static IntPtr InitHuffman(IntPtr compressor, IntPtr decompresser);
+	unsafe public extern static void InitHuffman();
 
-	public static void Init()
+	[DllImport(HuffmanDLL, CallingConvention = CallingConvention.Cdecl)]
+	unsafe public extern static void HuffOffsetTransmit(int ch, byte *fout, int *offset);
+
+	[DllImport(HuffmanDLL, CallingConvention = CallingConvention.Cdecl)]
+	unsafe public extern static void HuffOffsetReceive(int* ch, byte *fout, int *offset);
+
+	unsafe public static void Init()
 	{
 		if(inited) return;
 		inited = true;
-		// huffmanMsg = new HuffmanMsg();
-		HuffmanMsg.decompresser = new HuffmanTree(false);
-		HuffmanMsg.compresser = new HuffmanTree(true);
 		
-		for(int i = 0; i < 256; i++){
-			for(int j = 0; j < msg_hData[i]; j++){
-				AddRef(HuffmanMsg.compresser, (byte)i);
-				AddRef(HuffmanMsg.decompresser, (byte)i);
-			}
-		}
-		// IntPtr compPtr = Marshal.AllocHGlobal(Marshal.SizeOf(HuffmanTree));
-		// IntPtr decompPtr = new IntPtr();
-		// Marshal.StructureToPtr(HuffmanMsg.decompresser, compPtr, false);
-		// Marshal.StructureToPtr(HuffmanMsg.decompresser, decompPtr, false);
-		// InitHuffman(HuffmanMsg.compresser, HuffmanMsg.decompresser);
-		int a = 1;
+		InitHuffman();
+		
+		// huffmanMsg = new HuffmanMsg();
+		// HuffmanMsg.decompresser = new HuffmanTree(false);
+		// HuffmanMsg.compresser = new HuffmanTree(true);
+		
+		// fixed(var temp = &HuffmanMsg.decompresser) {
+
+		// }
+		// fixed(HuffmanTree* t = &HuffmanMsg.compresser){
+		// 	InitHuffman(HuffmanMsg.compresser, 1);
+		// }
+		// InitHuffman(HuffmanMsg.decompresser, 0);
+
+		// for(int i = 0; i < 256; i++){
+		// 	for(int j = 0; j < msg_hData[i]; j++){
+		// 		AddRef(HuffmanMsg.compresser, (byte)i);
+		// 		AddRef(HuffmanMsg.decompresser, (byte)i);
+		// 	}
+		// }
+		// int size = Marshal.SizeOf(HuffmanMsg.compresser);
+		// IntPtr compPtr = Marshal.AllocHGlobal(size);
+		// IntPtr decompPtr = Marshal.AllocHGlobal(Marshal.SizeOf(HuffmanMsg.decompresser));
+		// // Marshal.StructureToPtr(HuffmanMsg.compresser, compPtr, false);
+		// // Marshal.StructureToPtr(HuffmanMsg.decompresser, decompPtr, false);
+		// var temp = InitHuffman(compPtr, 1);
+		// var temp1 = InitHuffman(decompPtr, 0);
+
+		//PtrToStructure这个地方还是要报错，可能是跟mono的实现有关系
+		// HuffmanMsg.compresser = (HuffmanTree)Marshal.PtrToStructure(temp, typeof(HuffmanTree));
+		// HuffmanMsg.decompresser = (HuffmanTree)Marshal.PtrToStructure(temp, typeof(HuffmanTree));
+		
+		// Marshal.FreeHGlobal(temp);
+		// Marshal.FreeHGlobal(temp1);
 	}
 
 	public static void Compress(MsgPacket packet, int offset)
@@ -619,12 +644,11 @@ public class HuffmanMsg{
 }
 
 [StructLayout(LayoutKind.Explicit)]
-unsafe public class HuffmanTree
+unsafe public struct HuffmanTree
 {
 	[FieldOffset(0)]public int blocNode;
 
 	[FieldOffset(sizeof(int))]public int blocPtrs;
-
 
 	[FieldOffset(sizeof(int) * 2)]public HuffmanNode* tree;
 
@@ -632,19 +656,25 @@ unsafe public class HuffmanTree
 
 	[FieldOffset(sizeof(int) * 6)]public HuffmanNode* ltail;
 
-	[FieldOffset(sizeof(int) * 8)]public HuffmanNode** freeList;
 
-	[FieldOffset(sizeof(int) * 10)]public HuffmanNode*[] loc;
+	[MarshalAs(UnmanagedType.ByValArray, SizeConst=257)][FieldOffset(sizeof(int) * 8)]
+	public HuffmanNode*[] loc;
 
-	[FieldOffset(sizeof(int) * (10 + 769*2))]public HuffmanNode[] nodeList;
+	[FieldOffset(sizeof(int) * (8 + 257 * 2))]public HuffmanNode** freeList;
+	
+	[MarshalAs(UnmanagedType.ByValArray, SizeConst=768)][FieldOffset(sizeof(int) * (8 + 258 * 2))]
+	public HuffmanNode[] nodeList;
 
-	[FieldOffset(sizeof(int) * (10 + 1537*2))]public HuffmanNode*[] nodePtrs;
+	[MarshalAs(UnmanagedType.ByValArray, SizeConst=768)][FieldOffset(sizeof(int) * (8 + 258 * 2 + 16*768))]
+	public HuffmanNode*[] nodePtrs;
 
 	unsafe public HuffmanTree(bool isCompresser){
 		loc = new HuffmanNode*[CConstVar.HUFF_MAX+1];
 		// for(int i = 0; i < CConstVar.HUFF_MAX+1; i ++){
 		// 	loc[i] = new HuffmanNode();
 		// }
+		blocNode = 0;
+		blocPtrs = 0;
 
 		nodeList = new HuffmanNode[768];
 		
@@ -660,10 +690,12 @@ unsafe public class HuffmanTree
 		fixed(HuffmanNode* tmp = &nodeList[blocNode++]){
 			if(isCompresser){
 				tree = lhead = loc[CConstVar.HUFF_MAX] = tmp;
+				ltail = null;
 			}else{
 				tree = lhead = ltail = loc[CConstVar.HUFF_MAX] = tmp;
 			}
 		}
+		freeList = null;
 		
 
 		// freeList = new HuffNodePtr();
@@ -681,7 +713,7 @@ unsafe public class HuffmanTree
 }
 
 //定义为class可以指向引用地址
-[StructLayout(LayoutKind.Explicit)]
+[StructLayout(LayoutKind.Explicit, Size=56)]
 unsafe public struct HuffmanNode
 {
 	[FieldOffset(0)]public HuffmanNode* left;

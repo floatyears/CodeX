@@ -23,7 +23,7 @@ public class Server : CModule {
 
 	private int nextHeartbeatTime;
 
-	private SvChanllenge[] challenges;
+	private SvChallenge[] challenges;
 
 	private IPEndPoint redirectAddress;
 
@@ -84,6 +84,8 @@ public class Server : CModule {
 		for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
 			gEntities[i] = new SharedEntity();
 		}
+
+		challenges = new SvChallenge[CConstVar.MAX_CHALLENGES];
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
 
@@ -210,15 +212,15 @@ public class Server : CModule {
 
 		string c = cmd.Argv(0);
 		CLog.Info("SV received packet {0} : {1}", from, c);
-
+		int cport = 0;
 		switch(c)
 		{
 			case "getstatus":
 				SVCStatus(from);
 				break;
 			case "getinfo": //带上客户端的端口号
-				int port = Convert.ToInt32(cmd.Argv(2));
-				if(port > 0) from.Port = port;
+				cport = Convert.ToInt32(cmd.Argv(2));
+				if(cport > 0) from.Port = cport;
 				SVCInfo(from);
 				break;
 			case "getchallenge":
@@ -254,7 +256,47 @@ public class Server : CModule {
 	}
 
 	private void SVCGetChallenge(IPEndPoint from){
-		
+		int i;
+		int oldest = 0;
+		int oldestTime = 0x7fffffff;
+		var userinfo = CDataModel.CmdBuffer.Argv(1);
+		var tmp = CUtils.GetValueForKey(userinfo, "port");
+		if(!string.IsNullOrEmpty(tmp)){
+			from.Port = System.Convert.ToInt32(tmp);
+		}
+
+		SvChallenge challenge = challenges[0];
+
+		//查看这个ip是否已经有一个challenge
+		for(i = 0; i < CConstVar.MAX_CHALLENGES; i++){
+			challenge = challenges[i];
+			if(!challenge.connected && from.Equals(challenge.adr)){
+				break;
+			}
+			if(challenge.time < oldestTime){
+				oldestTime = challenge.time;
+				oldest = i;
+			}
+		}
+
+		if(i == CConstVar.MAX_CHALLENGES){
+			challenge = challenges[oldest];
+
+			//客户端第一次请求challenge
+			challenge.challenge = (CUtils.Random() << 16 ^ CUtils.Random() ) ^ time;
+			challenge.adr = from;
+			challenge.firstTime = time;
+			challenge.time = time;
+			challenge.connected = false;
+			i = oldest;
+		}
+
+		if(CNetwork.IsLANAddress(from.Address)){
+			challenge.pingTime = time;
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "challengeResponse " + challenge.challenge + " \\port$"+CConstVar.LocalPort);
+			return;
+		}
+		// if(authorizeAddress.Address)
 	}
 
 	private void SVCInfo(IPEndPoint from)
@@ -335,7 +377,7 @@ public class Server : CModule {
 		CUtils.SetValueForKey(ref userinfo, "ip", ip);
 		if(IPAddress.IsLoopback(from.Address)){
 			int ping;
-			SvChanllenge ch;
+			SvChallenge ch;
 			int i;
 			for(i = 0; i < CConstVar.MAX_CHALLENGES; i++){
 				if(from.Address.Equals(challenges[i].adr.Address)){
@@ -388,7 +430,7 @@ public class Server : CModule {
 			newcl.userInfo = userinfo;
 
 			//发送连接消息给客户端
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connect response %d", chNum));
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0}", chNum));
 
 			newcl.state = ClientState.CONNECTED;
 			newcl.lastSnapshotTime = 0;
@@ -818,7 +860,7 @@ public class Server : CModule {
 
 		frame.numEntities = 0;
 		SharedEntity clEnt = client.gEntity;
-		if(client != null || client.state == ClientState.ZOMBIE){
+		if(client == null || client.state == ClientState.ZOMBIE){
 			return;
 		}
 
@@ -1076,6 +1118,18 @@ public class Server : CModule {
 		}
 	}
 
+	public void ClearClients(){
+		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			var c = clients[i];
+			c.state = ClientState.FREE;
+		}
+	}
+
+	//创建一个新的玩家
+	public void SpawnPlayer(){
+		int i, force;
+		SharedEntity
+	}
 	
 
 	// private PlayerState GetClientPlayer(int index){
@@ -1153,6 +1207,8 @@ public class ClientNode
 			frames[i] = new SvClientSnapshot();
 		}
 		gEntity = new SharedEntity();
+
+		playerState = new PlayerState();
 	}
 }
 
@@ -1195,7 +1251,7 @@ public class SvClientSnapshot
 	}
 }
 
-public struct SvChanllenge
+public struct SvChallenge
 {
 	public IPEndPoint adr;
 

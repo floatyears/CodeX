@@ -64,14 +64,14 @@ public class CSocketUDP {
 		}
 		
 		// packetBuffer = new MsgPacket[2];
-		packetBuffer = new CircularBuffer<MsgPacket>(10);
+		packetBuffer = new CircularBuffer<MsgPacket>(30);
 		// recvSocket.Listen();
 
 		// remoteEP = new IPEndPoint(IPAddress.Any, 0);
 		// IPAddress.IsLoopback(remoteEP.Address);
 		curPacket = 0;
 
-		// HuffmanMsg.Init();
+		HuffmanMsg.Init();
 	}
 
 	public void Dispose()

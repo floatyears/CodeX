@@ -52,8 +52,9 @@ public class TestConnections : MonoBehaviour {
 		if(GUILayout.Button("刷新服务器",GUILayout.Height(40), GUILayout.Width(300))){
 			CDataModel.GameState.GetLocalServers();
 		}
-		if(GUILayout.Button("清空",GUILayout.Height(40), GUILayout.Width(300))){
-			log = "";
+		if(GUILayout.Button("重置",GUILayout.Height(40), GUILayout.Width(300))){
+			Server.Instance.ClearClients();
+			CDataModel.Connection.state = ConnectionState.DISCONNECTED;
 		}
 		if(isServer){
 			if(GUILayout.Button("关闭服务器",GUILayout.Height(40), GUILayout.Width(300))){
@@ -64,7 +65,7 @@ public class TestConnections : MonoBehaviour {
 			if(GUILayout.Button("开启服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
 				CDataModel.Connection.ServerRunning = isServer;
-				HuffmanMsg.Init();
+				// HuffmanMsg.Init();
 			}
 		}
 		GUILayout.TextArea(log);
@@ -76,9 +77,19 @@ public class TestConnections : MonoBehaviour {
 		for(int i = 0; i < count; i++){
 			var server = CDataModel.GameState.localServers[i];
 			if(server != null){
-				if(GUILayout.Button(server.hostName)){
-					CDataModel.GameState.ConnectServer(server);
+
+				GUILayout.BeginHorizontal();
+				GUILayout.Label("服务器：" + server.hostName, GUILayout.Width(100));
+				if(CDataModel.Connection.state < ConnectionState.CHALLENGING){
+					if(GUILayout.Button("Challenge",GUILayout.Width(100))){
+						CDataModel.GameState.ChallengeServer(server);
+					}
+				}else if(CDataModel.Connection.state < ConnectionState.CONNECTED){
+					if(GUILayout.Button("Connect",GUILayout.Width(100))){
+						CDataModel.GameState.ConnectServer(server);
+					}
 				}
+				GUILayout.EndHorizontal();
 			}
 		}
 

@@ -22,6 +22,8 @@ public class MsgPacket{
 
 	int bit;
 
+	int get;
+
 	public System.Net.IPEndPoint remoteEP;
 
 	public MsgPacket()
@@ -147,7 +149,9 @@ public class MsgPacket{
 
 	unsafe public int ReadBits(int bits)
 	{
-		int value, get = 0, i, nbits;
+		int value = 0;
+		get = 0;
+		int i, nbits;
 		bool sgn;
 
 		value = 0;
@@ -183,7 +187,14 @@ public class MsgPacket{
 			}
 			if(bits != 0){
 				for(i=0; i < bits; i+= 8){
-					HuffmanMsg.OffsetReceive(HuffmanMsg.decompresser.tree, ref get, bytes, ref bit);
+					// HuffmanMsg.OffsetReceive(HuffmanMsg.decompresser.tree, ref get, bytes, ref bit);
+					fixed(byte* f = &bytes[0]){
+						fixed(int* b = &bit){
+							fixed(int* g = &get){
+								HuffmanMsg.HuffOffsetReceive(g, f, b);
+							}
+						}
+					}
 					value |= (get << (i + nbits));
 				}
 			}
@@ -547,7 +558,7 @@ public class MsgPacket{
 	}
 
 
-	public void WriteBits(int value, int bits)
+	unsafe public void WriteBits(int value, int bits)
 	{
 		int i;
 		//溢出检查
@@ -596,6 +607,11 @@ public class MsgPacket{
 			if((bits & 7) != 0){
 				int nbits = bits & 7;
 				for(i = 0; i < nbits; i++){
+					// fixed(byte* tmp = &(bytes[0])){
+					// 	fixed(int* b = &bit){
+					// 		HuffmanMsg.Huff_putBit((value & 1), tmp, b);
+					// 	}
+					// }
 					HuffmanMsg.PutBit((value & 1), bytes, ref bit);
 					value = (value >> 1);
 				}
@@ -603,7 +619,12 @@ public class MsgPacket{
 			}
 			if(bits != 0){
 				for(i = 0; i < bits; i += 8){
-					HuffmanMsg.OffsetTransmit(HuffmanMsg.compresser, (value & 0xff), bytes, ref bit);
+					// HuffmanMsg.OffsetTransmit(HuffmanMsg.compresser, (value & 0xff), bytes, ref bit);
+					fixed(byte* f = &bytes[0]){
+						fixed(int* b = &bit){
+							HuffmanMsg.HuffOffsetTransmit((value & 0xff), f, b);
+						}
+					}
 					value = (value >> 8);
 				}
 			}

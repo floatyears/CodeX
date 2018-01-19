@@ -203,7 +203,7 @@ public class CNetwork : CModule{
 				return;
 			}
 
-			if(from != connection.NetChan.remoteAddress)
+			if(!from.Equals(connection.NetChan.remoteAddress))
 			{
 				CLog.Info("{0}: sequenced packet without connection", from);
 				return;
@@ -840,7 +840,8 @@ public class CNetwork : CModule{
 	/*------------------工具函数-----------------*/
 	public static int CheckSum(int challenge, int sequence)
 	{
-		return challenge ^(sequence * challenge);
+		// return challenge ^(sequence * challenge);
+		return sequence;
 	}
 
 	public static int LittleInt(int value)
