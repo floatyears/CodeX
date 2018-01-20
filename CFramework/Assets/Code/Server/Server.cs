@@ -425,12 +425,12 @@ public class Server : CModule {
 			newcl.gEntity = ent;
 			newcl.challenge = chNum;
 		
-			newcl.netChan.SetUp(NetSrc.SERVER, from, qport, chNum);
+			newcl.netChan.SetUp(NetSrc.SERVER, from, chNum, qport);
 			newcl.netChanQueue.Reset();
 			newcl.userInfo = userinfo;
 
 			//发送连接消息给客户端
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0}", chNum));
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0} {1}", chNum, CConstVar.LocalPort));
 
 			newcl.state = ClientState.CONNECTED;
 			newcl.lastSnapshotTime = 0;
@@ -979,7 +979,12 @@ public class Server : CModule {
 	}
 
 	private void UpdateServerCommandsToClient(ClientNode client, MsgPacket msg){
-
+		for(int i = client.reliableAcknowledge + 1; i <= client.reliableSequence; i++){
+			msg.WriteByte((byte)SVCCmd.SERVER_COMMAND);
+			msg.WriteInt(i);
+			msg.WriteString(client.reliableCommands[i&CConstVar.MAX_RELIABLE_COMMANDS]);
+		}
+		client.reliableSent = client.reliableSequence;
 	}
 
 	private void WriteSnapshotToClient(ClientNode client, MsgPacket msg){
@@ -1009,7 +1014,10 @@ public class Server : CModule {
 
 		msg.WriteByte((byte)SVCCmd.SNAPSHOT);
 
-		if(client.oldServerTime > 0){
+		//在每个消息开头发送的内容让客户端知道服务器已经收到的reliable clientCommands()
+
+		//把当前服务器时间发送给客户端
+		if(client.oldServerTime > 0){ //
 			msg.WriteInt(time + client.oldServerTime);
 		}else{
 			msg.WriteInt(time);
@@ -1048,7 +1056,8 @@ public class Server : CModule {
 	}
 
 	private void EmitPacketEntities(SvClientSnapshot from, SvClientSnapshot to, MsgPacket msg){
-		EntityState oldEnt = new EntityState(), newEnt = new EntityState();
+		EntityState? oldEnt = null;
+		EntityState? newEnt = null;
 		int oldIndex = 0, newIndex = 0;
 		int oldNum, newNum;
 		int fromNumEnts;
@@ -1063,21 +1072,40 @@ public class Server : CModule {
 			if(newIndex >= to.numEntities){
 				newNum = 9999;
 			}else{
-				oldEnt = snapshotEntities[(to.firstEntity + newIndex) % numSnapshotEntities];
-				newNum = oldEnt.entityIndex;
+				newEnt = snapshotEntities[(to.firstEntity + newIndex) % numSnapshotEntities];
+				newNum = oldEnt.Value.entityIndex;
 			}
 
 			if(oldIndex >= fromNumEnts){
 				oldNum = 9999;
 			}else{
 				oldEnt = snapshotEntities[(from.firstEntity + oldIndex) % numSnapshotEntities];
-				oldNum = oldEnt.entityIndex;
+				oldNum = oldEnt.Value.entityIndex;
 			}
 
 			if(newNum == oldNum){
-				msg.WriteDeltaEntity(ref oldEnt, ref newEnt, false);
+				msg.WriteDeltaEntity(oldEnt, newEnt, false);
+				oldIndex++;
+				newIndex++;
+				continue;
+			}
+
+			if(newNum < oldNum){
+				oldEnt = svEntities[newNum].baseline;
+				msg.WriteDeltaEntity(oldEnt, newEnt, true);
+				oldEnt = null;
+				newIndex++;
+				continue;
+			}
+
+			if(newNum > oldNum){
+				msg.WriteDeltaEntity(oldEnt, null, true);
+				oldIndex++;
+				continue;
 			}
 		}
+
+		msg.WriteBits(CConstVar.MAX_GENTITIES - 1, CConstVar.GENTITYNUM_BITS); //packet entities尾端
 
 	}
 
@@ -1127,8 +1155,8 @@ public class Server : CModule {
 
 	//创建一个新的玩家
 	public void SpawnPlayer(){
-		int i, force;
-		SharedEntity
+		// int i, force;
+		// SharedEntity
 	}
 	
 

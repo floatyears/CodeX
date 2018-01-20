@@ -132,6 +132,11 @@ public class CModelConnection : CModelBase {
 		// 	CLog.Info("connectResponse packet while not connecting. Ignored.");
 		// 	return;
 		// }
+		string p = CDataModel.CmdBuffer.Argv(2);
+		if(!string.IsNullOrEmpty(p)){
+			from.Port = System.Convert.ToInt32(p);
+		}
+		
 		if(!from.Equals(serverAddress))
 		{
 			CLog.Info("connectResponse from wrong address. Ignored.");
@@ -170,7 +175,7 @@ public class CModelConnection : CModelBase {
 		var userinfo = cmd.Argv(2);
 		var port = CUtils.GetValueForKey(userinfo, "port");
 		if(!string.IsNullOrEmpty(port)){
-			// from.Port = System.Convert.ToInt32(port);
+			from.Port = System.Convert.ToInt32(port);
 		}
 		// string c = cmd.Argv(1);
 		// if(!string.IsNullOrEmpty(c))

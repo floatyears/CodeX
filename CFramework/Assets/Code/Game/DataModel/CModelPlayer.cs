@@ -504,15 +504,15 @@ public class PlayerState{
 
 	public int movementDir; //摇杆操作的方向，范围是为0-180(int8)
 
-	public EntityFlags entityFlags;
+	public int entityFlags; //EntityFlags
 
 	public int eventSequence;
 
-	public EntityEventType[] events;
+	public int[] events; //EntityEventType
 
 	public int[] eventParams;
 
-	public EntityEventType externalEvent;
+	public int externalEvent; //EntityEventType
 
 	public int externalEventParam;
 
@@ -540,7 +540,7 @@ public class PlayerState{
 
 	public PlayerState(){
 		delta_angles = new int[3];
-		events = new EntityEventType[CConstVar.MAX_PS_EVENTS];
+		events = new int[CConstVar.MAX_PS_EVENTS];
 		eventParams = new int[CConstVar.MAX_PS_EVENTS];
 		states = new int[CConstVar.MAX_STATS];
 		persistant = new int[CConstVar.MAX_PERSISTANT];

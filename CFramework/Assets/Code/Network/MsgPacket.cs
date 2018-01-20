@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Runtime.InteropServices;
 
 public class MsgPacket{
 
@@ -22,7 +23,7 @@ public class MsgPacket{
 
 	int bit;
 
-	int get;
+	// int get;
 
 	public System.Net.IPEndPoint remoteEP;
 
@@ -150,7 +151,7 @@ public class MsgPacket{
 	unsafe public int ReadBits(int bits)
 	{
 		int value = 0;
-		get = 0;
+		int get = 0;
 		int i, nbits;
 		bool sgn;
 
@@ -186,16 +187,14 @@ public class MsgPacket{
 				bits = bits - nbits;
 			}
 			if(bits != 0){
-				for(i=0; i < bits; i+= 8){
-					// HuffmanMsg.OffsetReceive(HuffmanMsg.decompresser.tree, ref get, bytes, ref bit);
-					fixed(byte* f = &bytes[0]){
-						fixed(int* b = &bit){
-							fixed(int* g = &get){
-								HuffmanMsg.HuffOffsetReceive(g, f, b);
-							}
+				// HuffmanMsg.OffsetReceive(HuffmanMsg.decompresser.tree, ref get, bytes, ref bit);
+				fixed(byte* f = &bytes[0]){
+					fixed(int* b = &bit){
+						for(i=0; i < bits; i+= 8){
+							HuffmanMsg.HuffOffsetReceive(&get, f, b);
+							value |= (get << (i + nbits));
 						}
 					}
-					value |= (get << (i + nbits));
 				}
 			}
 			curPos = (bit >> 3) + 1;
@@ -226,7 +225,8 @@ public class MsgPacket{
 	}
 
 	public int ReadPort(){
-		return System.BitConverter.ToInt16(bytes, 8);
+		// return System.BitConverter.ToInt16(bytes, 8);
+		return ((bytes[8] << 8) + (int)bytes[9]);
 	}
 
 	public int ReadShort()
@@ -367,18 +367,19 @@ public class MsgPacket{
 	//entity的索引值已经从消息中读取，这是from的state用来标识用的
 	//如果delta移除了这个entity，entityState.entityIndex会被设置为MAX_GENTITIES - 1
 	//可以从baseline中获取，或者从前面的packet_entity中获取
-	public void ReadDeltaEntity(ref EntityState from, ref EntityState to, int number)
+	unsafe public void ReadDeltaEntity(ref EntityState from, ref EntityState to, int number)
 	{
 		int i, lc;
 		int numFields;
 		NetField field;
-		int fromF, toF;
+		int* fromF = null;
+		int* toF = null;
 		int print;
 		int trunc;
 		int startBit, endBit;
 
 		if(number < 0 || number >= CConstVar.MAX_GENTITIES){
-			CLog.Error("Bad delta entity number: %d", number);
+			CLog.Error("Bad delta entity number: {0}", number);
 		}
 
 		if(bit == 0){
@@ -389,7 +390,7 @@ public class MsgPacket{
 
 		//检查是否要移除
 		if(ReadBits(1) == 1){
-			to = new EntityState();
+			// to = new EntityState();
 			to.entityIndex = CConstVar.MAX_GENTITIES - 1;
 			if(CConstVar.ShowNet != 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -1)){
 				CLog.Info("remove entity: {0}", number);
@@ -399,12 +400,12 @@ public class MsgPacket{
 
 		//检查是否无压缩
 		if(ReadBits(1) == 0){
-			to = from;
+			from.CopyTo(to);
 			to.entityIndex = number;
 			return;
 		}
 
-		numFields = CConstVar.entityStateFields.Length;
+		numFields = EntityState.entityStateFields.Length;
 		lc = ReadByte();
 		if(lc > numFields || lc < 0){
 			CLog.Info("invalid entity state field count");
@@ -419,18 +420,25 @@ public class MsgPacket{
 
 		to.entityIndex = number;
 
+		EntityState tmpF = from; //TODO：这里每次都会创建一个struct，浪费内存，比较好的做法是把这部分逻辑写到dll中。
+		EntityState tmpT = to;
+		byte* startF = (byte *)&tmpF;
+		byte* startT = (byte *)&tmpT;
 		for(i = 0; i < lc; i++){
-			field = CConstVar.entityStateFields[i];
-			// fromF = from + field.offset;
-			// toF = to 
+			field = EntityState.entityStateFields[i];
+			fromF = (int *)startF + field.offset;
+			toF = (int *)startT + field.offset;
 
 			//最好的方式还是c++直接操作内存数据，利用反射效率比较低
 			if(ReadBits(1) == 0){ //没有变化
-				field.name.SetValue(to, field.name.GetValue(from));
+				// field.name.SetValue(to, field.name.GetValue(from));
+				*toF = *fromF;
+				
 			}else{
 				if(field.bits == 0){
 					if(ReadBits(1) == 0){
-						field.name.SetValue(to, 0.0f);
+						// field.name.SetValue(to, 0.0f);
+						*(float *)toF = 0.0f;
 					}else{
 						if(ReadBits(1) == 0){
 							//积分浮点数
@@ -438,35 +446,42 @@ public class MsgPacket{
 
 							//偏移允许正的部分和负的部分是一样大小的
 							trunc -= CConstVar.FLOAT_INT_BIAS;
-							field.name.SetValue(to, trunc);
-
+							// field.name.SetValue(to, trunc);
+							*(float *)toF = trunc;
 							if(print > 0){
 								CLog.Info("Read Delta Entity {0}:{1}", field.name, trunc);
 							}
 						}else{
 							//完整的浮点值
-							field.name.SetValue(to, ReadBits(32));
+							// field.name.SetValue(to, ReadBits(32));
+							*toF = ReadBits(32);
 							if(print > 0){
-								CLog.Info("Read Delta Entity {0}:{1}", field.name, field.name.GetValue(to));
+								CLog.Info("Read Delta Entity {0}:{1}", field.name, *(float *)toF);
 							}
 						}
 					}
 				}else{
 					if(ReadBits(1) == 0){
-						field.name.SetValue(to, 0);
+						// field.name.SetValue(to, 0);
+						*toF = 0;
 					}else{
-						field.name.SetValue(to, ReadBits(field.bits));
+						// field.name.SetValue(to, ReadBits(field.bits));
+						*toF = ReadBits(field.bits);
 						if(print > 0){
-							CLog.Info("Read Delta Entity {0}:{1}", field.name, field.name.GetValue(to));
+							CLog.Info("Read Delta Entity {0}:{1}", field.name, *toF);
 						}
 					}
 				}
 			}
 		}
 		for(i = lc; i < numFields; i++){
-			field = CConstVar.entityStateFields[i];
+			field = EntityState.entityStateFields[i];
+			fromF = (int *)(startF + field.offset);
+			toF = (int*)(startT + field.offset);
+			
 			//没有变化
-			field.name.SetValue(to, field.name.GetValue(from));
+			// field.name.SetValue(to, field.name.GetValue(from));
+			*toF = *fromF;
 		}
 
 		if(print > 0){
@@ -477,6 +492,9 @@ public class MsgPacket{
 			}
 			CLog.Info("Read Delta Entity Finished. ({0} bits)", endBit - startBit);
 		}
+
+		from = *(EntityState *)startF; //最后要进行一次复制struct，因为中间为了获取pointer，声明了一个新的struct
+		to = *(EntityState *)startT;
 
 	}
 
@@ -492,9 +510,112 @@ public class MsgPacket{
 
 	}
 
-	public void WriteDeltaEntity(ref EntityState from, ref EntityState to, bool force)
+	//写入消息的packet entities部分，包含entity number
+	//可以从baseline或者前一个packet_entity更新，如果to是null，会发送移除消息
+	//如果没有设置force，那么在entity是唯一的情况下，不会生成任何信息，为了保证按照顺序增量更新的代码会获得它。
+	unsafe public void WriteDeltaEntity(EntityState? from, EntityState? to, bool force)
 	{
+		int numFields = EntityState.entityStateFields.Length;
 
+		//所有的字段都必须是32位，避免任何编译器打包问题
+		if(numFields + 1 == Marshal.SizeOf(from)/4){
+			CLog.Error("Fatal Error:");
+		}
+
+		if(to == null || !to.HasValue){
+			if(from == null || !from.HasValue){
+				return;
+			}
+			WriteBits(from.Value.entityIndex, CConstVar.GENTITYNUM_BITS);
+			WriteBits(1,1);
+			return;
+		}
+
+		var fromEnt = from.Value;
+		var toEnt = to.Value;
+		if(toEnt.entityIndex < 0 || toEnt.entityIndex >= CConstVar.MAX_GENTITIES){
+			CLog.Error("WriteDeltaEntity: Bad Entity idx: {0}", toEnt.entityIndex);
+		}
+
+		
+		int lc = 0;
+		int len = EntityState.entityStateFields.Length;
+
+		int* fromF;
+		int* toF;
+		byte* startF = (byte *)&fromEnt;
+		byte* startT = (byte *)&toEnt;
+		int offset = 0;
+		for(int i = 0; i < len; i++){
+			// EntityState.entityStateFields[i].name.GetValue()
+			offset = EntityState.entityStateFields[i].offset;
+			fromF = (int *)(startF + offset);
+			toF = (int *)(startT + offset);
+			if(*fromF != *toF){
+				lc = i + 1;
+			}
+		}
+
+		if(lc == 0){ //没有改变任何属性
+			if(!force){ //不写入任何东西
+				return;
+			}
+			WriteBits(toEnt.entityIndex, CConstVar.GENTITYNUM_BITS);
+			WriteBits(0,1); //没有被移除
+			WriteBits(0,1); //没有增量更新
+			return;
+		}
+		WriteBits(toEnt.entityIndex, CConstVar.GENTITYNUM_BITS);
+		WriteBits(0, 1); //没有被移除
+		WriteBits(1, 1); //没有增量更新
+
+		if(lc >= 256) CLog.Error("Too many changed properties of EntityState!");
+		WriteByte((byte)lc); //改变的属性
+
+		int bits = 0;
+		// int oldSize 
+		float fullFloat = 0;
+		int trunc = 0;
+		for(int i = 0; i < lc; i++){
+			offset = EntityState.entityStateFields[i].offset;
+			bits = EntityState.entityStateFields[i].bits;
+			fromF = (int *)(startF + offset);
+			toF = (int *)(startT + offset);
+
+			if(*fromF != *toF){
+				WriteBits(0,1); //没有变化
+				continue;
+			}
+
+			WriteBits(1,1); //变化了
+			if(bits == 0){ //浮点数
+				fullFloat = *(float *)toF;
+				trunc = (int)fullFloat;
+
+				if(fullFloat == 0.0f){
+					WriteBits(0, 1);
+				}else{
+					WriteBits(1,1);
+					if(trunc == fullFloat && trunc + CConstVar.FLOAT_INT_BIAS >= 0 && 
+						trunc + CConstVar.FLOAT_INT_BIAS < (1 << CConstVar.FLOAT_INT_BITS)){
+							//作为小的整数发送
+							WriteBits(0,1);
+							WriteBits(trunc + CConstVar.FLOAT_INT_BIAS, CConstVar.FLOAT_INT_BITS);
+						}else{
+							WriteBits(1,1);
+							WriteBits(*toF, 32);
+						}
+				}
+			}else{
+				if(*toF == 0){
+					WriteBits(0, 1);
+				}else{
+					WriteBits(1, 1);
+					//整数
+					WriteBits(*toF, bits);
+				}
+			}
+		}
 	}
 	
 	public void WriteFirstInt(int value){

@@ -205,10 +205,6 @@ public class CConstVar {
 
 	public const int MAX_PERSISTANT = 16;
 
-	public static NetField[] entityStateFields = new NetField[]{
-		
-	};
-
 	public static int[] kbitmask = new int[]{
 		0x00000001, 0x00000003, 0x00000007, 0x0000000F,
 		0x0000001F,	0x0000003F,	0x0000007F,	0x000000FF,
