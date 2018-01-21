@@ -145,6 +145,7 @@ public class CModelGameState : CModelBase {
 
 	public void Update(){
 		ProcessSnapshots();
+		realTime = (int)(Time.realtimeSinceStartup*1000);
 	}
 	
 	public void ClearState(){
@@ -649,7 +650,7 @@ public class CModelGameState : CModelBase {
 		oldFrame = snap;
 		snap = nextSnap;
 
-		CUtils.PlayerStateToEntityState(snap.playerState, clientEntities[snap.playerState.clientNum].currentState, false);
+		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientNum].currentState, false);
 		clientEntities[snap.playerState.clientNum].interpolate = false;
 
 		for(i = 0; i < snap.numEntities; i++){
@@ -1050,7 +1051,7 @@ public class CModelGameState : CModelBase {
 		EntityState state;
 
 		snap = snapshot;
-		CUtils.PlayerStateToEntityState(snap.playerState, clientEntities[snap.playerState.clientNum].currentState, false);
+		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientNum].currentState, false);
 		BuildSolidList();
 
 		ExecuteNewServerCommands(snap.serverCommandSequence);

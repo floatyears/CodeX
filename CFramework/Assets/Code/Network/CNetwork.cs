@@ -662,7 +662,7 @@ public class CNetwork : CModule{
 		opacket.cmdNum = clActive.cmdNum;
 		connection.lastPacketSentTime = realTime;
 
-		if(CConstVar.ShowNet > 0){
+		if(CConstVar.ShowNet > 0){ 
 			CLog.Info("send packet:{0}", buf.CurPos);
 		}
 

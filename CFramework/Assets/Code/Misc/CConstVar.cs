@@ -33,6 +33,8 @@ public class CConstVar {
 
 	public static int PacketDUP = 3;
 
+	public static int MAX_PLAYER_STORED = 32;
+
 	public static int NoDelta = 1;
 
 	public static int PacketDelayClient = 10;
@@ -51,6 +53,8 @@ public class CConstVar {
 
 	public static int MAX_CLIENTS = 20;
 
+	public static int BodyQueueSize = 8;
+
 	public static int SV_FPS = 20;
 
 	public static int TimeGame = 0;
@@ -66,10 +70,13 @@ public class CConstVar {
 	public static int SERVER_PORT = 27960;
 
 	public static int NUM_SERVER_PORTS = 4;
+	
 
 	public static string PrivatePwd = "server_passwd";
 
 	public static string GameName = "moba";
+
+	public static bool ListEntity = false;
 	
 	public static bool SV_PAUSE = false;
 
@@ -113,6 +120,8 @@ public class CConstVar {
 	public const int MAX_ENTITIES_IN_SNAPSHOT = 256;
 
 	public const int ENTITYNUM_MAX_NORMAL = MAX_ENTITIES - 2;
+
+	public const int ENTITYNUM_NONE = CConstVar.MAX_GENTITIES - 1;
 
 	public const int MAX_RELIABLE_COMMANDS = 64;
 
@@ -203,7 +212,24 @@ public class CConstVar {
 
 	public const int MAX_STATS = 16;
 
+	public const int STAT_MAX_HEALTH = 6;
+
+	public const int STAT_HEALTH = 0;
+
 	public const int MAX_PERSISTANT = 16;
+
+	public const int PERS_SPAWN_COUNT = 4;
+
+	public const int PERS_TEAM = 3;
+
+
+	public const int NUM_CLIENT_HISTORY = 17;
+
+	public const int CONTENTS_BODY = 0x2000000;
+
+	public const int CONTENTS_SOLID = 1;
+
+	public const int SOLID_BMODEL = 0xffffff;
 
 	public static int[] kbitmask = new int[]{
 		0x00000001, 0x00000003, 0x00000007, 0x0000000F,

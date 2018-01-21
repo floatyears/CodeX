@@ -70,6 +70,8 @@ public struct ClientEntity{
 
 public class SvEntityState{
 
+	public WorldSector worldSector;
+
 	public SvEntityState nextEntityInWorldSector;
 	public EntityState baseline;
 
@@ -448,6 +450,16 @@ public struct UserCmd
 		rightmove = 0;
 		upmove = 0;
 	}
+
+	public void Reset(){
+		serverTime = 0;
+		angles[0] = angles[1] = angles[2] = 0;
+		buttons = 0;
+		skillID = 0;
+		forwardmove = 0;
+		rightmove = 0;
+		upmove = 0;
+	}
 }
 
 public enum CmdButton
@@ -548,6 +560,8 @@ public static class EntityFlags{
 	public static int AWARD_ASSIST = 0x10000;
 
 	public static int AWARD_DENIED = 0x20000;
+
+	public static int CONNECTION = 0x40000;
 }
 
 //entityType超过EntityEventType.Event_Count之后，就表示单纯的事件，而不代表一个entity

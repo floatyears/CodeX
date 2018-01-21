@@ -545,6 +545,10 @@ public class PlayerState{
 		states = new int[CConstVar.MAX_STATS];
 		persistant = new int[CConstVar.MAX_PERSISTANT];
 	}
+
+	public void Reset(){
+
+	}
 }
 
 public struct PMove{

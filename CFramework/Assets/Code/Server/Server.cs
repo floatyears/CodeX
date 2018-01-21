@@ -55,9 +55,11 @@ public class Server : CModule {
 
 	private int numEntities;
 
-	// private PlayerState[] gameClients;
+	private PlayerState[] gameClients;
 
 	private int restartTime;
+
+	private WorldSector[] worldSectors;
 
 	// private int time;
 
@@ -80,10 +82,11 @@ public class Server : CModule {
 		for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
 			svEntities[i] = new SvEntityState();
 		}
-		gEntities = new SharedEntity[CConstVar.MAX_GENTITIES];
-		for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
-			gEntities[i] = new SharedEntity();
-		}
+		// gEntities = new SharedEntity[CConstVar.MAX_GENTITIES];
+		// for(int i = 0; i < CConstVar.MAX_GENTITIES; i++){
+		// 	gEntities[i] = new SharedEntity();
+		// }
+		worldSectors = new WorldSector[64];
 
 		challenges = new SvChallenge[CConstVar.MAX_CHALLENGES];
 
@@ -246,7 +249,7 @@ public class Server : CModule {
 		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
 			var cl = clients[i];
 			if(cl.state >= ClientState.CONNECTED){
-				var ps = cl.playerState;
+				var ps =  GetClientPlayer(cl);//cl.playerState;
 				status.Append(ps.persistant[(int)PlayerStatePersistant.PERS_SCORE]).Append(" ").Append(cl.ping).Append(" ").Append(cl.name);
 			}
 		}
@@ -653,7 +656,7 @@ public class Server : CModule {
 				}
 			}
 
-			clients[i].playerState.ping = cl.ping;
+			gameClients[i].ping = cl.ping;
 		}
 	}
 
@@ -867,7 +870,7 @@ public class Server : CModule {
 			return;
 		}
 
-		PlayerState ps = client.playerState;
+		PlayerState ps = GetClientPlayer(client);//client.playerState;
 		frame.playerState = ps;
 
 		int clientNum = frame.playerState.clientNum;
@@ -1161,11 +1164,141 @@ public class Server : CModule {
 		// int i, force;
 		// SharedEntity
 	}
+
+	public void LocateGameData(GameEntity[] gEnts, int numEntities, GameClient[] clients){
+		this.numEntities = numEntities;
+		int len = gEnts.Length;
+		gEntities = new SharedEntity[len];
+		for(int i = 0; i < len; i++){
+			gEntities[i] = gEnts[i].sEnt;
+		}
+		len = clients.Length;
+		gameClients = new PlayerState[len];
+		for(int i = 0; i < len; i++){
+			gameClients[i] = clients[i].playerState;
+		}
+	}
+
+	public void SetGEntsNum(int numEntities){
+		this.numEntities = numEntities;
+	}
+
+	public void UnLinkEntity(GameEntity gEnt){
+		SvEntityState ent = GetSvEntityForGentity(gEnt);
+		gEnt.sEnt.r.linked = false;
+
+		WorldSector ws = ent.worldSector;
+		if(ws == null){
+			return;
+		}
+
+		ent.worldSector = null;
+
+		if(ws.entities == ent){
+			ws.entities = ent.nextEntityInWorldSector;
+			return;
+		}
+
+		SvEntityState scan;
+		for(scan = ws.entities; scan != null; scan = scan.nextEntityInWorldSector){
+			if(scan.nextEntityInWorldSector == ent){
+				scan.nextEntityInWorldSector = ent.nextEntityInWorldSector;
+				return;
+			}
+		}
+		CLog.Warning("UnlinkEntity: not found in worldSector!");
+	}
+
+	public void LinkEntity(GameEntity gEnt){
+		int i,j,k;
+		SvEntityState ent = GetSvEntityForGentity(gEnt);
+		if(ent.worldSector != null){
+			UnLinkEntity(gEnt);
+		}
+		if(gEnt.sEnt.r.bmodel){
+			gEnt.sEnt.s.solid = CConstVar.SOLID_BMODEL;
+		}else if((gEnt.sEnt.r.contents & (CConstVar.CONTENTS_SOLID | CConstVar.CONTENTS_BODY)) > 0){
+			i = (int)gEnt.sEnt.r.maxs[0];
+			if(i < 1){
+				i = 1;
+			}
+			if(i > 255){
+				i = 255;
+			}
+		}
+
+		Vector3 origin = gEnt.sEnt.r.currentOrigin;
+		Vector3 angles = gEnt.sEnt.r.currentAngles;
+
+		// if(gEnt.sEnt.r.bmodel && (angles[0] > 0f || angles[1] > 0f || angles[2] > 0f)){
+		// 	flo
+		// }
+		ent.numClusters = 0;
+		// ent.lastclu
+		gEnt.sEnt.r.linkCount++;
+		WorldSector node = worldSectors[0];
+		while(true){
+			if(node.axis == -1){
+				break;
+			}
+			if(gEnt.sEnt.r.absmin[node.axis] > node.dist){
+				node = node.children[0];
+			}else if(gEnt.sEnt.r.absmax[node.axis] < node.dist){
+				node = node.children[1];
+			}else
+			{
+				break;
+			}
+		}
+		ent.worldSector = node;
+		ent.nextEntityInWorldSector = node.entities;
+		node.entities = ent;
+		gEnt.sEnt.r.linked = true;
+	}
+
+	private SvEntityState GetSvEntityForGentity(GameEntity gEnt){
+		if(gEnt == null || gEnt.sEnt.s.entityIndex < 0 || gEnt.sEnt.s.entityIndex >= CConstVar.MAX_GENTITIES){
+			CLog.Error("GetSvEntityForGentity: bad entityIndex");
+			return null;
+		}
+		return svEntities[gEnt.sEnt.s.entityIndex];
+	}
 	
 
-	// private PlayerState GetClientPlayer(int index){
-	// 	PlayerState ps = gameClients[index];
-	// }
+	private PlayerState GetClientPlayer(ClientNode node){
+		int idx = Array.IndexOf(clients, node);
+		if(idx >= 0){
+			return gameClients[idx];
+		}
+		return null;
+	}
+
+	private void ClientEnterWorld(ClientNode cl,UserCmd? cmd){
+		cl.state = ClientState.ACTIVE;
+		int clNum = Array.IndexOf(clients, cl);
+		SharedEntity ent = gEntities[clNum];
+		ent.s.entityIndex = clNum;
+		cl.gEntity = ent;
+
+		cl.deltaMessage = -1;
+		cl.lastSnapshotTime = 0; //立即产生一个snapshot
+
+		if(cmd != null){
+			cl.lastUserCmd = cmd.Value;
+		}else{
+			cl.lastUserCmd.Reset();
+		}
+
+		CDataModel.GameSimulate.ClientBegin(clNum);
+	}
+
+	public string GetUserInfo(int index){
+		return clients[index].userInfo;
+	}
+
+	public void GetUserCmd(int index, ref UserCmd cmd){
+		cmd = clients[index].lastUserCmd;
+	}
 }
 
 public class ClientNode
@@ -1227,7 +1360,7 @@ public class ClientNode
 
 	public bool[] csUpdated;
 
-	public PlayerState playerState;
+	// public PlayerState playerState;
 
 	public ClientNode(){
 		state = ClientState.FREE;
@@ -1239,7 +1372,7 @@ public class ClientNode
 		}
 		gEntity = new SharedEntity();
 
-		playerState = new PlayerState();
+		// playerState = new PlayerState();
 	}
 }
 
@@ -1299,4 +1432,14 @@ public struct SvChallenge
 	public bool wasrefused;
 
 	public bool connected;
+}
+
+public class WorldSector{
+	public int axis;
+
+	public float dist;
+
+	public WorldSector[] children;
+
+	public SvEntityState entities;
 }

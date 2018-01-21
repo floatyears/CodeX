@@ -61,6 +61,14 @@ public class CDataModel : CModule {
 		}
 	}
 
+	private static CModelGameSimulate gameSimulate;
+
+	public static CModelGameSimulate GameSimulate{
+		get{
+			return gameSimulate;
+		}
+	}
+
 	private static CDataModel instance;
 
 	public static CDataModel Instance
@@ -91,6 +99,7 @@ public class CDataModel : CModule {
 		AddModel<CModelInputEvent>(out inputEvent);
 		AddModel<CModelGameState>(out gameState);
 		AddModel<CModelCMD>(out cmdBuffer);
+		AddModel<CModelGameSimulate>(out gameSimulate);
 
 		needUpdate = true;
 	}
