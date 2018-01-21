@@ -203,13 +203,13 @@ public class CNetwork : CModule{
 				return;
 			}
 
-			if(!from.Equals(connection.NetChan.remoteAddress))
+			var netChan = CDataModel.Connection.NetChan;
+			if(!from.Address.Equals(connection.NetChan.remoteAddress.Address) || from.Port != netChan.qport)
 			{
 				CLog.Info("{0}: sequenced packet without connection", from);
 				return;
 			}
 
-			var netChan = CDataModel.Connection.NetChan;
 			if(!NetChanProcess(ref netChan, packet))
 			{
 				return;
@@ -237,7 +237,7 @@ public class CNetwork : CModule{
 		bool fragmented = false;
 		int fragmentStart = 0;
 		int fragmentLength = 0;
-		packet.BeginRead();
+		packet.BeginReadOOB();
 		int sequence = packet.ReadInt();
 
 		//检查fragment信息
@@ -258,7 +258,7 @@ public class CNetwork : CModule{
 		int checkSum = packet.ReadInt();
 
 		//UDP欺骗保护
-		if(CheckSum(netChan.challenge, checkSum) != checkSum)
+		if(CheckSum(netChan.challenge, sequence) != checkSum)
 			return false;
 
 		//读取fragment信息
@@ -354,7 +354,7 @@ public class CNetwork : CModule{
 
 			//保证前面的还是sequence
 			packet.WriteFirstInt(CNetwork.LittleInt(sequence));
-			packet.WriteData(netChan.fragmentBuffer, 4, netChan.fragmentLength);
+			packet.WriteBufferData(netChan.fragmentBuffer, 4, netChan.fragmentLength);
 			// packet.CurSize = netChan.fragmentLength + 4;
 			netChan.fragmentLength = 0;
 			packet.CurPos = 4; 	//粘贴sequence
@@ -397,7 +397,7 @@ public class CNetwork : CModule{
 				CLog.Error("Parse Message: read past end of server message");
 				break;
 			}
-			cmd = packet.ReadInt();
+			cmd = packet.ReadByte();
 			if(cmd == (int)SVCCmd.EOF){
 				CLog.Info("END OF MESSAGE");
 				break;
@@ -440,7 +440,7 @@ public class CNetwork : CModule{
 	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
 	{
 		msg.BeginReadOOB();
-		msg.ReadInt(); //skip -1
+		msg.ReadInt(); //skip -1 //跳过前面的-1
 		string s = msg.ReadStringLine();
 		var cmd = CDataModel.CmdBuffer;
 		cmd.TokenizeString(s, false);
@@ -679,6 +679,7 @@ public class CNetwork : CModule{
 
 	}
 
+	//发送的data数据是压缩过的，所以这里oob是true，不进行压缩
 	public void NetChanTransmit(ref NetChan netChan, int length, byte[] data){
 		MsgPacket send = new MsgPacket();
 		byte[] sendBuf = new byte[CConstVar.PACKET_MAX_LEN];
@@ -697,18 +698,19 @@ public class CNetwork : CModule{
 			NetChanTransmitNextFrame(ref netChan); 
 		}
 
+		send.Oob = true;
 		//写入packet header
 		send.WriteInt(netChan.outgoingSequence);
 
 		//发送qport
-		if(netChan.src == NetSrc.CLIENT){
-			send.WriteShort((short)CConstVar.Qport);
+		if(netChan.src == NetSrc.CLIENT){ //客户端发送到服务器需要qport
+			send.WriteShort((short)CConstVar.Qport); //这里qport跟本地监听端口一致
 		}
 
-		send.WriteInt(CheckSum(netChan.challenge, netChan.outgoingSequence));
+		send.WriteInt(CheckSum(netChan.challenge, netChan.outgoingSequence)); //checksum
 		netChan.outgoingSequence++;
 
-		send.WriteData(data, -1, length); //data的数据写入到packet中
+		send.WriteData(data, length); //data的数据写入到packet中
 
 		//发送数据
 		SendPacket(netChan.src, send.CurSize, send.Data, netChan.remoteAddress);
@@ -788,7 +790,7 @@ public class CNetwork : CModule{
 
 		send.WriteShort((short)netChan.unsentFragmentStart);
 		send.WriteShort((short)fragmentLength);
-		send.WriteData(netChan.unsentBuffer, -1, fragmentLength, netChan.unsentFragmentStart);
+		send.WriteBufferData(netChan.unsentBuffer, -1, fragmentLength, netChan.unsentFragmentStart);
 
 		//发送数据
 		SendPacket(netChan.src, send.CurSize, send.Data, netChan.remoteAddress);
@@ -818,7 +820,7 @@ public class CNetwork : CModule{
 		var newPacket = new PacketQueue(to);
 		newPacket.packet.CurSize = length;
 		newPacket.to = to;
-		newPacket.packet.WriteData(data, 0, length);
+		newPacket.packet.WriteBufferData(data, 0, length);
 		// newPacket.to = to;
 		newPacket.release = CDataModel.InputEvent.Milliseconds() +  (int)((float)delay/CConstVar.timeScale);
 
@@ -843,8 +845,8 @@ public class CNetwork : CModule{
 	/*------------------工具函数-----------------*/
 	public static int CheckSum(int challenge, int sequence)
 	{
-		// return challenge ^(sequence * challenge);
-		return sequence;
+		return challenge ^(sequence * challenge);
+		// return sequence;
 	}
 
 	public static int LittleInt(int value)

@@ -44,12 +44,19 @@ public class MsgPacket{
 	}
 
 	//把外面的数据写入到packet中
-	public void WriteData(byte[] data, int start, int length, int dataStart = 0)
+	public void WriteBufferData(byte[] data, int start, int length, int dataStart = 0)
 	{
 		if(start < 0) start = curSize;
 		Array.Copy(data, dataStart, bytes, start, length);
 		curSize = start + length;
 		curPos = start + length;
+		
+	}
+
+	public void WriteData(byte[] data, int length){
+		for(int i = 0; i < length; i++){
+			WriteByte(data[i]);
+		}
 	}
 
 	public void BeginRead()
@@ -172,6 +179,7 @@ public class MsgPacket{
 				curPos += 2;
 				bit += 16;
 			}else if(bits == 32){
+				value = CopyLittleLong();
 				curPos += 4;
 				bit += 32;
 			}else{
@@ -208,11 +216,11 @@ public class MsgPacket{
 		return value;
 	}
 
-	private short CopyLittleShort(){
+	private int CopyLittleShort(){
 		byte[] tmp = new byte[2];
 		tmp[1] = bytes[curPos];
 		tmp[0] = bytes[curPos+1];
-		return System.BitConverter.ToInt16(tmp, 0);
+		return (tmp[0] << 8) + (int)tmp[1];
 	}
 
 	private int CopyLittleLong(){
@@ -221,7 +229,7 @@ public class MsgPacket{
 		tmp[1] = bytes[curPos+2];
 		tmp[2] = bytes[curPos+1];
 		tmp[3] = bytes[curPos];
-		return System.BitConverter.ToInt32(tmp, 0);
+		return (tmp[0] << 24) + (tmp[1]<<16) + (tmp[2] << 8) + (int)tmp[3];
 	}
 
 	public int ReadPort(){
@@ -713,11 +721,21 @@ public class MsgPacket{
 				curSize += 1;
 				bit += 8;
 			}else if(bits == 16){
-				value = CopyLittleShort();
+				// value = CopyLittleShort();
+				bytes[curSize+1] = (byte)(value >> 8);
+				bytes[curSize] = (byte)value;
+
 				curSize += 2;
 				bit += 16;
 			}else if(bits ==32){
-				value = CopyLittleLong();
+				// value = CopyLittleLong();
+				bytes[curSize+3] = (byte)(value >> 24);
+				bytes[curSize+2] = (byte)(value >> 16);
+				bytes[curSize+1] = (byte)(value >> 8);
+				bytes[curSize] = (byte)value;
+
+				// int re1 =  (int)bytes[curSize];
+				// int result = (bytes[curSize+3] << 24) + (bytes[curSize+2] << 16) + (bytes[curSize +1] << 8) + (int)bytes[curSize];
 				curSize += 4;
 				bit += 32;
 			}else{
@@ -771,7 +789,8 @@ public class MsgPacket{
 				}
 			}
 
-			WriteData(byts, -1, byts.Length);
+			// WriteBufferData(byts, -1, byts.Length);
+			WriteData(byts, byts.Length);
 		}
 	}
 

@@ -133,6 +133,7 @@ public class CModelConnection : CModelBase {
 		// 	return;
 		// }
 		string p = CDataModel.CmdBuffer.Argv(2);
+		int tmpPort = from.Port;
 		if(!string.IsNullOrEmpty(p)){
 			from.Port = System.Convert.ToInt32(p);
 		}
@@ -157,7 +158,7 @@ public class CModelConnection : CModelBase {
 			return;
 		}
 
-		NetChanSetup(NetSrc.CLIENT, from, CConstVar.Qport, challenge);
+		NetChanSetup(NetSrc.CLIENT, from, tmpPort, challenge);
 		state = ConnectionState.CONNECTED;
 		lastPacketSentTime = -9999; //立即发送第一个数据包
 	}
@@ -175,7 +176,7 @@ public class CModelConnection : CModelBase {
 		var userinfo = cmd.Argv(2);
 		var port = CUtils.GetValueForKey(userinfo, "port");
 		if(!string.IsNullOrEmpty(port)){
-			from.Port = System.Convert.ToInt32(port);
+			netChan.qport = from.Port = System.Convert.ToInt32(port);
 		}
 		// string c = cmd.Argv(1);
 		// if(!string.IsNullOrEmpty(c))
@@ -195,7 +196,7 @@ public class CModelConnection : CModelBase {
 
 		//发送challenge response，而不是challenge request packets
 		challenge = Convert.ToInt32(cmd.Argv(1));
-		
+		netChan.challenge = challenge;
 		state = ConnectionState.CHALLENGING;
 		connectPacketCount = 0;
 		connectTime = -99999;
@@ -282,6 +283,7 @@ public struct NetChan{
 		this.qport = qport;
 		this.incomingSequence = 0;
 		this.outgoingSequence = 1;
+		this.challenge = challenge;
 	}
 }
 

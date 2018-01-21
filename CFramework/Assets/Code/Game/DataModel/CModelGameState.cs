@@ -1248,6 +1248,10 @@ public class ClientSnapshot
 	public int parseEntitiesIndex; //指向循环列表内的索引值
 
 	public int serverCommandNum; //执行这个指令之前的所有指令，使这一帧成为当前帧。
+
+	public ClientSnapshot(){
+		playerState = new PlayerState();
+	}
 }
 
 //每一帧的数据，给定时间的服务器呈现。

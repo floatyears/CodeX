@@ -348,7 +348,8 @@ public class Server : CModule {
 		}
 
 		int chNum = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "challenge"));
-		int qport = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "qport"));
+		// int qport = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "qport"));
+		int qport = from.Port;
 
 		int port = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "port"));
 		from.Port = port;
@@ -831,7 +832,9 @@ public class Server : CModule {
 		}
 
 
+		//这里要默认开始压缩
 		MsgPacket msg = new MsgPacket();
+		msg.Oob = false;
 		msg.AllowOverflow = true;
 
 		//让客户端知道服务器已经收到的可靠消息。

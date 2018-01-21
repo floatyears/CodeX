@@ -133,11 +133,11 @@ public class CSocketUDP {
 					MsgPacket packet = new MsgPacket();
 					packetBuffer.Enqueue(packet);
 					// packet.remoteEP.Port = packet.ReadPort();
-					packet.WriteData(buffer, 0, count); //把缓冲内的数据写入到packet
-					if(buffer[0] == 0 || buffer[1] == 0 || buffer[2] == 0 || buffer[3] == 1){ //ip v 4
-						packet.CurPos = 10;
+					packet.WriteBufferData(buffer, 0, count); //把缓冲内的数据写入到packet
+					if(buffer[0] == 0xff || buffer[1] == 0xff || buffer[2] == 0xff || buffer[3] == 0xff){ //模拟带外数据
+						packet.CurPos = 0;
 						packet.remoteEP = tmp as IPEndPoint;
-						packet.remoteEP.Port = packet.ReadPort();
+						// packet.remoteEP.Port = packet.ReadPort();
 					}else{ //oob数据，暂时是广播的数据
 						packet.CurPos = 0;
 						packet.remoteEP = tmp as IPEndPoint;
@@ -165,18 +165,20 @@ public class CSocketUDP {
 			//Array.Copy(bytes,0,sendBuffer,0,length);
 			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
 			
-		}else{
+		}else{ //这里也不需要进行处理
 			// sendSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName)
-			sendBuffer[0] = 0;
-			sendBuffer[1] = 0;
-			sendBuffer[2] = 0;
-			sendBuffer[3] = 1; //IP
+			// sendBuffer[0] = 0;
+			// sendBuffer[1] = 0;
+			// sendBuffer[2] = 0;
+			// sendBuffer[3] = 1; //IP
 
-			Array.Copy(to.Address.GetAddressBytes(),0,sendBuffer,4, 4);
-			sendBuffer[8] = (byte)(CConstVar.LocalPort >> 8); //发送的是自己监听的端口
-			sendBuffer[9] = (byte)(CConstVar.LocalPort);
-			Array.Copy(bytes,0,sendBuffer, 10, length); //前10个字节是保留的
-			sendSocket.BeginSendTo(sendBuffer, 0, length + 10, SocketFlags.None, to, SendCallback, sendSocket);
+			// Array.Copy(to.Address.GetAddressBytes(),0,sendBuffer,4, 4);
+			// sendBuffer[8] = (byte)(CConstVar.Qport >> 8); //发送的是自己监听的端口
+			// sendBuffer[9] = (byte)(CConstVar.LocalPort);
+			// Array.Copy(bytes,0,sendBuffer, 10, length); //前10个字节是保留的
+			// Array.Copy(bytes, sendBuffer, length);
+			// sendSocket.BeginSendTo(sendBuffer, 0, length + 10, SocketFlags.None, to, SendCallback, sendSocket);
+			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
 		}
 	}
 
