@@ -1,4 +1,4 @@
-#define _DLLExport _declspec(dllexport) //标记为导出函数
+#define _DLLExport //_declspec(dllexport) //标记为导出函数
 
 #include "qcommon.h"
 #include <iostream>
@@ -270,7 +270,7 @@ static huffman_t		msgHuff;
 extern "C" _DLLExport void InitHuffman() {
 	int i, j;
 	Huff_Init(&msgHuff);
-	printf("size: %d, prt size:%d, size node_t : %d\n", sizeof(huff_t),sizeof(int *), sizeof(node_t));
+	//printf("size: %d, prt size:%d, size node_t : %d\n", sizeof(huff_t),sizeof(int *), sizeof(node_t));
 	for (i = 0; i<256; i++) {
 		for (j = 0; j<msg_hData[i]; j++) {
 			Huff_addRef(&msgHuff.compressor, (byte)i);			// Do update

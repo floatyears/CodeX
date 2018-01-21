@@ -95,9 +95,9 @@ static node_t **get_ppnode(huff_t* huff) {
 }
 
 static void free_ppnode(huff_t* huff, node_t **ppnode) {
-	if ((node_t *)huff->freelist != NULL){
-		int a = 1;
-	}
+//    if ((node_t *)huff->freelist != NULL){
+//        int a = 1;
+//    }
 	*ppnode = (node_t *)huff->freelist;
 	huff->freelist = ppnode;
 	//printf("free pp node:ptr:%d, node:%d\n", huff->blocPtrs, huff->blocNode);
