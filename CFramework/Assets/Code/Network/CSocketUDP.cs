@@ -173,10 +173,10 @@ public class CSocketUDP {
 			sendBuffer[3] = 1; //IP
 
 			Array.Copy(to.Address.GetAddressBytes(),0,sendBuffer,4, 4);
-			sendBuffer[8] = (byte)(to.Port >> 8);
-			sendBuffer[9] = (byte)(to.Port);
+			sendBuffer[8] = (byte)(CConstVar.LocalPort >> 8); //发送的是自己监听的端口
+			sendBuffer[9] = (byte)(CConstVar.LocalPort);
 			Array.Copy(bytes,0,sendBuffer, 10, length); //前10个字节是保留的
-			sendSocket.BeginSendTo(bytes, 0, length, SocketFlags.None, to, SendCallback, sendSocket);
+			sendSocket.BeginSendTo(sendBuffer, 0, length + 10, SocketFlags.None, to, SendCallback, sendSocket);
 		}
 	}
 

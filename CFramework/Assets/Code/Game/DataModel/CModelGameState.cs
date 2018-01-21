@@ -91,7 +91,7 @@ public class CModelGameState : CModelBase {
 
 	private int eventSequence;
 
-	private EntityEventType[] predictableEvents;
+	private int[] predictableEvents; //EntityEventType
 
 	private float stepChange;
 
@@ -132,6 +132,8 @@ public class CModelGameState : CModelBase {
 
 	// Use this for initialization
 	public override void Init () {
+		EntityState.InitNetField();
+
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
 		triggerEntities = new List<ClientEntity>();
 		solidEntities = new List<ClientEntity>();
@@ -557,7 +559,7 @@ public class CModelGameState : CModelBase {
 	{
 		EntityState state = clientActive.parseEntities[clientActive.parseEntitiesIndex & (CConstVar.MAX_PARSE_ENTITIES - 1)];
 		if(unchanged){
-			state = old;
+			old.CopyTo(state);
 		}else{
 			msg.ReadDeltaEntity(ref old, ref state, newNum);
 		}
@@ -726,7 +728,7 @@ public class CModelGameState : CModelBase {
 
 	private void CheckPlayerstateEvents(PlayerState playerState, PlayerState oplayerState){
 		ClientEntity clientEntity;
-		EntityEventType evt = 0;
+		int evt = 0;
 		if(playerState.externalEvent > 0 && playerState.externalEvent != oplayerState.externalEvent){
 			clientEntity = clientEntities[playerState.clientNum];
 			clientEntity.currentState.eventID = playerState.externalEvent;
@@ -754,7 +756,7 @@ public class CModelGameState : CModelBase {
 
 	private void CheckEvents(ref ClientEntity cEntity){
 		//检查entity only的事件
-		if(cEntity.currentState.entityType > EntityType.EVENTS_COUNT){
+		if(cEntity.currentState.entityType > (int)EntityType.EVENTS_COUNT){
 			if(cEntity.previousEvent > 0){
 				return;
 			}
@@ -762,8 +764,8 @@ public class CModelGameState : CModelBase {
 			if((cEntity.currentState.entityFlags & EntityFlags.PLAYER_EVENT) > EntityFlags.NONE){
 				cEntity.currentState.entityIndex = cEntity.currentState.otherEntityIdx;
 			}
-			cEntity.previousEvent = (EntityEventType)1;
-			cEntity.currentState.eventID = (EntityEventType)((int)cEntity.currentState.entityType - (int)EntityType.EVENTS_COUNT);
+			cEntity.previousEvent = 1;
+			cEntity.currentState.eventID = (cEntity.currentState.entityType - EntityType.EVENTS_COUNT);
 		}else{
 			if(cEntity.currentState.eventID == cEntity.previousEvent){
 				return;
@@ -1280,11 +1282,17 @@ public struct OutPacket
 
 public struct NetField{
 	//根据反射来获取值
-	public FieldInfo name;
+	public string name;
 
 	public int offset;
 
 	public int bits; //0表示浮点数
+
+	public NetField(string n, int o, int b){
+		name = n;
+		offset = o;
+		bits = b;
+	}
 }
 
 public class ServerInfo{

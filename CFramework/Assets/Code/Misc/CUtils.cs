@@ -20,7 +20,7 @@ public class CUtils {
 		float deltaTime;
 		float phase;
 
-		switch(trajectory.trType){
+		switch((TrajectoryType)trajectory.trType){
 			case TrajectoryType.STATIONARY:
 			case TrajectoryType.INTERPOLATE:
 				result = trajectory.trBase;

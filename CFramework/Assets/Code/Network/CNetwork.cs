@@ -755,7 +755,10 @@ public class CNetwork : CModule{
 		
 		Array.Copy(charArr, 0, a, 4, charArr.Length);
 
-		SendPacket(src, a.Length, a, address);
+		IPEndPoint newA = new IPEndPoint(address.Address,address.Port);
+		newA.Address = IPAddress.Broadcast;
+		
+		SendPacket(src, a.Length, a, newA);
 		// SendPacket(src, str)
 	}
 
