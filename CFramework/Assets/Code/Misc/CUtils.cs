@@ -63,6 +63,10 @@ public class CUtils {
 		return a + b * phase;
 	}
 
+	public static void BG_PlayerStateToEntityStateExtraPolate(PlayerState playerState, ref EntityState entity, int time, bool snap){
+
+	}
+
 	public static void PlayerStateToEntityState(PlayerState playerState, ref EntityState state, bool snap){
 		
 	}
@@ -90,6 +94,9 @@ public class CUtils {
 		}
 	}
 	
+	public static void PMoveRun(ref PMove move){
+
+	}
 
 	public static int Random(){
 		return 10;

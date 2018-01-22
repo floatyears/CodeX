@@ -212,7 +212,7 @@ public class CModelPlayer : CModelBase
 
 			if(CConstVar.OptimizePrediction){
 				if(cmdNum >= predictCmd || (stateIndex + 1) % CConstVar.NUM_SAVED_STATES == gamestate.stateHead){
-					PMoveRun(pmove);
+					CUtils.PMoveRun(ref pmove);
 
 					numPredicted++;
 
@@ -233,7 +233,7 @@ public class CModelPlayer : CModelBase
 					stateIndex = (stateIndex + 1) % CConstVar.NUM_SAVED_STATES;
 				}
 			}else{
-				PMoveRun(pmove);
+				CUtils.PMoveRun(ref pmove);
 				numPredicted++;
 			}
 
@@ -259,9 +259,7 @@ public class CModelPlayer : CModelBase
 
 	}
 
-	private void PMoveRun(PMove move){
-
-	}
+	
 
 	private void TransitionPlayerState(PlayerState playerState, PlayerState oplayerState){
 		var gamestate = CDataModel.GameState;
@@ -573,6 +571,8 @@ public struct PMove{
 	public int pmoveMsec;
 
 	public int pmoveFloat;
+
+	public int pmvoveFlags;
 
 	
 }

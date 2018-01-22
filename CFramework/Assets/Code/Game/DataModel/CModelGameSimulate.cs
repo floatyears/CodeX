@@ -5,7 +5,7 @@ using UnityEngine;
 //游戏模拟模块，只负责逻辑，不负责表现
 public class CModelGameSimulate : CModelBase {
 
-
+	private bool inited = false;
 
 	private int frameNum;
 
@@ -20,6 +20,8 @@ public class CModelGameSimulate : CModelBase {
 	private int prevTime;
 
 	private int startTime;
+
+	private int frameStartTime; //服务器帧实际开始的时间
 
 	private int numEntities;
 
@@ -52,12 +54,18 @@ public class CModelGameSimulate : CModelBase {
 	private bool hadBots;
 
 	public override void Init(){
+		inited = true;
+		
 		update = Update;
 		//总是为最大的客户端数量留足空间
 		numEntities = CConstVar.MAX_CLIENTS;
-		clients = new GameClient[CConstVar.MAX_CLIENTS];
 		gEntities = new GameEntity[CConstVar.MAX_GENTITIES];
+		for(int i = 0; i <CConstVar.MAX_GENTITIES; i++){
+			gEntities[i] = new GameEntity();
+		}
+		clients = new GameClient[CConstVar.MAX_CLIENTS];
 		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
+			clients[i] = new GameClient();
 			gEntities[i].client = clients[i];
 			gEntities[i].classname = "clientslot";
 		}
@@ -78,6 +86,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		SpawnEntityFromConfig();
+		
 	}
 
 	private GameEntity Spawn(){
@@ -127,6 +136,7 @@ public class CModelGameSimulate : CModelBase {
 		e.sEnt.s.entityIndex = System.Array.IndexOf(gEntities, e);
 		e.sEnt.r.ownerNum = CConstVar.ENTITYNUM_NONE;
 	}
+
 	private bool EntitiesFree(){
 		GameEntity e = gEntities[CConstVar.MAX_CLIENTS];
 		for(int i = CConstVar.MAX_CLIENTS; i < numEntities; i++){
@@ -139,7 +149,15 @@ public class CModelGameSimulate : CModelBase {
 	}
 
 	private void FreeEntity(GameEntity ent){
+		Server.Instance.UnLinkEntity(ent);
+		if(ent.neverFree){
+			return;
+		}
 
+		ent.Reset();
+		ent.classname = "freed";
+		ent.freeTime = time;
+		ent.inuse = false;
 	}
 
 	private void Update(){
@@ -234,7 +252,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 		ent.client.pers.cmd.serverTime = time;
 
-
+		ClientThink_real(ent);
 	}
 
 	//在每帧的末尾调用
@@ -288,6 +306,10 @@ public class CModelGameSimulate : CModelBase {
 
 	}
 
+	private void SpectatorThink(GameEntity ent, UserCmd cmd){
+
+	}
+
 	private void RunThink(GameEntity ent){
 
 	}
@@ -309,7 +331,243 @@ public class CModelGameSimulate : CModelBase {
 	}
 
 	private void ClientThink_real(GameEntity ent){
+		GameClient cl = ent.client;
 
+		if(cl.pers.connected != ClientConnState.CONNECTED){
+			return;
+		}
+
+		UserCmd ucmd = ent.client.pers.cmd;
+		if(ucmd.serverTime > time + 200){
+			ucmd.serverTime = time + 200;
+		}
+
+		if(ucmd.serverTime < time - 1000){
+			ucmd.serverTime = time - 1000;
+		}
+
+//unlagged - backward reconciliation #4
+		//frameOffset应该是一帧内收到命令数据包的偏移毫秒数，依赖于服务器运行RunFrame的速度
+		cl.frameOffset = CDataModel.InputEvent.Milliseconds() - frameStartTime;
+//unlagged - backward reconciliation #4
+
+//unlagged - lag simulation #3
+		if(cl.pers.plOut > 0){
+			float thresh = cl.pers.plOut / 100f;
+			if(CUtils.Random() < thresh){
+				//这是丢失了的命令，不做任何事情
+				return;
+			}
+		}
+
+//unlagged - lag simulation #3
+
+//unlagged - true ping
+		cl.pers.pingSamples[cl.pers.sampleHead] = prevTime + cl.frameOffset - ucmd.serverTime;
+		cl.pers.sampleHead++;
+		if(cl.pers.sampleHead >= CConstVar.NUM_PING_SAMPLES){
+			cl.pers.sampleHead -= CConstVar.NUM_PING_SAMPLES;
+		}
+
+		if(CConstVar.TruePing){
+			int sum = 0;
+			for(int i = 0; i < CConstVar.NUM_PING_SAMPLES;i++){
+				sum += cl.pers.pingSamples[i];
+			}
+			cl.pers.realPing = sum / CConstVar.NUM_PING_SAMPLES;
+		}else{
+			cl.pers.realPing = cl.playerState.ping;
+		}
+		//unlagged - true ping
+
+//unlagged - lag simulation #2
+	// 	cl.pers.cmdqueue[cl.pers.cmdhead] = cl.pers.cmd;
+	// 	cl.pers.cmdhead++;
+	// 	if(cl.pers.cmdhead >= CConstVar.MAX_LATENT_CMDS){
+	// 		cl.pers.cmdhead -= CConstVar.MAX_LATENT_CMDS;
+	// 	}
+
+	// 	if(cl.pers.latentCmds > 0){
+	// 		int time = ucmd.serverTime;
+
+	// 		int cmdindex = cl.pers.cmdhead - cl.pers.latentCmds - 1;
+	// 		while(cmdindex < 0){
+	// 			cmdindex += CConstVar.MAX_LATENT_CMDS;
+	// 		}
+	// 		cl.pers.cmd = cl.pers.cmdqueue[cmdindex];
+	// 		cl.pers.realPing += time - ucmd.serverTime;
+	// 	}
+//unlagged - lag simulation #2
+
+		cl.attackTime = ucmd.serverTime;
+
+		cl.lastUpdateFrame = frameNum;
+
+//unlagged - lag simulation #1
+		// if(cl.pers.latentSnaps > 0){
+		// 	cl.pers.realPing += cl.pers.latentSnaps * (1000 / CConstVar.SV_FPS);
+
+		// 	cl.attackTime -= cl.pers.latentSnaps * (1000 / CConstVar.SV_FPS);
+		// }
+//unlagged - lag simulation #1
+
+//unlagged - true ping
+
+		if(cl.pers.realPing < 0){
+			cl.pers.realPing = 0;
+		}
+//unlagged - true ping
+
+		int msec = ucmd.serverTime - cl.playerState.commandTime;
+		if(msec > 200){
+			msec = 200;
+		}
+
+		if(CConstVar.PMoveMsec < 8){
+			CConstVar.PMoveMsec = 8;
+		}
+
+		if(CConstVar.PMoveMsec > 33){
+			CConstVar.PMoveMsec = 33;
+		}
+
+		if(CConstVar.PMoveFixed > 0 || cl.pers.pmoveFixed){
+			ucmd.serverTime = ((ucmd.serverTime + CConstVar.PMoveMsec - 1) / CConstVar.PMoveMsec) * CConstVar.PMoveMsec;
+		}
+
+		if(cl.sess.sessionTeam == TeamType.TEAM_SPECTATOR || cl.isEliminated){
+			if(cl.sess.spectatorState == SpectatorState.SCOREBOARD){
+				return;
+			}
+			SpectatorThink(ent, ucmd);
+			return;
+		}
+
+		if(cl.noclip){
+			cl.playerState.pmType = PMoveType.NOCLIP;
+		}else if(cl.playerState.states[CConstVar.STAT_HEALTH] <= 0){
+			cl.playerState.pmType = PMoveType.DEAD;
+		}else{
+			cl.playerState.pmType = PMoveType.NORMAL;
+		}
+
+		// cl.playerState.gravity = 
+		cl.playerState.speed = CConstVar.Speed;
+
+		int oldEventSeq = cl.playerState.eventSequence;
+		PMove pm = new PMove();
+
+		pm.playerState = cl.playerState;
+		pm.cmd = ucmd;
+		if(pm.playerState.pmType == PMoveType.DEAD){
+			// pm.tracemask
+		}else if((ent.sEnt.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
+			// pm.
+		}else{
+
+		}
+		pm.pmoveFixed = CConstVar.PMoveFixed | (cl.pers.pmoveFixed ? 1 : 0);
+		pm.pmoveMsec = CConstVar.PMoveMsec;
+		pm.pmoveFloat = CConstVar.PMoveFloat;
+		pm.pmvoveFlags = CConstVar.dmFlags;
+
+		cl.oldOrigin = cl.playerState.origin;
+
+		CUtils.PMoveRun(ref pm);
+
+		if(ent.client.playerState.eventSequence != oldEventSeq){
+			ent.eventTime = time;
+		}
+
+		if(CConstVar.SmoothClients > 1){
+			CUtils.BG_PlayerStateToEntityStateExtraPolate(ent.client.playerState, ref ent.sEnt.s, ent.client.playerState.commandTime, true);
+		}else{
+			CUtils.PlayerStateToEntityState(ent.client.playerState, ref ent.sEnt.s, true);
+		}
+
+		SendingPredictableEvents(ent.client.playerState);
+		if((ent.client.playerState.entityFlags & EntityFlags.FIRING) == 0){
+			// cl.fireHeld = false;
+		}
+		ent.sEnt.r.currentOrigin = ent.sEnt.s.pos.trBase;
+		// ent.sEnt.r.mins = pm.mins;
+
+		//执行客户端事件
+		ClientEvents(ent, oldEventSeq);
+
+		Server.Instance.LinkEntity(ent);
+		if(!ent.client.noclip){
+			TouchTrigger(ent);
+		}
+
+		ent.sEnt.r.currentOrigin = ent.client.playerState.origin;
+
+		ClientImpacts(ent, ref pm);
+
+		//保存触发器和客户端事件
+		if(ent.client.playerState.eventSequence != oldEventSeq){
+			ent.eventTime = time;
+		}
+
+		cl.oldButtons = cl.buttons;
+		cl.buttons = ucmd.buttons;
+		cl.latched_buttons |= cl.buttons & ~cl.oldButtons;
+
+		if(cl.playerState.states[CConstVar.STAT_HEALTH] <= 0){
+			if((time > cl.respawnTime)){
+				ClientRespawn(ent);
+			}
+			return;
+		}
+
+	}
+
+	private void ClientRespawn(GameEntity ent){
+
+	}
+
+	private void ClientEvents(GameEntity ent, int oldEventSeq){
+
+	}
+
+	private void TouchTrigger(GameEntity ent){
+
+	}
+
+	private void ClientImpacts(GameEntity ent, ref PMove pm){
+
+	}
+
+	private void SendingPredictableEvents(PlayerState playerState){
+		if(playerState.entityEventSequence < playerState.eventSequence){
+			int seq = playerState.entityEventSequence & (CConstVar.MAX_PS_EVENTS - 1);
+			int evt = playerState.events[seq] | ((playerState.entityEventSequence & 3) << 8);
+			int extEvent = playerState.externalEvent;
+			playerState.externalEvent = 0;
+			GameEntity t = TemEntity(playerState.origin, evt);
+			int idx = t.sEnt.s.entityIndex;
+			CUtils.PlayerStateToEntityState(playerState, ref t.sEnt.s, true);
+			t.sEnt.s.entityIndex = idx;
+			t.sEnt.s.entityType = EntityType.EVENTS_COUNT + evt;
+			t.sEnt.s.entityFlags |= EntityType.PLAYER;
+			t.sEnt.s.otherEntityIdx = playerState.clientNum;
+			t.sEnt.r.svFlags |= SVFlags.NOTSINGLE_CLIENT;
+			playerState.externalEvent = extEvent;
+			// int t = 
+		}
+	}
+
+	private GameEntity TemEntity(Vector3 origin, int evt)
+	{
+		var e = Spawn();
+		e.sEnt.s.entityType = EntityType.EVENTS_COUNT + evt;
+		e.classname = "tempEntity";
+		e.eventTime = time;
+		e.freeAfterEvent = true;
+
+		SetOrigin(e, origin);
+		Server.Instance.LinkEntity(e);
+		return e;
 	}
 
 	private void CheckExitRules(){
@@ -400,7 +658,7 @@ public class CModelGameSimulate : CModelBase {
 
 		var userinfo = Server.Instance.GetUserInfo(index);
 		var hp = CUtils.GetValueForKey(userinfo, "handicap");
-		if(string.IsNullOrEmpty(hp)){
+		if(!string.IsNullOrEmpty(hp)){
 			cl.pers.maxHealth = System.Convert.ToInt32(hp);
 		}else{
 			cl.pers.maxHealth = 100;
@@ -519,7 +777,7 @@ public class CModelGameSimulate : CModelBase {
 	}
 
 	public override void Dispose(){
-
+		inited = false;
 	}
 }
 
@@ -560,6 +818,10 @@ public class GameEntity{
 		sEnt = new SharedEntity();
 	}
 
+	public void Reset(){
+
+	}
+
 }
 
 public class GameClient{
@@ -589,6 +851,8 @@ public class GameClient{
 
 	public int lasthurt_mod;
 
+	public int attackTime;
+
 	public int respawnTime;
 
 	public int inactivityTime; //踢掉玩家，如果time > this
@@ -609,6 +873,8 @@ public class GameClient{
 
 	public ClientHistory saved;
 
+	public int frameOffset;
+
 	public int lastUpdateFrame; //从客户端得到的最后更新的帧
 
 	public GameClient(){
@@ -619,6 +885,7 @@ public class GameClient{
 		for(int i = 0; i < CConstVar.NUM_CLIENT_HISTORY; i++){
 			history[i] = new ClientHistory();
 		}
+		saved = new ClientHistory();
 	}
 
 
@@ -648,6 +915,38 @@ public class GameClientPersistant{
 	public int teamVoteCount;
 
 	public bool teamInfo;
+
+//unlagged - client options
+	//unlagged
+	public int delag;
+
+	// public int debugDelag;
+
+	public int cmdTimeNudge;
+//unlagged - lag simulation #2
+	public int			latentSnaps;
+	public int			latentCmds;
+	public int			plOut;
+	public UserCmd[]	cmdqueue;
+	public int			cmdhead;
+//unlagged - lag simulation #2
+
+	public int realPing;
+
+	public int[] pingSamples;
+
+	public int sampleHead;
+
+	public int killStreak;
+
+	public int deathStreak;
+
+	public GameClientPersistant(){
+		pingSamples = new int[CConstVar.NUM_PING_SAMPLES];
+
+		cmdqueue = new UserCmd[CConstVar.MAX_LATENT_CMDS];
+	}
+
 }
 
 public class GameClientSession {

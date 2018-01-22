@@ -27,6 +27,8 @@ public class CConstVar {
 
 	public static int PMoveFloat = 10;
 
+	public static int dmFlags = 10;
+
 	public static int ErrorDecay = 10;
 
 	public static int MaxPackets = 30;
@@ -65,6 +67,8 @@ public class CConstVar {
 
 	public static int reconnectLimit = 10;
 
+	public static int SmoothClients = 1;
+
 	public static int PrivateClients = 1;
 
 	public static int SERVER_PORT = 27960;
@@ -87,6 +91,10 @@ public class CConstVar {
 	public static bool OptimizePrediction = true;
 
 	public static bool IsLocalNetwork = true;
+
+	public static bool TruePing;
+
+	public static int Speed;
 
 	public const bool LanForcePackets = false;
 
@@ -230,6 +238,10 @@ public class CConstVar {
 	public const int CONTENTS_SOLID = 1;
 
 	public const int SOLID_BMODEL = 0xffffff;
+
+	public const int NUM_PING_SAMPLES = 64;
+
+	public const int MAX_LATENT_CMDS = 64;
 
 	public static int[] kbitmask = new int[]{
 		0x00000001, 0x00000003, 0x00000007, 0x0000000F,

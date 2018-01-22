@@ -87,12 +87,16 @@ public class Server : CModule {
 		// 	gEntities[i] = new SharedEntity();
 		// }
 		worldSectors = new WorldSector[64];
+		for(int i = 0; i < 64; i++){
+			worldSectors[i] = new WorldSector();
+		}
+
+		
 
 		challenges = new SvChallenge[CConstVar.MAX_CHALLENGES];
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
-
-		CDataModel.Connection.ServerRunning = true;
+		snapshotEntities = new EntityState[numSnapshotEntities];
 		inited = true;
 	}
 
@@ -453,6 +457,8 @@ public class Server : CModule {
 			if(count == 1 || count == CConstVar.MAX_CLIENTS){
 				nextHeartbeatTime = -999999;
 			}
+
+			ClientEnterWorld(newcl, null);
 		};
 		
 		//如果有一个这个ip的连接，重用它
@@ -605,10 +611,6 @@ public class Server : CModule {
 
 		CheckTimeouts();
 		SendClientMessages();
-	}
-
-	private void RunGameSimulation(){
-
 	}
 
 	//释放
@@ -878,7 +880,7 @@ public class Server : CModule {
 			CLog.Error("SvEntity for gEntity: bad gEnt");
 		}
 		var svEnt = svEntities[clientNum];
-		svEnt.snapshotCounter = snapshotCounter;
+		// svEnt.snapshotCounter = snapshotCounter;
 
 		Vector3 org = ps.origin;
 		org[2] += ps.viewHeight;
@@ -1079,7 +1081,7 @@ public class Server : CModule {
 				newNum = 9999;
 			}else{
 				newEnt = snapshotEntities[(to.firstEntity + newIndex) % numSnapshotEntities];
-				newNum = oldEnt.Value.entityIndex;
+				newNum = newEnt.Value.entityIndex;
 			}
 
 			if(oldIndex >= fromNumEnts){
@@ -1273,7 +1275,7 @@ public class Server : CModule {
 		return null;
 	}
 
-	private void ClientEnterWorld(ClientNode cl,UserCmd? cmd){
+	private void ClientEnterWorld(ClientNode cl, UserCmd? cmd){
 		cl.state = ClientState.ACTIVE;
 		int clNum = Array.IndexOf(clients, cl);
 		SharedEntity ent = gEntities[clNum];

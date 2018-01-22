@@ -21,6 +21,10 @@ public class CGameCore {
 	{
 		CPath.Init();
 
+		fixedModules = new List<CModule>(3);
+		fixedModules.Add(new Server());
+		fixedModules[0].Init();
+
 		updateModules = new List<CModule>(20);
 		modules = new List<CModule>(10);
 		AddModule("Network", new CNetwork());
@@ -34,12 +38,12 @@ public class CGameCore {
 
 		
 
-		fixedModules = new List<CModule>(3);
-		fixedModules.Add(new Server());
-		fixedModules[0].Init();
+		
 		
 		fixedUpdateNum = fixedModules.Count;
 		updateNum = updateModules.Count;
+		
+		CDataModel.Connection.ServerRunning = true;
 		
 		//fixedModules.Add();
 		//CDataModel.Player.CsAccountLogin();

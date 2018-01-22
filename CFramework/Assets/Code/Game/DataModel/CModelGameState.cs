@@ -8,6 +8,8 @@ using System;
 
 public class CModelGameState : CModelBase {
 
+	private bool inited = false;
+
 	private int clientFrame;
 
 	private int clientNum;
@@ -132,6 +134,7 @@ public class CModelGameState : CModelBase {
 
 	// Use this for initialization
 	public override void Init () {
+		inited = true;
 		EntityState.InitNetField();
 
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
@@ -1162,7 +1165,7 @@ public class CModelGameState : CModelBase {
 	}
 	
 	public override void Dispose () {
-		
+		inited = false;
 	}
 }
 

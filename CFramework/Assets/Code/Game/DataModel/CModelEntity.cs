@@ -453,7 +453,11 @@ public struct UserCmd
 
 	public void Reset(){
 		serverTime = 0;
-		angles[0] = angles[1] = angles[2] = 0;
+		if(angles == null){
+			angles = new int[3];
+		}else{
+			angles[0] = angles[1] = angles[2] = 0;
+		}
 		buttons = 0;
 		skillID = 0;
 		forwardmove = 0;
