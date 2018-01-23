@@ -489,7 +489,7 @@ public class CModelGameSimulate : CModelBase {
 		if((ent.client.playerState.entityFlags & EntityFlags.FIRING) == 0){
 			// cl.fireHeld = false;
 		}
-		ent.sEnt.r.currentOrigin = ent.sEnt.s.pos.trBase;
+		ent.sEnt.s.pos.GetTrBase(ref ent.sEnt.r.currentOrigin);
 		// ent.sEnt.r.mins = pm.mins;
 
 		//执行客户端事件
@@ -769,10 +769,10 @@ public class CModelGameSimulate : CModelBase {
 	}
 
 	private void SetOrigin(GameEntity entity, Vector3 origin){
-		entity.sEnt.s.pos.trBase = origin;
+		entity.sEnt.s.pos.SetTrBase(origin);
 		entity.sEnt.s.pos.trTime = 0;
 		entity.sEnt.s.pos.trDuration = 0;
-		entity.sEnt.s.pos.trDelta = Vector3.zero;
+		entity.sEnt.s.pos.SetTrDelta(Vector3.zero);
 		entity.sEnt.r.currentOrigin = origin;
 	}
 

@@ -134,7 +134,9 @@ public class MsgPacket{
 
 
 	public int ReadFirstInt(){
-		return System.BitConverter.ToInt32(Data, 0);
+		// return System.BitConverter.ToInt32(Data, 0);
+		return (bytes[3] << 24) + (bytes[2]<<16) + (bytes[1] << 8) + (int)bytes[0];
+		
 	}
 
 	public int ReadInt()
@@ -434,8 +436,8 @@ public class MsgPacket{
 		byte* startT = (byte *)&tmpT;
 		for(i = 0; i < lc; i++){
 			field = EntityState.entityStateFields[i];
-			fromF = (int *)startF + field.offset;
-			toF = (int *)startT + field.offset;
+			fromF = (int *)(startF + field.offset);
+			toF = (int *)(startT + field.offset);
 
 			//最好的方式还是c++直接操作内存数据，利用反射效率比较低
 			if(ReadBits(1) == 0){ //没有变化
@@ -446,7 +448,11 @@ public class MsgPacket{
 				if(field.bits == 0){
 					if(ReadBits(1) == 0){
 						// field.name.SetValue(to, 0.0f);
-						*(float *)toF = 0.0f;
+						try{
+							*(float *)toF = 0.0f;
+						}catch(Exception e){
+							CLog.Error("error:{0}, {1}", e.Message, field.name);
+						}
 					}else{
 						if(ReadBits(1) == 0){
 							//积分浮点数
@@ -627,8 +633,12 @@ public class MsgPacket{
 	}
 	
 	public void WriteFirstInt(int value){
-		var byts = BitConverter.GetBytes(value);
-		Array.Copy(byts, bytes, bytes.Length);
+		// var byts = BitConverter.GetBytes(value);
+		// Array.Copy(byts, bytes, bytes.Length);
+		bytes[0] = (byte)value;
+		bytes[1] = (byte)(value << 8);
+		bytes[2] = (byte)(value << 16);
+		bytes[3] = (byte)(value << 24);
 	}
 
 	public void WriteInt(int value)

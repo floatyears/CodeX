@@ -148,6 +148,7 @@ public class CModelGameState : CModelBase {
 
 	public void Update(){
 		ProcessSnapshots();
+		time += (int)(Time.deltaTime * 1000);
 		realTime = (int)(Time.realtimeSinceStartup*1000);
 	}
 	
@@ -172,6 +173,9 @@ public class CModelGameState : CModelBase {
 		clientActive.serverTimeDelta = 0;
 		clientActive.snap = new ClientSnapshot();
 		clientActive.snapshots = new ClientSnapshot[CConstVar.PACKET_BACKUP];
+		for(int i = 0; i < CConstVar.PACKET_BACKUP; i++){
+			clientActive.snapshots[i] = new ClientSnapshot();
+		}
 		clientActive.timeoutCount = 0;
 		clientActive.userCmdValue = 0;
 		clientActive.viewAngles = Vector3.zero;
@@ -1224,6 +1228,8 @@ public struct ClientActive
 	public void Init()
 	{
 		snap = new ClientSnapshot();
+		// mouseDx = new int[3];
+		// mouseDy = new int[3];
 		entityBaselines = new EntityState[CConstVar.MAX_SNAPSHOT_ENTITIES * CConstVar.PACKET_BACKUP];
 	}
 }

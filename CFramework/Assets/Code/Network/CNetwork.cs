@@ -219,7 +219,7 @@ public class CNetwork : CModule{
 			int headerBytes = packet.CurPos;
 
 			//记录最后接收到的消息，这样它可以在客户端信息中返回，允许服务器检测丢失的gamestate
-			connection.serverMessageSequence = CNetwork.LittleInt(packet.ReadFirstInt());
+			connection.serverMessageSequence = packet.ReadFirstInt();
 			connection.lastPacketTime = CDataModel.GameState.time;
 
 			ParseMessage(packet);
@@ -276,11 +276,11 @@ public class CNetwork : CModule{
 		{
 			if(fragmented)
 			{
-				CLog.Info("{0} recv {1} : s={2} fragment={3},{4}", netChan.src, packet.CurSize, sequence, fragmentStart, fragmentLength);
+				CLog.Info("{0} recv {1} bytes : s={2} fragment={3},{4}", netChan.src, packet.CurSize, sequence, fragmentStart, fragmentLength);
 
 			}else
 			{
-				CLog.Info("{0} recv {1} : s={2}", netChan.remoteAddress, packet.CurSize, sequence);
+				CLog.Info("{0} recv {1} bytes : s={2}", netChan.remoteAddress, packet.CurSize, sequence);
 			}
 		}
 		

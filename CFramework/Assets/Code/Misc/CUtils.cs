@@ -20,19 +20,27 @@ public class CUtils {
 		float deltaTime;
 		float phase;
 
+		Vector3 tmp1 = Vector3.zero;
+		trajectory.GetTrBase(ref tmp1);
+		Vector3 tmp2 = Vector3.zero;
+		trajectory.GetTrDelta(ref tmp2);
+
 		switch((TrajectoryType)trajectory.trType){
 			case TrajectoryType.STATIONARY:
 			case TrajectoryType.INTERPOLATE:
-				result = trajectory.trBase;
+				result = Vector3.zero;
+				trajectory.GetTrBase(ref result);
 				return true;
 			case TrajectoryType.LINEAR:
 				deltaTime = (atTime - trajectory.trTime) * 0.001f;
-				result = VectorMA(trajectory.trBase, deltaTime, trajectory.trDelta);
+				
+				result = VectorMA(tmp1, deltaTime, tmp2);
 				return true;
 			case TrajectoryType.SINE:
 				deltaTime = (atTime - trajectory.trTime) / (float) trajectory.trDuration;
 				phase = Mathf.Sin(deltaTime * Mathf.PI * 2);
-				result = VectorMA(trajectory.trBase, phase, trajectory.trDelta);
+				
+				result = VectorMA(tmp1, phase, tmp2);
 				return true;
 			case TrajectoryType.LINEAR_STOP:
 				if(atTime > trajectory.trTime + trajectory.trDuration){
@@ -42,11 +50,11 @@ public class CUtils {
 				if(deltaTime < 0){
 					deltaTime = 0f;
 				}
-				result = VectorMA(trajectory.trBase, deltaTime, trajectory.trDelta);
+				result = VectorMA(tmp1, deltaTime, tmp2);
 				return true;
 			case TrajectoryType.GRAVITY:
 				deltaTime = (atTime - trajectory.trTime) * 0.001f;
-				result = VectorMA(trajectory.trBase, deltaTime, trajectory.trDelta);
+				result = VectorMA(tmp1, deltaTime, tmp2);
 				result[2] -= 0.5f * CConstVar.DEFAULT_GRAVITY * deltaTime * deltaTime;
 				return true;
 			default:
@@ -54,9 +62,6 @@ public class CUtils {
 				result = Vector3.zero;
 				return false;
 		}
-
-		result = Vector3.zero;
-		return false;
 	}
 
 	public static Vector3 VectorMA(Vector3 a, float phase, Vector3 b){

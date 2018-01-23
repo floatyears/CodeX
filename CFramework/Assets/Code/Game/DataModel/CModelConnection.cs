@@ -232,7 +232,7 @@ public enum ConnectionState
 	CINEMATIC,
 }
 
-public struct NetChan{
+public class NetChan{
 
 	public NetSrc src;
 	public int dropped; //between last packet and previous

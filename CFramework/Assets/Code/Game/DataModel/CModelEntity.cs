@@ -83,7 +83,7 @@ public class SvEntityState{
 }
 
 [StructLayout(LayoutKind.Sequential)]
-public struct EntityState{
+unsafe public struct EntityState{
 	public int entityID;
 
 	public int entityIndex;
@@ -489,11 +489,11 @@ public struct Trajectory{
 
 	public int trDuration; //如果不是0，trTime + trDuration = stop time
 
-	public Vector3 trBase;
+	public unsafe fixed float trBase[3];
 
-	public Vector3 trDelta; //velocity
+	public unsafe fixed float trDelta[3];
 
-	public int Equals(ref Trajectory value){
+	unsafe public int Equals(ref Trajectory value){
 		int num = 0;
 		if(trType != value.trType){
 			num = 1;
@@ -504,13 +504,60 @@ public struct Trajectory{
 		if(trDuration != value.trDuration){
 			num = 3;
 		}
-		if(trBase != value.trBase){
-			num = 4;
+		
+		fixed(float* a = trBase){
+			fixed(float* b = value.trBase){
+				for(int i = 0; i < 3; i++){
+					if(*(a + i) != *(b + i)){
+						num = 4 + i;
+					}	
+				}
+			}
 		}
-		if(trDelta != value.trDelta){
-			num = 5;
+
+		fixed(float* a = trDelta){
+			fixed(float* b = value.trDelta){
+				for(int i = 0; i < 3; i++){
+					if(*(a + i) != *(b + i)){
+						num = 7 + i;
+					}	
+				}
+			}
 		}
+		
 		return num;
+	}
+
+	unsafe public void GetTrBase(ref Vector3 val){
+		fixed(float* a = trBase){
+			val.x = *a;
+			val.y = *(a+1);
+			val.z = *(a+2);
+		}
+	}
+
+	unsafe public void GetTrDelta(ref Vector3 val){
+		fixed(float* a = trDelta){
+			val.x = *a;
+			val.y = *(a+1);
+			val.z = *(a+2);
+		}
+	}
+
+	unsafe public void SetTrBase(Vector3 val){
+		fixed(float* a = trBase){
+			*a = val.x;
+			*(a+1) = val.y;
+			*(a+2) = val.z;
+		}
+	}
+
+	unsafe public void SetTrDelta(Vector3 val){
+		fixed(float* a = trDelta){
+			*a = val.x;
+			*(a+1) = val.y;
+			*(a+2) = val.z;
+		}
 	}
 }
 

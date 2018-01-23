@@ -107,7 +107,7 @@ public class CModelInputEvent : CModelBase {
 		CreateNewUserCommands();
 		if(!CNetwork.Instance.ReadyToSendPacket()){
 			if(CConstVar.ShowNet > 0){
-				CLog.Info("send no msg.");
+				// CLog.Info("send no msg.");
 			}
 			return;
 		}
