@@ -168,22 +168,22 @@ public class Server : CModule {
 				continue;
 			}
 
-			if(from != cl.netChan.remoteAddress)
+			if(!from.Address.Equals(cl.netChan.remoteAddress.Address) || cl.netChan.qport != from.Port )
 			{
 				continue;
 			}
 
 			//一个IP对应多个客户端，用qport来区分
-			if(cl.netChan.qport != qport)
-			{
-				continue;
-			}
+			// if(cl.netChan.qport != qport)
+			// {
+			// 	continue;
+			// }
 
-			if(cl.netChan.remoteAddress.Port != from.Port)
-			{
-				CLog.Info("SV_PacketEvent: fixing up a translated port");
-				cl.netChan.remoteAddress.Port = from.Port;
-			}
+			// if(cl.netChan.remoteAddress.Port != from.Port)
+			// {
+			// 	CLog.Info("SV_PacketEvent: fixing up a translated port");
+			// 	cl.netChan.remoteAddress.Port = from.Port;
+			// }
 
 			if(SV_NetChanProcess(ref cl.netChan, packet))
 			{
