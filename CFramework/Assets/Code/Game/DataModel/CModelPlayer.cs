@@ -69,7 +69,7 @@ public class CModelPlayer : CModelBase
 		// pmove.noFootsteps = gamestate.dm
 
 		oldPlayerState = predictedPlayerState;
-		current = CDataModel.GameState.ClientActive.cmdNum;
+		current = CDataModel.GameState.ClActive.cmdNum;
 
 		//如果没有紧接着snapshot之后的comands，就不能精确预测当前的位置，所以就停在最后的正确位置上
 		cmdNum = current - CConstVar.CMD_BACKUP + 1;
@@ -332,7 +332,7 @@ public class CModelPlayer : CModelBase
 
 		outP = gamestate.snap.playerState;
 
-		var cl = CDataModel.GameState.ClientActive;
+		var cl = CDataModel.GameState.ClActive;
 		if(grabAngles){
 			UserCmd cmd;
 			int cmdNum = cl.cmdNum;

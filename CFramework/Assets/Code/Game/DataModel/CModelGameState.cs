@@ -119,7 +119,7 @@ public class CModelGameState : CModelBase {
 
 	private ClientActive clientActive;
 
-	public ClientActive ClientActive{
+	public ClientActive ClActive{
 		get{
 			return clientActive;
 		}
@@ -1117,6 +1117,17 @@ public class CModelGameState : CModelBase {
 
 	// 	}
 	// }
+
+	public void AddReliableCommand(string cmd, bool isDisconnectedCmd){
+		var conn = CDataModel.Connection;
+		int unack = conn.reliableSequence - conn.reliableAcknowledge;
+		if((isDisconnectedCmd && unack > CConstVar.MAX_RELIABLE_COMMANDS) ||
+		(!isDisconnectedCmd && unack >= CConstVar.MAX_RELIABLE_COMMANDS)){
+			CLog.Error("client command overflow");
+		}
+
+		conn.reliableCommands[++conn.reliableSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1)] = cmd;
+	}
 
 	private void GetCurrentSnapshotNum(ref int snapshotNum,ref int serverTime){
 		snapshotNum = clientActive.snap.messageNum;

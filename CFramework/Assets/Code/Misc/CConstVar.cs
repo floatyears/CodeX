@@ -39,6 +39,8 @@ public class CConstVar {
 
 	public static int NoDelta = 1;
 
+	public static int PureServer = 0;
+
 	public static int PacketDelayClient = 10;
 
 	public static int PacketDelayServer = 10;
@@ -101,6 +103,8 @@ public class CConstVar {
 	public const bool LanForceRate = false;
 
 	public const string	 ServerAddress = "";
+
+	public static int serverID = 100023;
 
 	public const int MAX_SERVER_NUM = 32;
 

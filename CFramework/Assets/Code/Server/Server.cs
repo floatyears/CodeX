@@ -61,7 +61,7 @@ public class Server : CModule {
 
 	private WorldSector[] worldSectors;
 
-	// private int time;
+	private float deltaTime;
 
 	private static Server instance;
 
@@ -94,6 +94,9 @@ public class Server : CModule {
 		
 
 		challenges = new SvChallenge[CConstVar.MAX_CHALLENGES];
+		for(int i = 0; i < CConstVar.MAX_CHALLENGES; i++){
+			challenges[i] = new SvChallenge();
+		}
 
 		numSnapshotEntities = CConstVar.MAX_CLIENTS * CConstVar.PACKET_BACKUP * CConstVar.MAX_SNAPSHOT_ENTITIES;
 		snapshotEntities = new EntityState[numSnapshotEntities];
@@ -200,7 +203,183 @@ public class Server : CModule {
 
 	public void SV_ExecuteClientMessage(ClientNode cl, MsgPacket msg)
 	{
+		
+		msg.Oob = false;
+		int srvID = msg.ReadInt();
+		cl.messageAcknowledge = msg.ReadInt();
+		if(cl.messageAcknowledge < 0){
+			DropClient(cl,"illegible client message");
+			return;
+		}
 
+		cl.reliableAcknowledge = msg.ReadInt();
+		if(cl.reliableAcknowledge < cl.reliableSequence - CConstVar.MAX_RELIABLE_COMMANDS){
+			DropClient(cl,"illegible client message");
+			cl.reliableAcknowledge = cl.reliableSequence;
+			return;
+		}
+
+		if(srvID != serverID ){
+			if(serverID >= restartedServerId && srvID < serverID){
+				CLog.Info("{0} : ignoring pre map_restart/ outdated client message",cl.name);
+				SendClientGameState(cl);
+				return;
+			}
+		}
+
+		if(cl.oldServerTime > 0 && srvID == serverID){
+			CLog.Info("{0} ackownledged gamestate", cl.name);
+			cl.oldServerTime = 0;
+		}
+
+		int c = 0;
+		do{
+			c = msg.ReadByte();
+			if(c == (int)CLC_Cmd.EOF){
+				break;
+			}
+			if(c != (int)CLC_Cmd.ClientCommand){
+				break;
+			}
+			if(!ClientCommand(cl, msg)){
+				return;
+			}
+			if(cl.state == ClientState.ZOMBIE){
+				return;
+			}
+		}while(true);
+
+
+		if(c == (int)CLC_Cmd.MOVE){
+			UserMove(cl,msg, true);
+		}else if(c == (int)CLC_Cmd.MoveNoDelta){
+			UserMove(cl,msg,false);
+		}else if(c != (int)CLC_Cmd.EOF){
+			CLog.Info("bad command type for client!!!!");
+		}
+	}
+
+	private bool ClientCommand(ClientNode cl, MsgPacket msg){
+		int seq = msg.ReadInt();
+		string s = msg.ReadString();
+
+		if(cl.lastClientCommand >= seq){
+			return true;
+		}
+
+		CLog.Info("client command: {0} : {1} : {2}", cl.name, seq, s);
+
+		if(seq > (cl.lastClientCommand + 1)){
+			CLog.Info("Client {0} lost {1} client commands", cl.name, seq - cl.lastClientCommand + 1);
+			DropClient(cl, "lost reliable commands");
+			return false;
+		}
+
+		cl.nextReliableTime = time + 1000;
+
+		ExecuteClientCommand(cl, s, true);
+
+		cl.lastClientCommand = seq;
+
+		return true;
+	}
+
+	private void ExecuteClientCommand(ClientNode cl, string s, bool clientOk){
+
+		CDataModel.CmdBuffer.TokenizeString(s, false);
+
+		var c = CDataModel.CmdBuffer.Argv(0);
+		switch(c){
+			case "userinfo":
+				break;
+			case "disconnect":
+				DropClient(cl,"disconnected");
+				break;
+			case "cp":
+
+				break;
+		}
+
+		
+	}
+
+	public void UserMove(ClientNode cl, MsgPacket msg, bool delta){
+		var cmds = new UserCmd[CConstVar.MAX_PACKET_USERCMDS];
+		for(int i = 0; i < cmds.Length; i++){
+			cmds[i] = new UserCmd();
+		}
+
+		if(delta){
+			cl.deltaMessage = cl.messageAcknowledge;
+		}else{
+			cl.deltaMessage = -1;
+		}
+
+		int cmdCount = msg.ReadByte();
+		if(cmdCount < 1){
+			CLog.Info("cmd count < 1");
+			return;
+		}
+
+		if(cmdCount > CConstVar.MAX_PACKET_USERCMDS){
+			CLog.Info("cmdcount > Max Packet Usercmds");
+			return;
+		}
+
+		int key = checksumFeed;
+		key ^= cl.messageAcknowledge;
+		key ^= CUtils.HashKey(cl.reliableCommands[cl.reliableAcknowledge & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
+
+		UserCmd oldcmd = new UserCmd();
+		for(int i = 0; i < cmdCount; i++){
+			msg.ReadDeltaUsercmdKey(key, ref oldcmd, ref cmds[i]);
+			oldcmd = cmds[i];
+		}
+
+		cl.frames[cl.messageAcknowledge & CConstVar.PACKET_MASK].messageAcked = time;
+
+		if(CConstVar.PureServer != 0 && cl.pureAuthentic == 0 && !cl.gotCP){
+			if(cl.state == ClientState.ACTIVE){
+				CLog.Info("{0} didn't get cp command, resending gamestate", cl.name);
+				SendClientGameState(cl);
+			}
+			return;
+		}
+
+		//如果是收到的第一个客户端包，把客户端放到世界中
+		if(cl.state == ClientState.PRIMED){
+			ClientEnterWorld(cl, cmds);
+		}
+
+		//发送了错误的指令，丢弃客户端
+		if(CConstVar.PureServer != 0 && cl.pureAuthentic == 0){
+			DropClient(cl, "Cannot validate pure client");
+			return;
+		}
+
+		if(cl.state != ClientState.ACTIVE){
+			cl.deltaMessage = -1;
+			return;
+		}
+
+		for(int i = 0; i < cmdCount; i++){
+			if(cmds[i].serverTime > cmds[cmdCount - 1].serverTime){
+				continue;
+			}
+
+			if(cmds[i].serverTime <= cl.lastUserCmd.serverTime){
+				continue;
+			}
+			SV_ClientThink(cl, ref cmds[i]);
+		}
+	}
+
+	public void SV_ClientThink(ClientNode cl, ref UserCmd cmd){
+		cl.lastUserCmd = cmd;
+		if(cl.state != ClientState.ACTIVE){
+			return;
+		}
+		CDataModel.GameSimulate.ClientThink(Array.IndexOf(clients, cl));
 	}
 
 	public void SV_ConnectionlessPacket(IPEndPoint from, MsgPacket packet)
@@ -331,7 +510,7 @@ public class Server : CModule {
 		infoStr.Append("\\").Append("sv_maxclients").Append("$").Append(CConstVar.MAX_CLIENTS);
 		infoStr.Append("\\").Append("minPing").Append("$").Append(CConstVar.minPing);
 		infoStr.Append("\\").Append("maxPing").Append("$").Append(CConstVar.maxPing);
-
+		infoStr.Append("\\").Append("serverID").Append("$").Append(CConstVar.serverID);
 
 		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, infoStr.ToString());
 
@@ -438,7 +617,7 @@ public class Server : CModule {
 			newcl.userInfo = userinfo;
 
 			//发送连接消息给客户端
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0} {1}", chNum, CConstVar.LocalPort));
+			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0} {1} {2}", chNum, CConstVar.LocalPort, CConstVar.serverID));
 
 			newcl.state = ClientState.CONNECTED;
 			newcl.lastSnapshotTime = 0;
@@ -539,9 +718,18 @@ public class Server : CModule {
 
 	}
 
+	private void SendClientGameState(ClientNode cl){
+
+	}
+
 	//模块更新
 	public override void Update()
 	{
+		deltaTime += Time.deltaTime;
+		if(deltaTime < 1){
+			return;
+		}
+		deltaTime = 0;
 		//先发送缓冲的消息
 		int minMsec = FrameMsec();
 		int timeVal = 0;
@@ -727,8 +915,93 @@ public class Server : CModule {
 
 	}
 
-	private void DropClient(ClientNode client, string message){
+	private void DropClient(ClientNode drop, string reason){
+		if(drop.state == ClientState.ZOMBIE){
+			return;
+		}
 
+		int i = 0;
+		SvChallenge ch;
+		if(drop.gEntity == null || (drop.gEntity.r.svFlags & SVFlags.BOT) == SVFlags.NONE){
+			//看看是否已经为这个ip存储了一个challenge
+			ch = challenges[0];
+			for(i = 0; i < CConstVar.MAX_CHALLENGES; i++){
+				if(drop.netChan.remoteAddress.Equals(ch.adr)){
+					ch.connected = false;
+					break;
+				}
+			}
+		}
+
+		SendServerCommand(null, "drop client:{0}, because ",drop.name, reason);
+
+		CLog.Info("Goging to ClientState.ZOMBIE for {0}", drop.name);
+		drop.state = ClientState.ZOMBIE; //几秒钟之后就释放
+
+		int clienIdx = Array.IndexOf(clients, drop);
+		CDataModel.GameSimulate.ClientDisconnect(clienIdx);
+
+		SendServerCommand(drop, "disconnect {0}", reason);
+
+		if(drop.netChan.isBot){
+			BotFreeClient(clienIdx);
+		}
+
+		for(i = 0; i < CConstVar.maxClient; i++){
+			if(clients[i].state >= ClientState.CONNECTED){
+				break;
+			}
+		}
+		if(i == CConstVar.maxClient){
+			nextHeartbeatTime = -9999999;
+		}
+	}
+
+	
+
+	private void BotFreeClient(int clientNum){
+		if(clientNum < 0 || clientNum >= CConstVar.maxClient){
+			CLog.Error("SV BotFreeClient: bad clientNum: {0}", clientNum);
+			return;
+		}
+
+		ClientNode cl = clients[clientNum];
+		cl.state = ClientState.FREE;
+		cl.name = "";
+		if(cl.gEntity != null){
+			cl.gEntity.r.svFlags &= ~SVFlags.BOT;
+		}
+	}
+
+	private void AddServerCommand(ClientNode cl, string cmd){
+		cl.reliableSequence++;
+		if(cl.reliableSequence - cl.reliableAcknowledge == (CConstVar.MAX_RELIABLE_COMMANDS + 1)){
+			CLog.Info(" ====== pending server commands =====");
+			int i = 0;
+			for(i = cl.reliableAcknowledge + 1; i < cl.reliableSequence; i++){
+				CLog.Info("cmd {0} ：{1}", i, cl.reliableCommands[i & (CConstVar.MAX_RELIABLE_COMMANDS - 1)]);
+			}
+			CLog.Info("cmd {0}:{1}", i, cmd);
+			DropClient(cl, "server cmd overflow");
+			return;
+		}
+		int idx = cl.reliableSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
+		cl.reliableCommands[idx] = cmd;
+	}
+
+	private void SendServerCommand(ClientNode cl, string format, params string[] args){
+		if(cl != null){
+			AddServerCommand(cl, string.Format(format, args));
+			return;
+		}
+
+		//发送消息到所有的客户端
+		for(int j = 0; j < CConstVar.MAX_CLIENTS; j++){
+			if(cl.state < ClientState.PRIMED){
+				continue;
+			}
+			AddServerCommand(cl, string.Format(format, args));
+		}
 	}
 
 	private int SendQueuedPackets(){
@@ -1275,7 +1548,7 @@ public class Server : CModule {
 		return null;
 	}
 
-	private void ClientEnterWorld(ClientNode cl, UserCmd? cmd){
+	private void ClientEnterWorld(ClientNode cl, UserCmd[] cmd){
 		cl.state = ClientState.ACTIVE;
 		int clNum = Array.IndexOf(clients, cl);
 		SharedEntity ent = gEntities[clNum];
@@ -1286,7 +1559,7 @@ public class Server : CModule {
 		cl.lastSnapshotTime = 0; //立即产生一个snapshot
 
 		if(cmd != null){
-			cl.lastUserCmd = cmd.Value;
+			cl.lastUserCmd = cmd[0];
 		}else{
 			cl.lastUserCmd.Reset();
 		}
@@ -1417,7 +1690,7 @@ public class SvClientSnapshot
 	}
 }
 
-public struct SvChallenge
+public class SvChallenge
 {
 	public IPEndPoint adr;
 

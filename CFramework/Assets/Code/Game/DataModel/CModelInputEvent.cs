@@ -99,7 +99,6 @@ public class CModelInputEvent : CModelBase {
 			}
 		}
 
-
 		//Send CMD:
 		if(CDataModel.Connection.state < ConnectionState.CONNECTED){
 			return;
@@ -127,7 +126,7 @@ public class CModelInputEvent : CModelBase {
 			return;
 		}
 
-		var cl = CDataModel.GameState.ClientActive;
+		var cl = CDataModel.GameState.ClActive;
 		cl.cmdNum++;
 		cmdNum = cl.cmdNum & CConstVar.CMD_MASK;
 		cl.cmds[cmdNum] = CreateCmd();
@@ -136,7 +135,7 @@ public class CModelInputEvent : CModelBase {
 
 	private UserCmd CreateCmd(){
 		UserCmd cmd;
-		var clientActive = CDataModel.GameState.ClientActive;
+		var clientActive = CDataModel.GameState.ClActive;
 		Vector3 oldAngles = clientActive.viewAngles;
 
 		AdjustAngles();
@@ -156,7 +155,7 @@ public class CModelInputEvent : CModelBase {
 			speed = 0.001f * CDataModel.GameState.frameTime;
 		}
 
-		var clientActive = CDataModel.GameState.ClientActive;
+		var clientActive = CDataModel.GameState.ClActive;
 		if(!inStrafe.active){
 			clientActive.viewAngles[CConstVar.YAW] -= speed * CConstVar.YawSpeed * KeyState(ref inRight);
 			clientActive.viewAngles[CConstVar.YAW] += speed * CConstVar.YawSpeed * KeyState(ref inLeft);

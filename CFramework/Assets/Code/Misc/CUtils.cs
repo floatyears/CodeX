@@ -107,5 +107,18 @@ public class CUtils {
 		return 10;
 	}
 
+	public static int HashKey(string s, int maxLen){
+		int hash = 0;
+		for(int i = 0; i < maxLen && s[i] !='\0'; i++){
+			if((s[i] & 0x80) > 0 || s[i] == '%'){
+				hash += '.' * (119 + i);
+			}else{
+				hash += s[i] * (119 + i);
+			}
+		}
+		hash = (hash ^ (hash >> 10) ^ (hash >> 20));
+		return hash;
+	}
+
 	
 }

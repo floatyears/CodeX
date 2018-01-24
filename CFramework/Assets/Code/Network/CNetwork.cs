@@ -555,7 +555,7 @@ public class CNetwork : CModule{
 		else if(CConstVar.MaxPackets > 125) CConstVar.MaxPackets = 125;
 
 		oldPacketNum = (connection.NetChan.outgoingSequence - 1) & CConstVar.PACKET_MASK;
-		delta = realTime - CDataModel.GameState.ClientActive.outPackets[oldPacketNum].realTime;
+		delta = realTime - CDataModel.GameState.ClActive.outPackets[oldPacketNum].realTime;
 		if(delta < (1000 / CConstVar.MaxPackets)){
 			//累积的commands会在下一个packet中发出
 			return false;
@@ -588,7 +588,7 @@ public class CNetwork : CModule{
 		int oldPacketNum;
 		int count, key;
 
-		var clActive = CDataModel.GameState.ClientActive;
+		var clActive = CDataModel.GameState.ClActive;
 		var connection = CDataModel.Connection;
 		if(connection.demoPlaying || connection.state == ConnectionState.CINEMATIC){
 			return;

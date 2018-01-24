@@ -209,3 +209,12 @@ public enum SVCCmd
 	EOF,
 }
 
+public enum CLC_Cmd{
+	BAD = 0,
+	NOP,
+	MOVE,
+	MoveNoDelta,
+	ClientCommand,
+	EOF,
+}
+

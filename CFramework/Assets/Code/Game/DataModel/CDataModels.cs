@@ -69,6 +69,14 @@ public class CDataModel : CModule {
 		}
 	}
 
+	private static CModelGameBot gameBot;
+
+	public static CModelGameBot GameBot{
+		get{
+			return gameBot;
+		}
+	}
+
 	private static CDataModel instance;
 
 	public static CDataModel Instance

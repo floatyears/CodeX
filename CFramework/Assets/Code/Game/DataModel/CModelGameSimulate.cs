@@ -314,7 +314,7 @@ public class CModelGameSimulate : CModelBase {
 
 	}
 
-	void ClientThink( int clientNum ) {
+	public void ClientThink( int clientNum ) {
 		GameEntity ent;
 
 		ent = gEntities[clientNum];
@@ -612,6 +612,54 @@ public class CModelGameSimulate : CModelBase {
 
 		// if(cl.sess.sessionTeam != TeamType.TEAM_SPECTATOR && ())
 
+	}
+
+	public void ClientDisconnect(int clientIdx){
+		CDataModel.GameBot.RemoveQueueBotBegine(clientIdx);
+
+		GameEntity tent;
+		GameEntity ent = gEntities[clientIdx];
+		if(ent.client == null){
+			return;
+		}
+
+		//停掉任何跟随的客户端
+		var level = CDataModel.GameSimulate;
+		for(int i = 0; i < CConstVar.maxClient; i++){
+			if(level.clients[i].sess.sessionTeam == TeamType.TEAM_SPECTATOR &&
+			level.clients[i].sess.spectatorState == SpectatorState.FOLLOW &&
+			level.clients[i].sess.spectatorClient == clientIdx){
+				StopFollowing(gEntities[clientIdx]);
+			}
+		}
+
+		if(ent.client.pers.connected == ClientConnState.CONNECTED
+			&& ent.client.sess.sessionTeam != TeamType.TEAM_SPECTATOR){
+			tent = TemEntity(ent.client.playerState.origin, (int)EntityEventType.PLAYER_TELEPORT_OUT);
+			tent.sEnt.s.clientNum = ent.sEnt.s.clientNum;
+
+		}
+
+		Server.Instance.UnLinkEntity(ent);
+		ent.sEnt.s.sourceID = 0;
+		ent.inuse = false;
+		ent.classname = "disconnected";
+		ent.client.pers.connected = ClientConnState.DISCONNECTED;
+		ent.client.playerState.persistant[CConstVar.PERS_TEAM] = (int)TeamType.TEAM_FREE;
+		ent.client.sess.sessionTeam = TeamType.TEAM_FREE;
+
+		if((ent.sEnt.r.svFlags & SVFlags.BOT ) != SVFlags.NONE){
+			CDataModel.GameBot.BotAIShutdownClient(clientIdx, false);
+		}
+	}
+
+	private void StopFollowing(GameEntity ent){
+		ent.client.playerState.persistant[CConstVar.PERS_TEAM] = (int)TeamType.TEAM_SPECTATOR;
+		ent.client.sess.sessionTeam = TeamType.TEAM_SPECTATOR;
+		ent.client.sess.spectatorState = SpectatorState.FREE;
+		ent.client.playerState.pmFlags &= ~PMoveFlags.FOLLOW;
+		ent.sEnt.r.svFlags &= ~ SVFlags.BOT;
+		ent.client.playerState.clientNum = System.Array.IndexOf(gEntities, ent); 
 	}
 
 	private void ClienSpawn(GameEntity ent){
@@ -989,3 +1037,4 @@ public enum ClientConnState{
 
 	CONNECTED,
 }
+

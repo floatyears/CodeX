@@ -49,6 +49,7 @@ public class TestConnections : MonoBehaviour {
 		GUILayout.BeginHorizontal();
 
 		GUILayout.BeginVertical(GUILayout.Width(300));
+		GUILayout.Label("连接状态" + CDataModel.Connection.state);
 		if(GUILayout.Button("刷新服务器",GUILayout.Height(40), GUILayout.Width(300))){
 			CDataModel.GameState.GetLocalServers();
 		}
