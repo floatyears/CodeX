@@ -38,7 +38,16 @@ public class CModelInputEvent : CModelBase {
 
 	private KButton inStrafe;
 
+	private int[] mouseDx;
+
+	private int[] mouseDy;
+
+	private int mouseIndex;
+
+	private int[] joystickAxis;
+
 	private KButton[] inButtons;
+
 
 	// Use this for initialization
 	public override void Init () {
@@ -46,6 +55,23 @@ public class CModelInputEvent : CModelBase {
 		eventQueue = new SysEvent[CConstVar.MAX_PUSHED_EVENTS];
 
 		inButtons = new KButton[16];
+		for (int i = 0; i < 16; i++)
+		{
+			inButtons[i] = new KButton();	
+		}
+		joystickAxis = new int[CConstVar.MAX_JOYSTICK_AXIS];
+		mouseDx = new int[2];
+		mouseDy = new int[2];
+		mouseIndex = 0;
+
+		inSpeed = new KButton();
+		inRight = new KButton();
+		inLeft = new KButton();
+		inForward = new KButton();
+		inBack = new KButton();
+		inLookdown = new KButton();
+		inLookup = new KButton();
+		inStrafe = new KButton();
 
 		update = Update;
 	}
@@ -55,11 +81,8 @@ public class CModelInputEvent : CModelBase {
 
 		//EventLoop:
 		int time = (int)(Time.realtimeSinceStartup*1000);
-		if(Input.GetMouseButton(1))
-		{
-			QueueEvent(time, SysEventType.MOUSE, 0, 0);
-		}
-
+		
+		ProcessMouseKeyEvent();
 		SysEvent ev;
 		IPEndPoint remote;
 		MsgPacket packet;
@@ -130,20 +153,48 @@ public class CModelInputEvent : CModelBase {
 		cl.cmdNum++;
 		cmdNum = cl.cmdNum & CConstVar.CMD_MASK;
 		cl.cmds[cmdNum] = CreateCmd();
-
 	}
 
 	private UserCmd CreateCmd(){
-		UserCmd cmd;
+		UserCmd cmd = new UserCmd();
 		var clientActive = CDataModel.GameState.ClActive;
 		Vector3 oldAngles = clientActive.viewAngles;
 
-		AdjustAngles();
+		// AdjustAngles();
 
-		cmd = new UserCmd();
-
+		KeyMove(ref cmd);
+		cmd.serverTime = clientActive.serverTime;
 
 		return cmd;
+	}
+
+	private void KeyMove(ref UserCmd cmd){
+		int moveSpeed = 0;
+		if(inSpeed.active){
+			moveSpeed = 127;
+			cmd.buttons &= ~16;//BUTTON_WALKING
+		}else{
+			cmd.buttons |= 16;
+			moveSpeed = 64;
+		}
+
+		int forward = 0;
+		int side = 0;
+		int up = 0;
+		// if(inStrafe.active){
+		// 	side += (int)(moveSpeed * KeyState(inRight));
+		// 	side -= (int)(moveSpeed * KeyState(inLeft));
+		// }
+
+		side += (int)(moveSpeed * KeyState(inRight));
+		side -= (int)(moveSpeed * KeyState(inLeft));
+		// if(side != 0){
+		// 	CLog.Info("move side : {0}", side);
+		// }
+
+		cmd.forwardmove = CUtils.ClampChar(forward);
+		cmd.rightmove = CUtils.ClampChar(side);
+		cmd.upmove = CUtils.ClampChar(up);
 	}
 
 	private void AdjustAngles(){
@@ -157,21 +208,22 @@ public class CModelInputEvent : CModelBase {
 
 		var clientActive = CDataModel.GameState.ClActive;
 		if(!inStrafe.active){
-			clientActive.viewAngles[CConstVar.YAW] -= speed * CConstVar.YawSpeed * KeyState(ref inRight);
-			clientActive.viewAngles[CConstVar.YAW] += speed * CConstVar.YawSpeed * KeyState(ref inLeft);
+			clientActive.viewAngles[CConstVar.YAW] -= speed * CConstVar.YawSpeed * KeyState(inRight);
+			clientActive.viewAngles[CConstVar.YAW] += speed * CConstVar.YawSpeed * KeyState(inLeft);
 		}
 
-		clientActive.viewAngles[CConstVar.PITCH] -= speed * CConstVar.PitchSpeed * KeyState(ref inLookup);
-		clientActive.viewAngles[CConstVar.PITCH] += speed * CConstVar.PitchSpeed * KeyState(ref inLookdown);
+		clientActive.viewAngles[CConstVar.PITCH] -= speed * CConstVar.PitchSpeed * KeyState(inLookup);
+		clientActive.viewAngles[CConstVar.PITCH] += speed * CConstVar.PitchSpeed * KeyState(inLookdown);
 	}
 
-	private float KeyState(ref KButton key){
+	private float KeyState(KButton key){
 		int msec = key.msec;
 		key.msec = 0;
 
 		int time = CDataModel.GameState.realTime;
 		if(key.active){
-			if(key.downtime > 0){
+			//仍然按下
+			if(key.downtime == 0){
 				msec = time;
 			}else{
 				msec += time - key.downtime;
@@ -179,7 +231,7 @@ public class CModelInputEvent : CModelBase {
 			key.downtime = time;
 		}
 
-		float val = (float)msec / CDataModel.GameState.deltaTime;
+		float val = (float)msec / CDataModel.GameState.frameTime;
 		if(val < 0){
 			val = 0;
 		}else if(val > 1){
@@ -306,6 +358,57 @@ public class CModelInputEvent : CModelBase {
 		ev.eventValue = value1;
 		ev.eventValue2 = value2;
 	}
+
+	//这里应该是用通用的字符串来解析指令，这样就可以处理所有的输入事件而不只是键盘鼠标的指令。
+	private void ProcessMouseKeyEvent(){
+		if(Input.GetMouseButton(1))
+		{
+			mouseIndex = 1;
+			mouseDx[mouseIndex] = 1;
+			mouseDx[mouseIndex] = 1;
+			// QueueEvent(time, SysEventType.MOUSE, 0, 0);
+		}
+
+		if(Input.GetKeyDown(KeyCode.A)){
+			inLeft.down[0] = (int)KeyCode.A;
+			KeyDown(inLeft);
+		}else if(Input.GetKeyUp(KeyCode.A)){
+			inLeft.down[0] = (int)KeyCode.A;
+			KeyUp(inLeft);
+		}
+
+		if(Input.GetKeyDown(KeyCode.D)){
+			inLeft.down[0] = (int)KeyCode.D;
+			KeyDown(inRight);
+		}else if(Input.GetKeyUp(KeyCode.D)){
+			inLeft.down[0] = (int)KeyCode.D;
+			KeyUp(inRight);
+		}
+
+	}
+
+	private void KeyDown(KButton b)
+	{
+		if(b.active){ //一直按着
+			return;
+		}
+
+		b.downtime = Milliseconds();
+		b.active = true;
+		b.wasPressed = true;
+	}
+
+	private void KeyUp(KButton b){
+		b.active = false;
+
+		int t = Milliseconds();
+		if(t > 0){
+			b.msec += t - b.downtime;
+		}else{
+			b.msec += CDataModel.GameState.frameTime / 2;
+		}
+		b.active = false;
+	}
 }
 
 public struct SysEvent
@@ -336,8 +439,9 @@ public enum SysEventType
 	JOYSTICK_AXIS,
 }
 
-public struct KButton{
+public class KButton{
 
+	//当前
 	public int[] down;
 
 	public int downtime;
@@ -347,4 +451,8 @@ public struct KButton{
 	public bool active;
 
 	public bool wasPressed;
+
+	public KButton(){
+		down = new int[2];
+	}
 }

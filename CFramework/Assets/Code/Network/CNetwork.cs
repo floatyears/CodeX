@@ -514,7 +514,7 @@ public class CNetwork : CModule{
 		connection.serverCommandSequence = seq;
 		
 		int index = seq & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
-		connection.serverCommands[index] = s;
+		connection.serverCommands[index] = s.ToCharArray();
 	}
 
 	/*-------------------UDP END------------------*/
@@ -643,12 +643,12 @@ public class CNetwork : CModule{
 			//使用已知的消息
 			key ^= connection.serverMessageSequence;
 			//使用key中最后已知的服务器command
-			key ^= HasKey(connection.serverCommands[connection.serverCommandSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
+			key ^= CUtils.HashKey(connection.serverCommands[connection.serverCommandSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
 
 			for(i = 0; i < count; i++){
 				j = (clActive.cmdNum - count + i + 1) & CConstVar.CMD_MASK;
 				cmd = clActive.cmds[j];
-				buf.WirteDeltaUserCmdKey(key, ref oldcmd, ref cmd);
+				buf.WriteDeltaUserCmdKey(key, ref oldcmd, ref cmd);
 				oldcmd = cmd;
 			}
 		}

@@ -549,7 +549,7 @@ public class PlayerState{
 	}
 }
 
-public struct PMove{
+public class PMove{
 	public PlayerState playerState;
 
 	public UserCmd cmd;
@@ -573,6 +573,11 @@ public struct PMove{
 	public int pmoveFloat;
 
 	public int pmvoveFlags;
+
+	public PMove(){
+		playerState = new PlayerState();
+		cmd = new UserCmd();
+	}
 
 	
 }

@@ -141,6 +141,7 @@ public class CModelGameState : CModelBase {
 		triggerEntities = new List<ClientEntity>();
 		solidEntities = new List<ClientEntity>();
 		localServers = new ServerInfo[CConstVar.MAX_PING_REQUESTS];
+		clientActive = new ClientActive();
 		ClearState();
 
 		update = Update;
@@ -148,8 +149,20 @@ public class CModelGameState : CModelBase {
 
 	public void Update(){
 		ProcessSnapshots();
+		
+		var conn = CDataModel.Connection;
+		if(conn.state != ConnectionState.ACTIVE){
+			if(conn.state >= ConnectionState.CONNECTED){
+				if(clientActive.newSnapshots){
+					conn.state = ConnectionState.ACTIVE;
+					clientActive.newSnapshots = false;
+				}
+			}
+		}
 		time += (int)(Time.deltaTime * 1000);
+		frameTime = realTime;
 		realTime = (int)(Time.realtimeSinceStartup*1000);
+		frameTime = realTime - frameTime;
 	}
 	
 	public void ClearState(){
@@ -157,14 +170,13 @@ public class CModelGameState : CModelBase {
 		clientActive.cmds = new UserCmd[CConstVar.CMD_BACKUP];
 		clientActive.entityBaselines = new EntityState[CConstVar.MAX_GENTITIES];
 		clientActive.extrapolateSnapshot = false;
-		clientActive.joystickAxis = new int[CConstVar.MAX_JOYSTICK_AXIS];
-		clientActive.mouseDx = new int[2];
-		clientActive.mouseDy = new int[2];
-		clientActive.mouseIndex = 0;
 		clientActive.newSnapshots = false;
 		clientActive.oldFrameServerTime = 0;
 		clientActive.oldServerTime = 0;
 		clientActive.outPackets = new OutPacket[CConstVar.PACKET_BACKUP];
+		for(int i = 0; i < CConstVar.PACKET_BACKUP; i++){
+			clientActive.outPackets[i] = new OutPacket();
+		}
 		clientActive.parseEntities = new EntityState[CConstVar.MAX_PARSE_ENTITIES];
 		clientActive.parseEntitiesIndex = 0;
 		clientActive.sensitivity = 0f;
@@ -1184,7 +1196,7 @@ public class CModelGameState : CModelBase {
 	}
 }
 
-public struct ClientActive
+public class ClientActive
 {
 	public int timeoutCount;
 
@@ -1204,13 +1216,6 @@ public struct ClientActive
 
 	public int parseEntitiesIndex;
 
-	public int[] mouseDx;
-
-	public int[] mouseDy;
-
-	public int mouseIndex;
-
-	public int[] joystickAxis;
 
 	public int userCmdValue;
 
@@ -1242,6 +1247,7 @@ public struct ClientActive
 		// mouseDx = new int[3];
 		// mouseDy = new int[3];
 		entityBaselines = new EntityState[CConstVar.MAX_SNAPSHOT_ENTITIES * CConstVar.PACKET_BACKUP];
+		// outPackets = new OutPacket[CConstVar.PACKET_BACKUP];
 	}
 }
 
@@ -1296,7 +1302,7 @@ public class SnapShot{
 
 }
 
-public struct OutPacket
+public class OutPacket
 {
 	public int cmdNum;
 

@@ -107,7 +107,7 @@ public class CUtils {
 		return 10;
 	}
 
-	public static int HashKey(string s, int maxLen){
+	public static int HashKey(char[] s, int maxLen){
 		int hash = 0;
 		for(int i = 0; i < maxLen && s[i] !='\0'; i++){
 			if((s[i] & 0x80) > 0 || s[i] == '%'){
@@ -120,5 +120,14 @@ public class CUtils {
 		return hash;
 	}
 
+	public static sbyte ClampChar(int val){
+		if(val > 127){
+			val = 127;
+		}
+		if(val < -128){
+			val = -128;
+		}
+		return (sbyte)val;
+	}
 	
 }

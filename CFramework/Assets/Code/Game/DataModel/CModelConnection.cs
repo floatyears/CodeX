@@ -41,7 +41,7 @@ public class CModelConnection : CModelBase {
 
 	private int lastExecutedServerCommand; //获取或者执行的server command
 
-	public string[] serverCommands;
+	public char[][] serverCommands;
 
 	private int incommingSequence;
 
@@ -107,6 +107,10 @@ public class CModelConnection : CModelBase {
 	{
 		inited = true;
 		netChan = new NetChan();
+		serverCommands = new char[CConstVar.MAX_RELIABLE_COMMANDS][];
+		for(int i = 0; i < CConstVar.MAX_RELIABLE_COMMANDS; i++){
+			serverCommands[i] = new char[CConstVar.MAX_STRING_CHARS];
+		}
 	}
 	
 	public void NetChanSetup(NetSrc src, IPEndPoint from, int qport, int challenge)

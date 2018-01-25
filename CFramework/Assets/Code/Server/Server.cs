@@ -328,7 +328,7 @@ public class Server : CModule {
 
 		int key = checksumFeed;
 		key ^= cl.messageAcknowledge;
-		key ^= CUtils.HashKey(cl.reliableCommands[cl.reliableAcknowledge & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
+		key ^= CUtils.HashKey(cl.reliableCommands[cl.reliableAcknowledge & (CConstVar.MAX_RELIABLE_COMMANDS - 1)].ToCharArray(), 32);
 
 		UserCmd oldcmd = new UserCmd();
 		for(int i = 0; i < cmdCount; i++){

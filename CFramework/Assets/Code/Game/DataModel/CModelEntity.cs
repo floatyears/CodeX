@@ -428,7 +428,7 @@ public enum EntityEventType
 
 }
 
-public struct UserCmd
+public class UserCmd
 {
 	public int serverTime;
 
@@ -440,9 +440,9 @@ public struct UserCmd
 
 	public sbyte forwardmove, rightmove, upmove;
 
-	public UserCmd(int _serverTime = 0)
+	public UserCmd()
 	{
-		serverTime = _serverTime;
+		serverTime = 0;
 		angles = new int[3];
 		buttons = 0;
 		skillID = 0;

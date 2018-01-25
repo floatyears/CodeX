@@ -656,7 +656,7 @@ public class MsgPacket{
 		WriteBits(value, 8);
 	}
 
-	public void WirteDeltaUserCmdKey(int key, ref UserCmd from, ref UserCmd to){
+	public void WriteDeltaUserCmdKey(int key, ref UserCmd from, ref UserCmd to){
 		if(to.serverTime - from.serverTime < 256){
 			WriteBits(1,1);
 			WriteBits(to.serverTime - from.serverTime, 8);
