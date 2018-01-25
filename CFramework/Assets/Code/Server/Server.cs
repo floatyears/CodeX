@@ -328,7 +328,7 @@ public class Server : CModule {
 
 		int key = checksumFeed;
 		key ^= cl.messageAcknowledge;
-		key ^= CUtils.HashKey(cl.reliableCommands[cl.reliableAcknowledge & (CConstVar.MAX_RELIABLE_COMMANDS - 1)].ToCharArray(), 32);
+		key ^= CUtils.HashKey(cl.reliableCommands[cl.reliableAcknowledge & (CConstVar.MAX_RELIABLE_COMMANDS - 1)], 32);
 
 		UserCmd oldcmd = new UserCmd();
 		for(int i = 0; i < cmdCount; i++){
@@ -986,7 +986,8 @@ public class Server : CModule {
 			return;
 		}
 		int idx = cl.reliableSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
-		cl.reliableCommands[idx] = cmd;
+
+		cmd.CopyTo(0, cl.reliableCommands[idx],0,cmd.Length);
 	}
 
 	private void SendServerCommand(ClientNode cl, string format, params string[] args){
@@ -1581,7 +1582,7 @@ public class ClientNode
 	public ClientState state;
 	public string userInfo;
 
-	public string[] reliableCommands;
+	public char[][] reliableCommands;
 
 	public int reliableSequence; //最后添加的可靠消息，不必发送或者已知
 
@@ -1645,7 +1646,13 @@ public class ClientNode
 		for(int i = 0; i < CConstVar.PACKET_BACKUP; i++){
 			frames[i] = new SvClientSnapshot();
 		}
-		gEntity = new SharedEntity();
+		// gEntity = new SharedEntity();
+		// gEntity.r = new EntityShared();
+		// gEntity.s = new EntityState();
+		reliableCommands = new char[CConstVar.MAX_RELIABLE_COMMANDS][];
+		for(int i = 0; i < CConstVar.MAX_RELIABLE_COMMANDS; i++){
+			reliableCommands[i] = new char[CConstVar.MAX_STRING_CHARS];
+		}
 
 		// playerState = new PlayerState();
 	}
