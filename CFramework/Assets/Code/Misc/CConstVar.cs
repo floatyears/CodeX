@@ -98,6 +98,8 @@ public class CConstVar {
 
 	public static int Speed;
 
+	public static int TimeNudge = 30;
+
 	public const bool LanForcePackets = false;
 
 	public const bool LanForceRate = false;
@@ -246,6 +248,10 @@ public class CConstVar {
 	public const int NUM_PING_SAMPLES = 64;
 
 	public const int MAX_LATENT_CMDS = 64;
+
+	public const int RESET_TIME = 500;
+
+	public const int PS_PMOVEFRAMECOUNTBITS = 6;
 
 	public static int[] kbitmask = new int[]{
 		0x00000001, 0x00000003, 0x00000007, 0x0000000F,

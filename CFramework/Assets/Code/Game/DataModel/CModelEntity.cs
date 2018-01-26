@@ -464,6 +464,18 @@ public class UserCmd
 		rightmove = 0;
 		upmove = 0;
 	}
+
+	public void CopyTo(UserCmd cmd){
+		cmd.serverTime = serverTime;
+		cmd.angles[0] = angles[0];
+		cmd.angles[1] = angles[1];
+		cmd.angles[2] = angles[2];
+		cmd.buttons = buttons;
+		cmd.forwardmove = forwardmove;
+		cmd.rightmove = rightmove;
+		cmd.upmove = upmove;
+		cmd.skillID = skillID;
+	}
 }
 
 public enum CmdButton

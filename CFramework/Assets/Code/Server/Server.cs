@@ -219,13 +219,16 @@ public class Server : CModule {
 			return;
 		}
 
-		if(srvID != serverID ){
-			if(serverID >= restartedServerId && srvID < serverID){
-				CLog.Info("{0} : ignoring pre map_restart/ outdated client message",cl.name);
-				SendClientGameState(cl);
-				return;
-			}
-		}
+		// if(srvID != serverID ){
+		// 	if(serverID >= restartedServerId && srvID < serverID){
+		// 		CLog.Info("{0} : ignoring pre map_restart/ outdated client message",cl.name);
+				
+				if(cl.messageAcknowledge > cl.gamestateMessageNum){
+					SendClientGameState(cl);
+				}
+		// 		return;
+		// 	}
+		// }
 
 		if(cl.oldServerTime > 0 && srvID == serverID){
 			CLog.Info("{0} ackownledged gamestate", cl.name);
@@ -334,6 +337,9 @@ public class Server : CModule {
 		for(int i = 0; i < cmdCount; i++){
 			msg.ReadDeltaUsercmdKey(key, ref oldcmd, ref cmds[i]);
 			oldcmd = cmds[i];
+			if(oldcmd.rightmove != 0){
+				CLog.Info("client move {0}", oldcmd.rightmove);
+			}
 		}
 
 		cl.frames[cl.messageAcknowledge & CConstVar.PACKET_MASK].messageAcked = time;
@@ -348,7 +354,7 @@ public class Server : CModule {
 
 		//如果是收到的第一个客户端包，把客户端放到世界中
 		if(cl.state == ClientState.PRIMED){
-			ClientEnterWorld(cl, cmds);
+			ClientEnterWorld(cl, cmds[0]);
 		}
 
 		//发送了错误的指令，丢弃客户端
@@ -637,7 +643,7 @@ public class Server : CModule {
 				nextHeartbeatTime = -999999;
 			}
 
-			ClientEnterWorld(newcl, null);
+			// ClientEnterWorld(newcl, null);
 		};
 		
 		//如果有一个这个ip的连接，重用它
@@ -718,8 +724,44 @@ public class Server : CModule {
 
 	}
 
+	//发送服务器到客户端的第一条消息
+	//如果客户端已知的消息是后面的但是有错误的gamstate，也会重新发送
 	private void SendClientGameState(ClientNode cl){
+		cl.state = ClientState.PRIMED;
+		cl.pureAuthentic = 0;
+		cl.gotCP = false;
 
+		cl.gamestateMessageNum = cl.netChan.outgoingSequence;
+
+		var msg = new MsgPacket();
+		msg.WriteInt(cl.lastClientCommand);
+		UpdateServerCommandsToClient(cl,msg);
+
+		msg.WriteByte((byte)SVCCmd.GAME_STATE);
+		msg.WriteInt(cl.reliableSequence);
+
+		//写入configstring
+		for(int start = 0; start < CConstVar.MAX_CONFIGSTRINGS; start++){
+			// if(config)
+		}
+
+		EntityState? nullstate = new EntityState();
+		for(int start = 0; start < CConstVar.MAX_GENTITIES; start++){
+			var baseEnt = svEntities[start].baseline;
+			if(baseEnt.entityIndex == 0){
+				continue;
+			}
+
+			msg.WriteByte((byte)SVCCmd.BASELINE);
+			
+			msg.WriteDeltaEntity(nullstate, baseEnt, true);
+		}
+
+		msg.WriteByte((byte)SVCCmd.EOF);
+		msg.WriteInt(Array.IndexOf(clients, cl));
+
+		msg.WriteInt(checksumFeed);
+		SendMessageToClient(msg, cl);
 	}
 
 	//模块更新
@@ -987,7 +1029,14 @@ public class Server : CModule {
 		}
 		int idx = cl.reliableSequence & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
 
-		cmd.CopyTo(0, cl.reliableCommands[idx],0,cmd.Length);
+		if(cmd.Length > CConstVar.MAX_STRING_CHARS){
+			CLog.Error("cmd too long");
+		}else if(cmd.Length == CConstVar.MAX_STRING_CHARS){
+			cmd.CopyTo(0, cl.reliableCommands[idx], 0, cmd.Length);
+		}else{
+			cmd.CopyTo(0, cl.reliableCommands[idx], 0, cmd.Length);
+			cl.reliableCommands[idx+1][cmd.Length] = '\0';
+		}
 	}
 
 	private void SendServerCommand(ClientNode cl, string format, params string[] args){
@@ -1549,7 +1598,7 @@ public class Server : CModule {
 		return null;
 	}
 
-	private void ClientEnterWorld(ClientNode cl, UserCmd[] cmd){
+	private void ClientEnterWorld(ClientNode cl, UserCmd cmd){
 		cl.state = ClientState.ACTIVE;
 		int clNum = Array.IndexOf(clients, cl);
 		SharedEntity ent = gEntities[clNum];
@@ -1560,7 +1609,7 @@ public class Server : CModule {
 		cl.lastSnapshotTime = 0; //立即产生一个snapshot
 
 		if(cmd != null){
-			cl.lastUserCmd = cmd[0];
+			cmd.CopyTo(cl.lastUserCmd);
 		}else{
 			cl.lastUserCmd.Reset();
 		}
@@ -1653,6 +1702,7 @@ public class ClientNode
 		for(int i = 0; i < CConstVar.MAX_RELIABLE_COMMANDS; i++){
 			reliableCommands[i] = new char[CConstVar.MAX_STRING_CHARS];
 		}
+		lastUserCmd = new UserCmd();
 
 		// playerState = new PlayerState();
 	}

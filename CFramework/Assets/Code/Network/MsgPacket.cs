@@ -804,6 +804,37 @@ public class MsgPacket{
 		}
 	}
 
+	public void WriteString(char[] value)
+	{
+		if(value != null){
+			// WriteByte(System.Text.Encoding.Default.GetBytes("")[0]);
+			WriteData(new byte[1]{0},1);
+		}else{
+			if(value.Length > CConstVar.MAX_STRING_CHARS){
+				// WriteByte(System.Text.Encoding.Default.GetBytes("")[0]);
+				WriteData(new byte[1]{0},1);
+				CLog.Error("WriteString: MAX_STRING_CHARS overflow");
+				return;
+			}
+
+			int len = 0;
+			// var byts = System.Text.Encoding.Default.GetBytes(value);
+			byte[] byts = new byte[CConstVar.MAX_STRING_CHARS];
+			for(int i = 0; i < value.Length; i++){
+				if(value[i] > 127 || value[i] == (byte)'%'){
+					value[i] = '.';
+				}
+				byts[i] = (byte)value[i];
+				if(value[i] != '\0'){
+					len = i;
+				}
+			}
+
+			// WriteBufferData(byts, -1, byts.Length);
+			WriteData(byts, len);
+		}
+	}
+
 	public void Copy(MsgPacket dest, byte[] data, int length){
 		if(length < curSize){
 			CLog.Error("Msg Copy: can't copy into a smaller MsgPacket buffer");

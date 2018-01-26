@@ -993,6 +993,7 @@ public class GameClientPersistant{
 		pingSamples = new int[CConstVar.NUM_PING_SAMPLES];
 
 		cmdqueue = new UserCmd[CConstVar.MAX_LATENT_CMDS];
+		cmd = new UserCmd();
 	}
 
 }

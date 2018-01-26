@@ -99,8 +99,55 @@ public class CUtils {
 		}
 	}
 	
-	public static void PMoveRun(ref PMove move){
+	public static void PMoveRun(PMove move){
+		int finalTime = move.cmd.serverTime;
 
+		if(finalTime < move.playerState.commandTime){
+			return;
+		}
+
+		if(finalTime > move.playerState.commandTime + 1000){
+			move.playerState.commandTime = finalTime - 1000;
+		}
+
+		move.playerState.pm_framecount = (move.playerState.pm_framecount + 1) & ((1<<CConstVar.PS_PMOVEFRAMECOUNTBITS) - 1);
+
+		while(move.playerState.commandTime != finalTime){
+			int msec = finalTime - move.playerState.commandTime;
+			if(move.pmoveFixed > 0){
+				if(msec > move.pmoveMsec){
+					msec = move.pmoveMsec;
+				}
+			}else{
+				if(msec > 66){
+					msec = 66;
+				}
+			}
+
+			move.cmd.serverTime = move.playerState.commandTime + msec;
+			PMoveSingle(move);
+
+			if((move.playerState.pmFlags & PMoveFlags.JUMP_HELD) != PMoveFlags.NONE){
+				move.cmd.upmove = 20;
+			}
+		}
+	}
+
+	private static void PMoveSingle(PMove pMove){
+		pMove.numTouch = 0;
+		if(pMove.playerState.states[CConstVar.STAT_HEALTH] <= 0){
+			// 
+		}
+
+		if(Mathf.Abs(pMove.cmd.forwardmove) > 64 || Mathf.Abs(pMove.cmd.rightmove) > 64){
+			pMove.cmd.buttons &= ~ButtonsDef.BUTTON_WALKING;
+		}
+
+		if(pMove.playerState.states[CConstVar.STAT_HEALTH] > 0 && (pMove.cmd.buttons & ButtonsDef.BUTTON_ATTACK) == 0){
+			pMove.playerState.pmFlags &= ~PMoveFlags.RESPAWNED;
+		}
+
+		
 	}
 
 	public static int Random(){

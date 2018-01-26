@@ -538,7 +538,7 @@ public class CNetwork : CModule{
 
 		int realTime = CDataModel.GameState.realTime;
 		//没有合适的gamstate状态，就1s发一个包
-		if(connection.state != ConnectionState.ACTIVE && connection.state != ConnectionState.PRIMED && realTime - connection.lastPacketSentTime < 1000){
+		if(/*connection.state != ConnectionState.ACTIVE && connection.state != ConnectionState.PRIMED &&*/ realTime - connection.lastPacketSentTime < 1000){
 			return false;
 		}
 

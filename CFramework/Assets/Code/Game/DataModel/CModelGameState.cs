@@ -150,19 +150,92 @@ public class CModelGameState : CModelBase {
 	public void Update(){
 		ProcessSnapshots();
 		
+		time += (int)(Time.deltaTime * 1000);
+		frameTime = realTime;
+		realTime += time;// (int)(Time.realtimeSinceStartup*1000);
+		frameTime = realTime - frameTime;
+
 		var conn = CDataModel.Connection;
 		if(conn.state != ConnectionState.ACTIVE){
 			if(conn.state >= ConnectionState.CONNECTED){
-				if(clientActive.newSnapshots){
+				if(clientActive.newSnapshots){ //first snap shot
 					conn.state = ConnectionState.ACTIVE;
 					clientActive.newSnapshots = false;
+
+					clientActive.serverTimeDelta = clientActive.snap.serverTime - realTime;
+					clientActive.oldServerTime = clientActive.snap.serverTime;
+				}
+			}
+
+			if(conn.state != ConnectionState.ACTIVE){
+				return;
+			}
+		}
+
+		if(!clientActive.snap.valid){
+			CLog.Error("clientActive.snap.serverTime < clientActive.oldFrameServerTime");
+		}
+		clientActive.oldFrameServerTime = clientActive.snap.serverTime;
+
+		if(conn.demoPlaying){
+
+		}else{
+			int tn = CConstVar.TimeNudge;
+			if(tn < -30){
+				tn = -30;
+			}else if(tn > 30){
+				tn = 30;
+			}
+			clientActive.serverTime = realTime + clientActive.serverTimeDelta - tn;
+			if(clientActive.serverTime < clientActive.oldServerTime){
+				clientActive.serverTime = clientActive.oldServerTime;
+			}
+			clientActive.oldServerTime = clientActive.serverTime;
+
+			if(realTime + clientActive.serverTime >= clientActive.snap.serverTime - 5){
+				clientActive.extrapolateSnapshot = true;
+			}
+		}
+
+		if(clientActive.newSnapshots){
+			AdjustTimeDelta();
+		}
+
+		if(!conn.demoPlaying){
+			return;
+		}
+
+
+
+		
+	}
+
+	private void AdjustTimeDelta(){
+		clientActive.newSnapshots = false;
+
+		if(CDataModel.Connection.demoPlaying){
+			return;
+		}
+
+		int newDelta = clientActive.snap.serverTime - realTime;
+		int deltaTime = Math.Abs(newDelta - clientActive.serverTimeDelta);
+
+		if(deltaTime > CConstVar.RESET_TIME){
+			clientActive.serverTimeDelta = newDelta;
+			clientActive.oldServerTime = clientActive.snap.serverTime;
+			clientActive.serverTime = clientActive.snap.serverTime;
+		}else if(deltaTime > 100){
+			clientActive.serverTimeDelta = (clientActive.serverTimeDelta + newDelta ) >> 1;
+		}else{
+			if(CConstVar.timeScale == 0 || CConstVar.timeScale == 1){
+				if(clientActive.extrapolateSnapshot){
+					clientActive.extrapolateSnapshot = false;
+					clientActive.serverTimeDelta -= 2;
+				}else{
+					clientActive.serverTimeDelta++;
 				}
 			}
 		}
-		time += (int)(Time.deltaTime * 1000);
-		frameTime = realTime;
-		realTime = (int)(Time.realtimeSinceStartup*1000);
-		frameTime = realTime - frameTime;
 	}
 	
 	public void ClearState(){

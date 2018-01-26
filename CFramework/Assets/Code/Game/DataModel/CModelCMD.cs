@@ -169,3 +169,9 @@ public class CModelCMD : CModelBase {
 	
 
 }
+
+public sealed class ButtonsDef{
+	public static int BUTTON_ATTACK = 1;
+
+	public static int BUTTON_WALKING = 16;
+}
