@@ -77,6 +77,7 @@ public class CConstVar {
 
 	public static int NUM_SERVER_PORTS = 4;
 	
+	public static int JUMP_VELOCITY = 270;
 
 	public static string PrivatePwd = "server_passwd";
 
@@ -235,6 +236,8 @@ public class CConstVar {
 	public const int PERS_SPAWN_COUNT = 4;
 
 	public const int PERS_TEAM = 3;
+
+	public const float M_PI = 3.14159265358979323846f;
 
 
 	public const int NUM_CLIENT_HISTORY = 17;

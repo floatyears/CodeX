@@ -473,7 +473,7 @@ public class CModelGameSimulate : CModelBase {
 
 		cl.oldOrigin = cl.playerState.origin;
 
-		CUtils.PMoveRun(ref pm);
+		pm.Move();
 
 		if(ent.client.playerState.eventSequence != oldEventSeq){
 			ent.eventTime = time;

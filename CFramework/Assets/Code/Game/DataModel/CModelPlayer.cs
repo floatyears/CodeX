@@ -149,7 +149,7 @@ public class CModelPlayer : CModelBase
 			CDataModel.GameState.GetUserCmd(current, out pmove.cmd);
 			
 			if(pmove.pmoveFixed > 0){
-				UpdateViewAngles(pmove.playerState, pmove.cmd);
+				PMove.UpdateViewAngles(pmove.playerState, pmove.cmd);
 			}
 
 			if(pmove.cmd.serverTime <= predictedPlayerState.commandTime){
@@ -212,7 +212,7 @@ public class CModelPlayer : CModelBase
 
 			if(CConstVar.OptimizePrediction){
 				if(cmdNum >= predictCmd || (stateIndex + 1) % CConstVar.NUM_SAVED_STATES == gamestate.stateHead){
-					CUtils.PMoveRun(pmove);
+					pmove.Move();
 
 					numPredicted++;
 
@@ -233,7 +233,7 @@ public class CModelPlayer : CModelBase
 					stateIndex = (stateIndex + 1) % CConstVar.NUM_SAVED_STATES;
 				}
 			}else{
-				CUtils.PMoveRun(pmove);
+				pmove.Move();
 				numPredicted++;
 			}
 
@@ -339,7 +339,7 @@ public class CModelPlayer : CModelBase
 
 			CDataModel.GameState.GetUserCmd(cmdNum, out cmd);
 
-			UpdateViewAngles(outP, cmd);
+			PMove.UpdateViewAngles(outP, cmd);
 		}
 
 		if(gamestate.nextFrameTeleport){
@@ -366,32 +366,7 @@ public class CModelPlayer : CModelBase
 		}
 	}
 
-	private void UpdateViewAngles(PlayerState ps, UserCmd cmd)
-	{
-		if(ps.pmType == PMoveType.INTERMISSION || ps.pmType == PMoveType.SPINGTERMISSION){
-			return;
-		}
 
-		//TODO:state
-		if(ps.pmType != PMoveType.SPECTATOR && ps.states[0] <= 0){
-			return;
-		}
-
-		int temp;
-		for(int i = 0; i < 3; i++){
-			temp = cmd.angles[i] + ps.delta_angles[i];
-			if(i == 0){
-				if(temp > 16000){
-					ps.delta_angles[i] = 16000 - cmd.angles[i];
-					temp = 16000;
-				}else if(temp < -16000){
-					ps.delta_angles[i] = -16000 - cmd.angles[i];
-					temp = -16000;
-				}
-			}
-			ps.viewangles[i] = temp * 360 / 65536;
-		}
-	}
 
 	public void CsAccountLogin()
 	{
@@ -549,84 +524,3 @@ public class PlayerState{
 	}
 }
 
-public class PMove{
-	public PlayerState playerState;
-
-	public UserCmd cmd;
-
-	public int tracemask;
-
-	public int debugLevel;
-
-	public bool noFootsteps;
-
-	public bool gauntletHit;
-
-	public int frameCount;
-
-	public int numTouch;
-
-	public int pmoveFixed;
-
-	public int pmoveMsec;
-
-	public int pmoveFloat;
-
-	public int pmvoveFlags;
-
-	public PMove(){
-		playerState = new PlayerState();
-		cmd = new UserCmd();
-	}
-
-	
-}
-
-public enum PMoveType
-{
-	NORMAL = 1,
-
-	NOCLIP = 2,
-
-	SPECTATOR = 3, //
-
-	DEAD = 4,
-
-	FREEZE = 5,
-
-	INTERMISSION = 6, //间歇期
-
-	SPINGTERMISSION = 7,
-}
-
-//移动的标签
-public enum PMoveFlags
-{
-	NONE = 0,
-
-	DUCKED = 0x1,
-
-	JUMP_HELD = 0x2,
-
-	BACKWARDS_JUMP = 0x04,
-
-	BACKWARDS_RUN = 0x8,
-
-	TIME_LAND = 0x10,
-
-	TIME_KOCKBACK = 0x20,
-
-	TIME_WATERJUMP = 0x40,
-
-	RESPAWNED = 0x80,
-
-	USE_ITEM_HELD = 0x100,
-
-	GRAPPLE_PULL = 0x200,
-
-	FOLLOW = 0x400, //跟随其他玩家的视角
-
-	SCOREBOARD = 0x800,
-
-	INVULEXPAND = 0x1000,
-}
