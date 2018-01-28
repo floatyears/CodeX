@@ -113,7 +113,7 @@ public class CNetwork : CModule{
 
 		while(!updSocket.packetBuffer.IsEmpty){
 			var packet = updSocket.packetBuffer.Dequeue();
-			if(CDataModel.Connection.ServerRunning){ //服务器接收到消息
+			if(Server.Instance.ServerRunning){ //服务器接收到消息
 				Server.Instance.RunServerPacket(packet.remoteEP, packet);
 			}else{
 				var network = CNetwork.Instance;
@@ -183,7 +183,7 @@ public class CNetwork : CModule{
 	{
 		var connection = CDataModel.Connection;
 
-		if(connection.ServerRunning){
+		if(Server.Instance.ServerRunning){
 			Server.Instance.SV_PacketPrcess(packet, from);
 		}else{
 

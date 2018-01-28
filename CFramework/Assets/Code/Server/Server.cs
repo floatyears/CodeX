@@ -63,6 +63,23 @@ public class Server : CModule {
 
 	private float deltaTime;
 
+	private string[] configString;
+
+	private bool serverRunning;
+
+	public bool ServerRunning{
+		set{
+			serverRunning = value;
+			if(value){
+				serverID = time;
+				SetConfigString(0, "\\sv_serverid$"+serverID);
+			}
+		}
+		get{
+			return serverRunning;
+		}
+	}
+
 	private static Server instance;
 
 	public static Server Instance{
@@ -91,7 +108,8 @@ public class Server : CModule {
 			worldSectors[i] = new WorldSector();
 		}
 
-		
+		configString = new string[CConstVar.MAX_CONFIGSTRINGS];
+		serverRunning = false;
 
 		challenges = new SvChallenge[CConstVar.MAX_CHALLENGES];
 		for(int i = 0; i < CConstVar.MAX_CHALLENGES; i++){
@@ -219,15 +237,15 @@ public class Server : CModule {
 			return;
 		}
 
-		// if(srvID != serverID ){
+		if(srvID != serverID ){
 		// 	if(serverID >= restartedServerId && srvID < serverID){
 		// 		CLog.Info("{0} : ignoring pre map_restart/ outdated client message",cl.name);
 				
 				if(cl.messageAcknowledge > cl.gamestateMessageNum){
 					SendClientGameState(cl);
 				}
-		// 		return;
-		// 	}
+				return;
+		}
 		// }
 
 		if(cl.oldServerTime > 0 && srvID == serverID){
@@ -742,7 +760,12 @@ public class Server : CModule {
 
 		//写入configstring
 		for(int start = 0; start < CConstVar.MAX_CONFIGSTRINGS; start++){
-			// if(config)
+			if(!string.IsNullOrEmpty(configString[start])){
+				msg.WriteByte((byte)SVCCmd.CONFIG_STRING);
+				msg.WriteShort((short)start);
+				msg.WriteString(configString[start]);
+				msg.WriteByte(0); //手动写入一个字符串结束
+			}
 		}
 
 		EntityState? nullstate = new EntityState();
@@ -1203,7 +1226,7 @@ public class Server : CModule {
 			CLog.Error("SvEntity for gEntity: bad gEnt");
 		}
 		var svEnt = svEntities[clientNum];
-		// svEnt.snapshotCounter = snapshotCounter;
+		svEnt.snapshotCounter = snapshotCounter;
 
 		Vector3 org = ps.origin;
 		org[2] += ps.viewHeight;
@@ -1617,12 +1640,20 @@ public class Server : CModule {
 		CDataModel.GameSimulate.ClientBegin(clNum);
 	}
 
+	public void SpawnServer(){
+		
+	}
+
 	public string GetUserInfo(int index){
 		return clients[index].userInfo;
 	}
 
 	public void GetUserCmd(int index, ref UserCmd cmd){
 		cmd = clients[index].lastUserCmd;
+	}
+
+	public void SetConfigString(int index, string buffer){
+		configString[index] = buffer;
 	}
 }
 

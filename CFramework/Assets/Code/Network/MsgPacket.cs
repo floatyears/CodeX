@@ -326,8 +326,8 @@ public class MsgPacket{
 			l++;
 		}while(l < CConstVar.BIG_INFO_STRING - 1);
 		
-		readStr[l] = (char)0;
-		return new string(readStr, 0, l);
+		bigStr[l] = (char)0;
+		return new string(bigStr, 0, l);
 	}
 
 	public int ReadDeltaKey(int key, int oldV, int bits){
@@ -512,16 +512,190 @@ public class MsgPacket{
 
 	}
 
-	public void ReadDeltaPlayerstate(PlayerState from, PlayerState to)
+	public void ReadDeltaPlayerstate(PlayerState _from, PlayerState to)
 	{
 		int i,lc;
-		int bits;
+
+		PlayerState from = _from;
+		if(from == null){
+			from = new PlayerState();
+		}
+
+		int startBit, endBit;
+		to = from;
+		if(bit == 0){
+			startBit = curPos * 8 - CConstVar.GENTITYNUM_BITS;
+		}else{
+			startBit = (curPos - 1) * 8 + bit - CConstVar.GENTITYNUM_BITS;
+		}
+
+		int print = 0;
+		if(CConstVar.ShowNet > 0 && (CConstVar.ShowNet >= 2 || CConstVar.ShowNet == -2)){
+			print = 1;
+		}
+
+		int numFields = PlayerState.PlayerStateFieldsInt.Length;
+		lc = ReadByte();
+
+		if(lc > numFields || lc < 0){
+			CLog.Error("invalid playerstate field count");
+			return;
+		}
+
+		int[] field;
+		int trunc;
+		for(i = 0; i < lc; i++){
+			field = PlayerState.PlayerStateFieldsInt[i];
+			if(from[field[0]] == to[field[0]]){
+				if(field[1] == 0){
+					//浮点数
+					if(ReadBits(1) == 0){
+						//
+						trunc = ReadBits(CConstVar.FLOAT_INT_BITS);
+						trunc -= CConstVar.FLOAT_INT_BIAS;
+						float a = (float)trunc;
+						to[i] = BitConverter.ToInt32(BitConverter.GetBytes(a), 0);
+					}else{
+						to[i] = ReadBits(32);
+						if(print > 0){
+							CLog.Info("read delta playerstate float:{0}:{1}",i, to[i]);
+						}
+					}
+				}else{
+					to[i] = ReadBits(field[1]);
+					if(print > 0){
+						CLog.Info("read delta playerstate:{0}:{1}",i, to[i]);
+					}
+				}
+			}
+		}
+
+		for(i = lc; i < numFields; i++){
+			to[i] = from[i];
+		}
+
+		int bs = 0;
+		if(ReadBits(1) > 0){
+			//parse stats
+			if(ReadBits(1) > 0){
+				bs = ReadBits(CConstVar.MAX_STATS);
+				for(i = 0; i < CConstVar.MAX_STATS; i++){
+					if((bs & (1 << i)) > 0){
+						to.states[i] = ReadShort();
+					}
+				}
+			}
+
+			//parse persistant stats
+			if(ReadBits(1) > 0){
+				bs = ReadBits(CConstVar.MAX_PERSISTANT);
+				for(i = 0; i < CConstVar.MAX_PERSISTANT; i++){
+					if((bs & (1<<i)) > 0){
+						to.persistant[i] = ReadShort();
+					}
+				}
+			}
+		}
+
+		if(print > 0){
+			if(bs == 0){
+				endBit = curPos * 8 - CConstVar.GENTITYNUM_BITS;
+			}else{
+				endBit = (curPos - 1) * 8 + bit - CConstVar.GENTITYNUM_BITS;
+			}
+			CLog.Info("{0} bits", endBit - startBit);
+		}
 
 	}
 
-	public void WriteDeltaPlayerstate(PlayerState from, PlayerState to)
+	public void WriteDeltaPlayerstate(PlayerState _from, PlayerState to)
 	{
+		PlayerState from = _from;
+		PlayerState dummy = new PlayerState();
+		if(from == null){
+			from = dummy;
+		}
+		int[] field;
+		int numFields = PlayerState.PlayerStateFieldsInt.Length;
+		int lc = 0;
+		for(int i = 0; i < numFields; i++){
+			field = PlayerState.PlayerStateFieldsInt[i];
+			if(from[field[0]] != to[field[0]]){
+				lc = i + 1;
+			}
+		}
 
+		WriteByte((byte)lc);
+		float fullFloat;
+		int trunc;
+		for(int i = 0; i < lc; i++){
+			field = PlayerState.PlayerStateFieldsInt[i];
+			if(from[field[0]] == to[field[0]]){
+				WriteBits(0, 1);
+				continue;
+			}
+
+			WriteBits(1,1);
+			if(field[1] == 0){
+				fullFloat = BitConverter.ToSingle(BitConverter.GetBytes(to[i]),0);
+				trunc = (int)fullFloat;
+
+				if(trunc == fullFloat && trunc + CConstVar.FLOAT_INT_BIAS >= 0 &&
+					trunc + CConstVar.FLOAT_INT_BITS < (1 << CConstVar.FLOAT_INT_BITS)){
+					//作为小的整数发送
+					WriteBits(0,1);
+					WriteBits(trunc + CConstVar.FLOAT_INT_BIAS, CConstVar.FLOAT_INT_BITS);
+				}else{
+					//发送完整的浮点值
+					WriteBits(1,1);
+					WriteBits(to[i], 32);
+				}
+			}else{
+				WriteBits(to[field[0]],field[1]);
+			}
+		}
+
+		int statsbits = 0;
+		for(int i = 0; i < CConstVar.MAX_STATS; i++){
+			if(to.states[i] != from.states[i]){
+				statsbits |= 1 << i;
+			}
+		}
+
+		int persistantbits = 0;
+		for(int i = 0; i < CConstVar.MAX_PERSISTANT; i++){
+			if(to.persistant[i] != from.persistant[i]){
+				persistantbits |= 1 << i;
+			}
+		}
+
+		if(statsbits == 0 && persistantbits == 0){
+			WriteBits(0,1);
+			return;
+		}
+		if(statsbits > 0){
+			WriteBits(1,1);
+			WriteBits(statsbits, CConstVar.MAX_STATS);
+			for(int i = 0; i < CConstVar.MAX_STATS; i++){
+				if((statsbits & (1 << i)) > 0){
+					WriteShort((short)to.states[i]);
+				}
+			}
+		}else{
+			WriteBits(0,1); //没有变化
+		}
+
+		if(persistantbits > 0 ){
+			WriteBits(1,1);
+			WriteBits(persistantbits, CConstVar.MAX_PERSISTANT);
+			for(int i = 0; i < CConstVar.MAX_PERSISTANT; i++){
+				if((persistantbits & (1 << i)) > 0){
+					WriteShort((short)to.persistant[i]);
+				}
+			}
+		}else{
+			WriteBits(0,1);
+		}
 	}
 
 	//写入消息的packet entities部分，包含entity number

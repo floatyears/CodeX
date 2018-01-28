@@ -36,7 +36,7 @@ public class CModelCMD : CModelBase {
 			return;
 		}
 
-		if(CDataModel.Connection.ServerRunning && CDataModel.GameState.paused > 0){
+		if(Server.Instance.ServerRunning && CDataModel.GameState.paused > 0){
 			return;
 		}
 
@@ -174,4 +174,6 @@ public sealed class ButtonsDef{
 	public static int BUTTON_ATTACK = 1;
 
 	public static int BUTTON_WALKING = 16;
+
+	
 }

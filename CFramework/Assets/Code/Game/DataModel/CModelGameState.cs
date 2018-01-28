@@ -136,6 +136,7 @@ public class CModelGameState : CModelBase {
 	public override void Init () {
 		inited = true;
 		EntityState.InitNetField();
+		// PlayerState.InitNetFiled();
 
 		clientEntities = new ClientEntity[CConstVar.MAX_GENTITIES];
 		triggerEntities = new List<ClientEntity>();
@@ -150,7 +151,7 @@ public class CModelGameState : CModelBase {
 	public void Update(){
 		ProcessSnapshots();
 		
-		time += (int)(Time.deltaTime * 1000);
+		time = (int)(Time.deltaTime * 1000);
 		frameTime = realTime;
 		realTime += time;// (int)(Time.realtimeSinceStartup*1000);
 		frameTime = realTime - frameTime;
@@ -419,7 +420,11 @@ public class CModelGameState : CModelBase {
 				}
 				s = packet.ReadBigString();
 				len = s.Length;
-
+				var re = CUtils.GetValueForKey(s, "sv_serverid");
+				
+				if(!string.IsNullOrEmpty(re)){
+					clientActive.serverID = Convert.ToInt32(re);
+				}
 
 			}else if(cmd == (int)SVCCmd.BASELINE){
 				newNum = packet.ReadBits(CConstVar.GENTITYNUM_BITS);
@@ -695,7 +700,7 @@ public class CModelGameState : CModelBase {
 					break;
 				}
 
-				SetNextSnapshot(snapshot);
+				SetNextSnap(snapshot);
 
 				if(nextSnap.serverTime < snap.serverTime){
 					CLog.Error("ProcessSnapshots: Server time went backwards");
@@ -1091,10 +1096,43 @@ public class CModelGameState : CModelBase {
 		return null;
 	}
 
-	private void SetNextSnapshot(SnapShot snapshot){
+	private void SetNextSnap(SnapShot snapshot){
 		int num;
-		EntityState state;
-		ClientEntity clientEntity;
+		EntityState es;
+		ClientEntity clientEnt;
+
+		nextSnap = snapshot;
+
+		CUtils.PlayerStateToEntityState(snapshot.playerState, ref clientEntities[snapshot.playerState.clientNum].nextState, false);
+		clientEntities[snap.playerState.clientNum].interpolate = true;
+
+		for(num = 0; num < snapshot.numEntities; num++){
+			es = snapshot.entities[num];
+			clientEnt = clientEntities[es.entityIndex];
+
+			clientEnt.nextState = es;
+
+			if(!clientEnt.currentValid || ((clientEnt.currentState.entityFlags ^ es.entityFlags) & EntityFlags.TELEPORT_BIT) != EntityFlags.NONE){
+				clientEnt.interpolate = false;
+			}else{
+				clientEnt.interpolate = true;
+			}
+		}
+
+		if(snap != null && ((snapshot.playerState.entityFlags ^ snap.playerState.entityFlags) & EntityFlags.TELEPORT_BIT) != EntityFlags.NONE){
+			nextFrameTeleport = true;
+		}else{
+			nextFrameTeleport = false;
+		}
+
+		if(nextSnap.playerState.clientNum != snap.playerState.clientNum){
+			nextFrameTeleport = true;
+		}
+		if(((nextSnap.snapFlags ^ snap.snapFlags) & SnapFlags.SERVER_COUNT) != SnapFlags.NONE){
+			nextFrameTeleport = true;
+		}
+
+		BuildSolidList();
 	}
 
 	public bool GetSnapshot(int snapshotNum, SnapShot snapshot){

@@ -91,16 +91,7 @@ public class CModelConnection : CModelBase {
 		}
 	}
 
-	private bool serverRunning;
-
-	public bool ServerRunning{
-		set{
-			serverRunning = value;
-		}
-		get{
-			return serverRunning;
-		}
-	}
+	
 
 	// Use this for initialization
 	public override void Init()
@@ -164,9 +155,9 @@ public class CModelConnection : CModelBase {
 
 		string id = CDataModel.CmdBuffer.Argv(3);
 		var cla = CDataModel.GameState.ClActive;
-		if(!string.IsNullOrEmpty(id)){
-			cla.serverID = Convert.ToInt32(id);
-		}
+		// if(!string.IsNullOrEmpty(id)){
+		// 	cla.serverID = Convert.ToInt32(id);
+		// }
 		
 		NetChanSetup(NetSrc.CLIENT, from, tmpPort, challenge);
 		state = ConnectionState.CONNECTED;

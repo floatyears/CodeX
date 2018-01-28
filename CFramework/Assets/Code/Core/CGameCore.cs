@@ -43,7 +43,7 @@ public class CGameCore {
 		fixedUpdateNum = fixedModules.Count;
 		updateNum = updateModules.Count;
 		
-		CDataModel.Connection.ServerRunning = true;
+		// .ServerRunning = true;
 		
 		//fixedModules.Add();
 		//CDataModel.Player.CsAccountLogin();

@@ -98,7 +98,7 @@ public class CModelInputEvent : CModelBase {
 				}
 
 				while(network.GetLoopPacket(NetSrc.SERVER, out remote, out packet)){
-					if(CDataModel.Connection.ServerRunning){
+					if(Server.Instance.ServerRunning){
 						server.RunServerPacket(remote, packet);
 					}
 				}

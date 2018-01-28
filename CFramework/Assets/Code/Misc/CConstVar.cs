@@ -37,7 +37,7 @@ public class CConstVar {
 
 	public static int MAX_PLAYER_STORED = 32;
 
-	public static int NoDelta = 1;
+	public static int NoDelta = 0;
 
 	public static int PureServer = 0;
 

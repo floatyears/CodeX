@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Net;
 using System.Net.Sockets;
+using System;
 
 public class TestConnections : MonoBehaviour {
 
@@ -18,6 +19,10 @@ public class TestConnections : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		int i = 0;
+		float a = 1.424f;
+		i =  BitConverter.ToInt32(BitConverter.GetBytes(a), 0);
+		a = BitConverter.ToSingle(BitConverter.GetBytes(i), 0);
 		logStyle = new GUIStyle();
 		logStyle.border = new RectOffset(0,300,0,300);
 
@@ -31,7 +36,7 @@ public class TestConnections : MonoBehaviour {
 		// 	udp.BeginReceive(action, null);
 		// };
 		// udp.BeginReceive(action,null);
-		isServer = CDataModel.Connection.ServerRunning;
+		isServer = Server.Instance.ServerRunning;
 	}
 	
 	// Update is called once per frame
@@ -60,12 +65,12 @@ public class TestConnections : MonoBehaviour {
 		if(isServer){
 			if(GUILayout.Button("关闭服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
-				CDataModel.Connection.ServerRunning = isServer;
+				Server.Instance.ServerRunning = isServer;
 			}
 		}else{
 			if(GUILayout.Button("开启服务器",GUILayout.Height(40), GUILayout.Width(300))){
 				isServer = !isServer;
-				CDataModel.Connection.ServerRunning = isServer;
+				Server.Instance.ServerRunning = isServer;
 				// HuffmanMsg.Init();
 			}
 		}
