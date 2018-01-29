@@ -110,7 +110,6 @@ public enum CSceneState
 	None = 0,
 	Loading = 1,
 	Normal = 2,
-
 	Disposed = 3,
 
 }

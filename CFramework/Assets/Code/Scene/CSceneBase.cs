@@ -6,10 +6,6 @@ public class CSceneBase {
 
 	private CSceneState state;
 
-	private CTableScene data;
-
-
-
 	public CSceneState State{
 		get{
 			return state;

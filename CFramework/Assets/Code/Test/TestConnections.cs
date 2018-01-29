@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Net;
 using System.Net.Sockets;
 using System;
+using System.Runtime.InteropServices;
 
 public class TestConnections : MonoBehaviour {
 
