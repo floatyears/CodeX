@@ -44,16 +44,6 @@ public class TestAgent : MonoBehaviour {
 	private Vector3 lastPos; //上一帧的时间
 
 	private float scrollDelta;
-	
-	public NavMeshLink[] navMeshLinks;
-	public CNavMeshLinkData[] navMeshLinkData;
-
-	public CNavMeshLinkData curNavMeshLink;
-
-	private int offMeshStatus = 0;
-
-	private	int isReset = 0;
-	
 
 	// Use this for initialization
 	void Start () {
@@ -73,16 +63,7 @@ public class TestAgent : MonoBehaviour {
 		curPath = new NavMeshPath();
 
 		agent = transform.Find("agent").gameObject.GetComponent<NavMeshAgent>();
-		character = transform.GetChild(0);
-
-		if(navMeshLinks != null){
-			navMeshLinkData = new CNavMeshLinkData[navMeshLinks.Length];
-			for(int i = 0; i < navMeshLinkData.Length; i++){
-				navMeshLinkData[i] = new CNavMeshLinkData();
-				navMeshLinkData[i].startPoint = navMeshLinks[i].transform.localToWorldMatrix.MultiplyPoint(navMeshLinks[i].startPoint);
-				navMeshLinkData[i].endPoint = navMeshLinks[i].transform.localToWorldMatrix.MultiplyPoint(navMeshLinks[i].endPoint);
-			}
-		}
+		character = transform.Find("model");
 	}
 	
 	// Update is called once per frame
@@ -150,27 +131,22 @@ public class TestAgent : MonoBehaviour {
 			moveState |= MoveState.Jump;
 		}
 
-		// if(agent.isOnOffMeshLink){
-		// 	if((moveState & MoveState.Jump) != MoveState.NONE){ //开始跳跃
-		// 		moveState |= MoveState.OffMeshLink;
-		// 		// moveState &= ~MoveState.Jump;
-		// 	}else if(dest != null){ //取消传送
-		// 		// agent.CompleteOffMeshLink();
-		// 		// isReset = 1;
-		// 		// agent.ResetPath();
-		// 		agent.CompleteOffMeshLink();
-		// 		// agent.SetDestination(character.position);
-		// 		// agent.transform.position = character.position;
-		// 		// agent.ResetPath();
-		// 	}
-		// }
-		if(agent.pathStatus == NavMeshPathStatus.PathPartial && offMeshStatus == 0){
-			agent.ResetPath();
-			
-			offMeshStatus = IsOnNavMeshLink();
-			if(offMeshStatus > 0){
+		if(agent.isOnOffMeshLink){
+			if((moveState & MoveState.Jump) != MoveState.NONE){ //开始跳跃
 				moveState |= MoveState.OffMeshLink;
+				Debug.Log("jump start");
+				// moveState &= ~MoveState.Jump;
+			}else if(dest != null){ //取消传送
+				Debug.Log("jump end");
+				moveState &= ~MoveState.OffMeshLink;
+				agent.CompleteOffMeshLink();
+				agent.ResetPath();
+				agent.Warp(character.position);
+				// agent.transform.position = character.position;
+				// agent.ResetPath();
 			}
+		}else{
+			moveState &= ~MoveState.OffMeshLink;
 		}
 
 		if((moveState & MoveState.Normal) != MoveState.NONE){
@@ -192,33 +168,21 @@ public class TestAgent : MonoBehaviour {
 				y = 0f;
 				jumpTime = 0f;
 			}
-			character.localPosition = new Vector3(0, y, 0);
+			character.GetChild(0).localPosition = new Vector3(0, y, 0);
 		}
 
 		if((moveState & MoveState.OffMeshLink) != MoveState.NONE){
-			Vector3 endpos = Vector3.zero;
-			agent.updatePosition = false;
-			if(offMeshStatus == 1){
-				endpos = curNavMeshLink.endPoint;
-			}else if(offMeshStatus == 2){
-				endpos =  curNavMeshLink.startPoint;
-			}
-			if(endpos != agent.transform.position){
+			var endpos = agent.currentOffMeshLinkData.endPos;
+			if((endpos - agent.transform.position).magnitude > 0.01f){
 				agent.transform.position = Vector3.MoveTowards(agent.transform.position, endpos, agent.speed* Time.deltaTime);
 			}else{
-				agent.Warp(endpos);
-				agent.updatePosition = true;
-				offMeshStatus = 0;
+				agent.CompleteOffMeshLink();
+				Debug.Log("jump complete");
 				moveState &= ~MoveState.OffMeshLink;
 			}
 		}
 
-		if(isReset > 0){
-			// agent.SetDestination(character.position);
-			// character.position = agent.transform.position;
-		}else{
-			character.position = agent.transform.position;
-		}
+		character.position = agent.transform.position;
 
 		if(Input.mouseScrollDelta.y != 0f){
 			scrollDelta += Input.mouseScrollDelta.y;
@@ -239,39 +203,6 @@ public class TestAgent : MonoBehaviour {
 
 		cam.transform.position = temp;
 	}
-
-	private int IsOnNavMeshLink(){
-		if(navMeshLinks != null){
-			int len = navMeshLinks.Length;
-			for(int i = 0; i < len; i++){
-				var link = navMeshLinkData[i];
-				if(IsClose(character.position, link.startPoint)){
-					curNavMeshLink = link;
-					return 1;
-				}
-
-				if(IsClose(character.position, link.endPoint)){
-					curNavMeshLink = link;
-					return 2;
-				}
-			}
-		}
-		return 0;
-	}
-
-	private bool IsClose(Vector3 pos1, Vector3 pos2){
-		if((pos1 - pos2).magnitude < agent.radius){
-			return true;
-		}
-		return false;
-	}
-}
-
-public class CNavMeshLinkData{
-	public Vector3 startPoint;
-	public Vector3 endPoint;
-
-	public float radius;
 }
 
 public enum MoveState{
