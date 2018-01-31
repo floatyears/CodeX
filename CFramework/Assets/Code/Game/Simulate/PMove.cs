@@ -180,8 +180,107 @@ public class PMove {
 		if(CheckJump()){
 			//空中
 			AirMove();
+			return;
 		}
-		return;
+
+		Friction();
+
+		float fmove = cmd.forwardmove;
+		float smove = cmd.rightmove;
+
+		float scale = CMDScale(cmd);
+		SetMovementDir();
+
+		impl.forward[2] = 0;
+		impl.right[2] = 0;
+		impl.forward.Normalize();
+		impl.right.Normalize();
+
+		Vector3 wishvel = new Vector3();
+		for(int i = 0; i < 2; i++){
+			wishvel[i] = impl.forward[i]*fmove + impl.right[i]*smove;
+		}
+		wishvel[2] = 0;
+
+		Vector3 wishdir = wishvel;
+		float wishspeed = wishdir.magnitude;
+		wishdir.Normalize();
+		wishspeed *= scale;
+
+		Accelerate(wishdir, wishspeed, pm_accelerate);
+		if(impl.groundPlane){
+			ClipVelocity(ref playerState.velocity, Vector3.up, ref playerState.velocity, 1f);
+		}
+
+		float vel = playerState.velocity.magnitude;
+		ClipVelocity(ref playerState.velocity, Vector3.up, ref playerState.velocity, 1.001f);
+
+		playerState.velocity.Normalize();
+		playerState.velocity = playerState.velocity * vel;
+		if(playerState.velocity[0] == 0 && playerState.velocity[1] == 0){
+			return;
+		}
+		
+		StepSlidMove(false);
+	}
+
+	private void ClipVelocity(ref Vector3 inVec, Vector3 normal, ref Vector3 outVec, float overbounce){
+		float backoff = Vector3.Dot(inVec, outVec);
+
+		if(backoff < 0){
+			backoff *= overbounce;
+		}else{
+			backoff /= overbounce;
+		}
+
+		float change;
+		for(int i = 0; i < 3; i++){
+			change = normal[i] * backoff;
+			outVec[i] = inVec[i] - change;
+		}
+	}
+
+	private void StepSlidMove(bool gravity){
+		Vector3 start_o = playerState.origin;
+		Vector3 start_v = playerState.velocity;
+
+		if(SlideMove(gravity) == false){
+			return;
+		}
+
+		Vector3 down = start_o;
+
+	}
+
+	private bool SlideMove(bool gravity){
+		Vector3 primal_velocity = playerState.velocity;
+		Vector3 endVelocity;
+		if(gravity){
+			endVelocity = playerState.velocity;
+			endVelocity[2] -= playerState.gravity * impl.frameTime;
+			playerState.velocity[2] = (playerState.velocity[2] + endVelocity[2]) * 0.5f;
+			primal_velocity[2] = endVelocity[2];
+			if(impl.groundPlane){
+				ClipVelocity(ref playerState.velocity, Vector3.up, ref playerState.velocity, 1.001f);
+			}
+		}
+
+		Vector3[] planes = new Vector3[5];
+		int numplanes = 0;
+		float time_left = impl.frameTime;
+		if(impl.groundPlane){
+			numplanes = 1;
+			planes[0] = Vector3.up;
+		}
+
+		int numbumps = 4;
+		planes[numplanes] = playerState.velocity.normalized;
+		for(int bumpcount = 0; bumpcount < numbumps; bumpcount++){
+
+		}
+
+		return false;
+
 	}
 
 
@@ -420,6 +519,34 @@ public class PMove {
 			up[0] = (cr*sp*cy+-sr*-sy);
 			up[1] = (cr*sp*sy+-sr*cy);
 			up[2] = cr*cp;
+		}
+	}
+
+	private void SetMovementDir(){
+		if(cmd.forwardmove > 0 || cmd.rightmove > 0){
+			if(cmd.rightmove == 0 && cmd.forwardmove > 0){
+				playerState.movementDir = 0;
+			}else if(cmd.rightmove < 0 && cmd.forwardmove > 0){
+				playerState.movementDir = 1;
+			}else if(cmd.rightmove < 0 && cmd.forwardmove == 0){
+				playerState.movementDir = 2;
+			}else if(cmd.rightmove < 0 && cmd.forwardmove < 0){
+				playerState.movementDir = 3;
+			}else if(cmd.rightmove == 0 && cmd.forwardmove < 0){
+				playerState.movementDir = 4;
+			}else if(cmd.rightmove > 0 && cmd.forwardmove < 0){
+				playerState.movementDir = 5;
+			}else if(cmd.rightmove > 0 && cmd.forwardmove == 0){
+				playerState.movementDir = 6;
+			}else if(cmd.rightmove > 0 && cmd.forwardmove > 0){
+				playerState.movementDir = 7;
+			}
+		}else {
+			if(playerState.movementDir == 2){
+				playerState.movementDir = 1;
+			}else{
+				playerState.movementDir = 7;
+			}
 		}
 	}
 }
