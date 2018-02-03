@@ -51,6 +51,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+     <Compile Include="Assets\Editor\AnimControllerBuilder.cs" />
+     <Compile Include="Assets\Editor\TriggerTeleportEditor.cs" />
      <Compile Include="Assets\External\NavMesh\Editor\NavMeshComponentsGUIUtility.cs" />
      <Compile Include="Assets\External\NavMesh\Editor\NavMeshLinkEditor.cs" />
      <Compile Include="Assets\External\NavMesh\Editor\NavMeshModifierEditor.cs" />
