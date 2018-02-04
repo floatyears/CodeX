@@ -99,6 +99,8 @@ public class CConstVar {
 
 	public static int Speed;
 
+	public static int STEPSIZE = 18;
+
 	public static int TimeNudge = 30;
 
 	public const bool LanForcePackets = false;

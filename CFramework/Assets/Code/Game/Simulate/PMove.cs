@@ -249,6 +249,15 @@ public class PMove {
 		}
 
 		Vector3 down = start_o;
+		down[2] -= CConstVar.STEPSIZE;
+	
+		// trace
+		// if(playerState.velocity[2] > 0){
+			// return;
+		// }
+
+		Vector3 up = start_o;
+		up[2] += CConstVar.STEPSIZE;
 
 	}
 
@@ -274,20 +283,55 @@ public class PMove {
 		}
 
 		int numbumps = 4;
+		Vector3 end;
 		planes[numplanes] = playerState.velocity.normalized;
 		for(int bumpcount = 0; bumpcount < numbumps; bumpcount++){
+			//计算要移动到的目标点
+			end = playerState.origin + time_left * playerState.velocity;
+
 
 		}
 
 		return false;
+	}
 
+	private bool CheckPath(){
+		return true;
 	}
 
 
 
 	private void AirMove()
 	{
+		Friction();
+		float fmove = cmd.forwardmove;
+		float smove = cmd.rightmove;
 
+		float scale = CMDScale(cmd);
+		SetMovementDir();
+
+		impl.forward[2] = 0;
+		impl.right[2] = 0;
+		impl.forward.Normalize();
+		impl.right.Normalize();
+
+		Vector3 wishvel = Vector3.zero;
+		for(int i = 0; i < 2; i++){
+			wishvel[i] = impl.forward[i] * fmove + impl.right[i] * smove;
+		}
+		wishvel[2] = 0;
+		Vector3 wishdir = wishvel;
+		float wishspeed = wishdir.magnitude;
+		wishdir.Normalize();
+		wishspeed *= scale;
+
+		//不在平面上，有稍微的加速
+		Accelerate(wishdir, wishspeed, pm_accelerate);
+
+		if(impl.groundPlane){
+			ClipVelocity(ref playerState.velocity, Vector3.up, ref playerState.velocity, 1.001f);
+		}		
+		StepSlidMove(true);
 	}
 
 	private void Friction()

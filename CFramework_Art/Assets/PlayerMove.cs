@@ -64,7 +64,7 @@ public class PlayerMove : MonoBehaviour {
 		z = cam.transform.position.z;
 
 		jumpVel = 8f;
-		gravity = 13f;
+		gravity = 26f;
 		speed = new Vector3(0.022f,-0.022f,1f);
 		curPath = new NavMeshPath();
 
