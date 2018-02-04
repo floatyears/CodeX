@@ -88,7 +88,7 @@ public class CSceneManager : CModule {
 
 	private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
 	{
-		if(scene.name == curScene.Data.name)
+		if(scene.name == curScene.Name)
 		{
 			curScene.State = CSceneState.Normal;
 			curScene.OnLoaded();

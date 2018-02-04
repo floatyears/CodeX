@@ -4,6 +4,14 @@ using UnityEngine;
 
 public class CSceneBase {
 
+	private string name;
+
+	public string Name{
+		get{
+			return name;
+		}
+	}
+
 	private CSceneState state;
 
 	public CSceneState State{
@@ -12,12 +20,6 @@ public class CSceneBase {
 		}
 		set{
 			state = value;
-		}
-	}
-
-	public CTableScene Data{
-		get{
-			return data;
 		}
 	}
 
