@@ -134,32 +134,12 @@ public class PlayerMovePhy : MonoBehaviour {
 
 			//可以同时按下方向键和空格键
 			if(Input.GetKey(KeyCode.Space)){ //跳跃
-				if(jumpTime == 0f){
-					jumpTime = 0f;
-				}
-				moveState |= MoveState.Jump;
-
-				int idx = -1;
-				if((idx = CheckTrigger(false, moveDir == -1 ? TeleportType.JumpRight : TeleportType.JumpLeft)) >= 0){ //传送到其他地方
-					moveState |= MoveState.Teleport;
-					moveState &= ~MoveState.Normal;
-					agent.useGravity = false;
-					lastTrigger = teleports[idx];
-
-					teleportStartPos = transform.position;
-					teleportDest = lastTrigger.worldDestPos;
-					float y = 0f;
-					if(lastTrigger.type == TeleportType.UpLeft || lastTrigger.type == TeleportType.UpRight){ //向上跳需要更大的加速度
-						y = teleportDest.y - transform.position.y;// + 1f;
-						// teleportVel = new Vector3(agent.speed * moveDir, gravity * Mathf.Sqrt(2*y/gravity), 0f);
-						totalTeleportTime = Mathf.Sqrt(2*y/gravity);// + Mathf.Sqrt(2/gravity);
-					}else{
-						// teleportVel = new Vector3(agent.speed * moveDir, jumpVel, 0f);
-						y = transform.position.y - teleportDest.y;
-						totalTeleportTime = jumpVel/gravity + Mathf.Sqrt(2*( 0.5f * jumpVel * jumpVel / gravity + transform.position.y - teleportDest.y)/gravity);
-					}
-					curTeleportTime = 0f;
-				}
+				// if(jumpTime == 0f){
+				// 	jumpTime = 0f;
+				// }
+				// moveState |= MoveState.Jump;
+				agent.AddForce(Vector3.up,ForceMode.Acceleration);
+				
 			}
 		}
 
@@ -185,21 +165,14 @@ public class PlayerMovePhy : MonoBehaviour {
 			if((moveState & MoveState.Normal) != MoveState.NONE){ //一般的移动
 				if(dest != null){
 					// agent.SetDestination(dest.Value);
-					agent.AddRelativeForce(dest.Value, ForceMode.Acceleration);
+					agent.AddForce(dest.Value, ForceMode.Impulse);
 				}
 			}else{
 				// agent.Warp(transform.position); //停到当前的位置
 			}
 
 			if((moveState & MoveState.Jump) != MoveState.NONE){ //跳跃状态
-				var y = jumpVel * jumpTime - 0.5f * gravity * jumpTime * jumpTime;
-				jumpTime += Time.deltaTime;
-				if(jumpTime > 0.1f && y < 0f){
-					moveState &= ~MoveState.Jump;
-					y = 0f;
-					jumpTime = 0f;
-				}
-				interTrans.localPosition = new Vector3(0, y, 0);
+				
 			}	
 		}
 
@@ -218,8 +191,6 @@ public class PlayerMovePhy : MonoBehaviour {
 			z = Mathf.Max(z, minZ);
 			z = Mathf.Min(z, maxZ);
 		}
-		
-
 		var temp = character.position;
 		temp.z = z;
 		temp.y += 27;
