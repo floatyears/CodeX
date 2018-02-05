@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class PlayerMove : MonoBehaviour {
+public class PlayerMovePhy : MonoBehaviour {
 
 	public float minZ = 0f;
 
@@ -21,7 +21,7 @@ public class PlayerMove : MonoBehaviour {
 
 	private int moveDir; //1-左，-1-右
 
-	private NavMeshAgent agent;
+	private Rigidbody agent;
 
 	private MoveState moveState;
 
@@ -40,8 +40,6 @@ public class PlayerMove : MonoBehaviour {
 	public float jumpVel = 8f;
 
 	public float gravity = 13f;
-
-	private NavMeshPath curPath;
 
 	private Vector3 teleportDest;
 
@@ -66,10 +64,9 @@ public class PlayerMove : MonoBehaviour {
 		jumpVel = 8f;
 		gravity = 26f;
 		speed = new Vector3(0.022f,-0.022f,1f);
-		curPath = new NavMeshPath();
 
 		teleports = new List<TriggerTeleport>(5);
-		agent = gameObject.GetComponent<NavMeshAgent>();
+		agent = gameObject.GetComponent<Rigidbody>();
 		character = transform;
 		interTrans = character.GetChild(0);
 
@@ -81,18 +78,6 @@ public class PlayerMove : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		if(Input.GetKey(KeyCode.LeftArrow)){ //左
-			agent.Move(Vector3.left * speed.z);
-		}else if(Input.GetKey(KeyCode.UpArrow)){
-			agent.Move(Vector3.back* speed.z);
-		}else if(Input.GetKey(KeyCode.DownArrow)){
-			agent.Move(Vector3.forward* speed.z);
-		}else if(Input.GetKey(KeyCode.RightArrow)){ //下
-			agent.Move(Vector3.right* speed.z);  
-		}
-		else if(Input.GetKey(KeyCode.C)){
-		}
-		
 		Vector3? dest = null;
 
 		//传送过程中不能操作
@@ -104,7 +89,7 @@ public class PlayerMove : MonoBehaviour {
 				if((idx = CheckTrigger(false, TeleportType.DownRight)) >= 0){ //传送到其他地方
 					moveState |= MoveState.Teleport;
 					moveState &= ~MoveState.Normal;
-					agent.updatePosition = false;
+					agent.useGravity = false;
 					lastTrigger = teleports[idx];
 
 					teleportStartPos = transform.position;
@@ -112,17 +97,17 @@ public class PlayerMove : MonoBehaviour {
 					teleportDest.x += modelSize.x/2 * moveDir;
 					totalTeleportTime = Mathf.Sqrt(Mathf.Abs(teleportDest.y - transform.position.y)*2/gravity); //总时间
 					curTeleportTime = 0f;
-					teleportVel = new Vector3(moveDir * agent.speed, 0f, 0f);// (teleportDest - teleportStartPos + 0.5f * new Vector3(0f, gravity, 0f)  * teleportTime * teleportTime) / teleportTime;
+					// teleportVel = new Vector3(moveDir * agent.speed, 0f, 0f);// (teleportDest - teleportStartPos + 0.5f * new Vector3(0f, gravity, 0f)  * teleportTime * teleportTime) / teleportTime;
 				}else{
 					moveState |= MoveState.Normal;
-					dest = agent.transform.position + Vector3.left * speed.z;// 
+					dest = Vector3.left * speed.z;// 
 				}
 			}else if(Input.GetKey(KeyCode.W)){
 				moveState |= MoveState.Normal;
-				dest = agent.transform.position + Vector3.back* speed.z;
+				dest = Vector3.back* speed.z;
 			}else if(Input.GetKey(KeyCode.S)){
 				moveState |= MoveState.Normal;
-				dest = agent.transform.position + Vector3.forward* speed.z;
+				dest = Vector3.forward* speed.z;
 			}else if(Input.GetKey(KeyCode.A)){ //左
 				interTrans.eulerAngles = new Vector3(0,90,0);
 				moveDir = 1;
@@ -130,7 +115,7 @@ public class PlayerMove : MonoBehaviour {
 				if((idx = CheckTrigger(false, TeleportType.DownLeft)) >= 0){ //传送到其他地方
 					moveState |= MoveState.Teleport;
 					moveState &= ~MoveState.Normal;
-					agent.updatePosition = false;
+					agent.useGravity = false;
 					lastTrigger = teleports[idx];
 
 					teleportStartPos = transform.position;
@@ -138,10 +123,10 @@ public class PlayerMove : MonoBehaviour {
 					teleportDest.x += modelSize.x/2 * moveDir;
 					totalTeleportTime = Mathf.Sqrt(Mathf.Abs(teleportDest.y - transform.position.y)*2/gravity); //总时间
 					curTeleportTime = 0f;
-					teleportVel = new Vector3(moveDir * agent.speed, 0f, 0f);
+					// teleportVel = new Vector3(moveDir * agent.speed, 0f, 0f);
 				}else{
 					moveState |= MoveState.Normal;
-					dest = agent.transform.position + Vector3.right* speed.z;
+					dest = Vector3.right* speed.z;
 				}
 			}else{ //没有一般移动
 				moveState &= ~MoveState.Normal;
@@ -158,7 +143,7 @@ public class PlayerMove : MonoBehaviour {
 				if((idx = CheckTrigger(false, moveDir == -1 ? TeleportType.JumpRight : TeleportType.JumpLeft)) >= 0){ //传送到其他地方
 					moveState |= MoveState.Teleport;
 					moveState &= ~MoveState.Normal;
-					agent.updatePosition = false;
+					agent.useGravity = false;
 					lastTrigger = teleports[idx];
 
 					teleportStartPos = transform.position;
@@ -166,10 +151,10 @@ public class PlayerMove : MonoBehaviour {
 					float y = 0f;
 					if(lastTrigger.type == TeleportType.UpLeft || lastTrigger.type == TeleportType.UpRight){ //向上跳需要更大的加速度
 						y = teleportDest.y - transform.position.y;// + 1f;
-						teleportVel = new Vector3(agent.speed * moveDir, gravity * Mathf.Sqrt(2*y/gravity), 0f);
+						// teleportVel = new Vector3(agent.speed * moveDir, gravity * Mathf.Sqrt(2*y/gravity), 0f);
 						totalTeleportTime = Mathf.Sqrt(2*y/gravity);// + Mathf.Sqrt(2/gravity);
 					}else{
-						teleportVel = new Vector3(agent.speed * moveDir, jumpVel, 0f);
+						// teleportVel = new Vector3(agent.speed * moveDir, jumpVel, 0f);
 						y = transform.position.y - teleportDest.y;
 						totalTeleportTime = jumpVel/gravity + Mathf.Sqrt(2*( 0.5f * jumpVel * jumpVel / gravity + transform.position.y - teleportDest.y)/gravity);
 					}
@@ -186,8 +171,8 @@ public class PlayerMove : MonoBehaviour {
 			}else{
 				var tmp = transform.position;
 				tmp.y = teleportDest.y;
-				agent.Warp(tmp);
-				agent.updatePosition = true;
+				// agent.Warp(tmp);
+				agent.useGravity = true;
 				moveState &= ~MoveState.Teleport;
 				moveState &= ~MoveState.Jump;
 				
@@ -199,10 +184,11 @@ public class PlayerMove : MonoBehaviour {
 		}else{
 			if((moveState & MoveState.Normal) != MoveState.NONE){ //一般的移动
 				if(dest != null){
-					agent.SetDestination(dest.Value);
+					// agent.SetDestination(dest.Value);
+					agent.AddRelativeForce(dest.Value, ForceMode.Acceleration);
 				}
 			}else{
-				agent.Warp(transform.position); //停到当前的位置
+				// agent.Warp(transform.position); //停到当前的位置
 			}
 
 			if((moveState & MoveState.Jump) != MoveState.NONE){ //跳跃状态
@@ -236,6 +222,7 @@ public class PlayerMove : MonoBehaviour {
 
 		var temp = character.position;
 		temp.z = z;
+		temp.y += 27;
 
 		cam.transform.position = temp;
 	}
@@ -278,55 +265,4 @@ public class PlayerMove : MonoBehaviour {
 	private Vector3 CalcTeleportPos(float time){
 		return teleportStartPos + teleportVel * time + 0.5f * new Vector3(0f, -gravity, 0f) * time * time;
 	}
-}
-
-public enum MoveState{
-	NONE = 0,
-
-	STOP = 0x1,
-
-	Normal = 0x2, //正常移动，和Jump可以共存，不能跟Teleport共存
-
-	Jump = 0x4,
-
-	Teleport = 0x8, //处于offmeshlink传输过程中（无法取消）
-
-	JumpSec = 0x10, //二级跳
-}
-
-public enum PlayerAnimationNames
-{
-    WAIT = 0,
-    HURT,
-    DIE,
-    RUN,
-    SKILL01,
-    SKILL01_START,
-    SKILL01_LOOP,
-    SKILL01_END,
-    SKILL02,
-    SKILL02_START,
-    SKILL02_LOOP,
-    SKILL02_END,
-    SKILL03,
-    SKILL03_START,
-    SKILL03_LOOP,
-    SKILL03_END,
-    SKILL04,
-    SKILL04_START,
-    SKILL04_LOOP,
-    SKILL04_END,
-    STUN,
-    RIDING,
-    CAPTURE,
-    DEFENSE,
-    WIN,
-	ATTACK01,
-    IDLE,
-    R_IDLE,
-	DISMOUNT,
-    IDLE1,
-    JUMP,
-    JUMP2,
-    COUNT,
 }
