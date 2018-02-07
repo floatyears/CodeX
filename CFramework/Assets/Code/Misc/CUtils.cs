@@ -79,7 +79,64 @@ public class CUtils {
 	}
 
 	public static void PlayerStateToEntityState(PlayerState playerState, ref EntityState state, bool snap){
-		
+		if(playerState.pmType == PMoveType.INTERMISSION || playerState.pmType == PMoveType.SPECTATOR){
+			state.entityType = EntityType.INVISIBLE;
+		}else if(playerState.states[CConstVar.STAT_HEALTH] <= CConstVar.GIB_HEALTH){
+			state.entityType = EntityType.INVISIBLE;
+		}else{
+			state.entityType = EntityType.PLAYER;
+		}
+
+		state.entityIndex = playerState.clientNum;
+		state.pos.trType = (int)TrajectoryType.INTERPOLATE;
+
+		state.pos.SetTrBase(playerState.origin);
+		Vector3 tmp = Vector3.zero;
+		if(snap){
+			state.pos.GetTrBase(ref tmp);
+			SnapVector(ref tmp);
+			state.pos.SetTrBase(tmp);
+		}
+		state.pos.GetTrDelta(ref playerState.velocity);
+
+		state.apos.trType = (int)TrajectoryType.INTERPOLATE;
+		state.apos.SetTrBase(playerState.viewangles);
+
+		if(snap){
+			state.pos.GetTrBase(ref tmp);
+			SnapVector(ref tmp);
+			state.pos.SetTrBase(tmp);
+		}
+		state.angles2[CConstVar.YAW] = playerState.movementDir;
+		state.clientNum = playerState.clientNum;
+
+		state.entityFlags = playerState.entityFlags;
+		if(playerState.states[CConstVar.STAT_HEALTH] <= 0){
+			state.entityFlags |= EntityFlags.DEAD;
+		}else{
+			state.entityFlags &= ~EntityFlags.DEAD;
+		}
+
+		if(playerState.externalEvent > 0){
+			state.eventID = playerState.externalEvent;
+			state.eventParam = playerState.externalEventParam;
+		}else if(playerState.entityEventSequence < playerState.eventSequence){
+			if(playerState.entityEventSequence < playerState.eventSequence - CConstVar.MAX_PS_EVENTS){
+				playerState.entityEventSequence = playerState.eventSequence - CConstVar.MAX_PS_EVENTS;
+			}
+
+			int seq = playerState.entityEventSequence & (CConstVar.MAX_PS_EVENTS - 1);
+			state.eventID = playerState.events[seq] | ((playerState.entityEventSequence & 3) << 8);
+			state.eventParam = playerState.eventParams[seq];
+			playerState.entityEventSequence++;
+		}
+
+		// state.generic1 = playerState.groundEntityNum;
+
+	}
+
+	public static void SnapVector(ref Vector3 v) {
+		v[0]=((int)(v[0]));v[1]=((int)(v[1]));v[2]=((int)(v[2]));
 	}
 
 	public static string GetValueForKey(string s, string key){

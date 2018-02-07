@@ -572,30 +572,24 @@ public static class EntityType
 
 	public static int TELEPORT = 8;
 
+	public static int INVISIBLE = 9;
+
 	// any of the EV_* events can be added freestanding
 	// by setting eType to ET_EVENTS + eventNum
 	// this avoids having to set eFlags and eventNum
 	// 任何EntityEventType都可以独立地添加，只要设置eType为EVENTS_COUNT + eventNum，这避免了设置eFlags和eventNum
-	public static int EVENTS_COUNT = 9;
+	public static int EVENTS_COUNT = 10;
 
-	public static int EVENT_ENT_1 = 10;
-	public static int EVENT_ENT_2 = 11;
-	public static int EVENT_ENT_3 = 12;
-	public static int EVENT_ENT_4 = 13;
-	public static int EVENT_ENT_5 = 14;
-	public static int EVENT_ENT_6 = 15;
-	public static int EVENT_ENT_7 = 16;
-	public static int EVENT_ENT_8 = 17;
-	public static int EVENT_ENT_9 = 18;
-	public static int EVENT_ENT_10 = 19;
-	public static int EVENT_ENT_11 = 20;
-	public static int EVENT_ENT_12 = 21;
-	public static int EVENT_ENT_13 = 22;
-	public static int EVENT_ENT_14 = 23;
-	public static int EVENT_ENT_15 = 24;
-	public static int EVENT_ENT_16 = 25;
-	public static int EVENT_ENT_17 = 26;
-	public static int EVENT_ENT_18 = 27;
+	public static int EVENT_ENT_1 = 11;
+	public static int EVENT_ENT_2 = 12;
+	public static int EVENT_ENT_3 = 13;
+	public static int EVENT_ENT_4 = 14;
+	public static int EVENT_ENT_5 = 15;
+	public static int EVENT_ENT_6 = 16;
+	public static int EVENT_ENT_7 = 17;
+	public static int EVENT_ENT_8 = 18;
+	public static int EVENT_ENT_9 = 19;
+	public static int EVENT_ENT_10 = 20;
 
 }
 

@@ -99,6 +99,8 @@ public class CConstVar {
 
 	public static int Speed;
 
+	public static int GIB_HEALTH = -40;
+
 	public static int STEPSIZE = 18;
 
 	public static int TimeNudge = 30;

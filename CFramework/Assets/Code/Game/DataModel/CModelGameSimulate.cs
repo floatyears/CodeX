@@ -49,7 +49,9 @@ public class CModelGameSimulate : CModelBase {
 
 	private int bodyQueueIdx;
 
-	private bool restarted;
+	private bool restarted = false;
+
+	private bool mapRestart = true;
 
 	private bool hadBots;
 
@@ -288,6 +290,18 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		StoreHistory(ent);
+	}
+
+	private void MapRestart(){
+		mapRestart = true;
+		LoadMap();
+		
+		
+	}
+
+	private void LoadMap(){
+		// CAssetsManager.Instance.LoadAssetAsync();
+		Resources.Load("map");
 	}
 
 	private void DamageFeedback(GameEntity ent){
