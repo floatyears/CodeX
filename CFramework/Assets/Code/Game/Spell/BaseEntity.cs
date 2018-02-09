@@ -10,7 +10,6 @@ public class BaseEntity {
 
 	protected Vector3 position;
 	
-
 	protected Vector3 velocity;
 
 	protected Vector3 direction;
@@ -84,9 +83,17 @@ public class BaseEntity {
 
 	public virtual void Init()
 	{
-		
+        model = new BaseModel();
+        model.Init();
 	}
 
+	public virtual void Clear(){
+		model.Dispose();
+	}
+
+	public virtual void Dispose(){
+		model.Dispose();
+	}
 	
 
 	public bool IsAlive()
@@ -120,12 +127,16 @@ public class BaseEntity {
 		
 	}
 
+
 	//-------移动相关接口--------//
 	public void Rotate(Vector3 val)
 	{
 		
 	}
 	
+	public void SetPosition(Vector3 pos){
+		model.position = pos;
+	}
 	
 
 	public void AddEffects()
@@ -169,6 +180,7 @@ public class BaseEntity {
 	{
         target.ForEachTarget((tar) => tar.TakeDamage(DamageType.DAMAGE_TYPE_PURE, attribute.attackDamage));
 	}
+
 
 
 }

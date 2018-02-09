@@ -400,6 +400,7 @@ public class Server : CModule {
 
 	public void SV_ClientThink(ClientNode cl, ref UserCmd cmd){
 		cl.lastUserCmd = cmd;
+		CLog.Info("last ucmd time: {0}", cl.lastUserCmd.serverTime);
 		if(cl.state != ClientState.ACTIVE){
 			return;
 		}
@@ -856,6 +857,9 @@ public class Server : CModule {
 		while(timeResidual > fMsec){
 			timeResidual -= fMsec;
 			time += fMsec;
+
+			//按照服务器的时间来进行update
+			CDataModel.GameSimulate.Update(time);
 		}
 
 		if(CConstVar.ComSpeeds > 0){

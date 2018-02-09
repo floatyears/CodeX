@@ -273,7 +273,8 @@ public class CModelGameState : CModelBase {
 		if(cmdNum > clientActive.cmdNum){
 			CLog.Error("GetUserCmd: %d >= %d", cmdNum, clientActive.cmdNum);
 		}
-		cmd = new UserCmd();
+
+		cmd = null;
 		if(cmdNum <= clientActive.cmdNum - CConstVar.CMD_BACKUP){
 			return false;
 		}

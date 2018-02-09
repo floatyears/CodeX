@@ -162,7 +162,7 @@ public class PMove {
 		}
 
 		pMove.CheckDuck();
-		
+		pMove.GroundTrace();		
 		if(pMove.playerState.pmType == PMoveType.DEAD){
 			pMove.DeadMove();
 		}
@@ -173,6 +173,10 @@ public class PMove {
 			AirMove();
 		}
 		
+	}
+
+	private void GroundTrace(){
+		impl.walking = true;
 	}
 
 	private void WalkMove()
@@ -187,6 +191,10 @@ public class PMove {
 
 		float fmove = cmd.forwardmove;
 		float smove = cmd.rightmove;
+
+		if(fmove != 0 || smove != 0){
+			CLog.Info("move {0}, {1}", fmove, smove);
+		}
 
 		float scale = CMDScale(cmd);
 		SetMovementDir();

@@ -53,12 +53,14 @@ public class CModelGameSimulate : CModelBase {
 
 	private bool mapRestart = true;
 
+	private MapData map;
+
 	private bool hadBots;
 
 	public override void Init(){
 		inited = true;
 		
-		update = Update;
+		// update = Update;
 		//总是为最大的客户端数量留足空间
 		numEntities = CConstVar.MAX_CLIENTS;
 		gEntities = new GameEntity[CConstVar.MAX_GENTITIES];
@@ -88,7 +90,9 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		SpawnEntityFromConfig();
-		
+
+		map = new MapData();
+		map.Init();
 	}
 
 	private GameEntity Spawn(){
@@ -137,6 +141,7 @@ public class CModelGameSimulate : CModelBase {
 		e.classname = "noclass";
 		e.sEnt.s.entityIndex = System.Array.IndexOf(gEntities, e);
 		e.sEnt.r.ownerNum = CConstVar.ENTITYNUM_NONE;
+
 	}
 
 	private bool EntitiesFree(){
@@ -162,14 +167,14 @@ public class CModelGameSimulate : CModelBase {
 		ent.inuse = false;
 	}
 
-	private void Update(){
+	public void Update(int sv_time){
 		if(restarted){
 			return;
 		}
 
 		frameNum++;
 		prevTime = time;
-		time = (int)(Time.realtimeSinceStartup*1000);
+		time = sv_time;//(int)(Time.realtimeSinceStartup*1000);
 
 		GameEntity ent = gEntities[0];
 		for(int i = 0; i < numEntities; i++){
@@ -249,7 +254,7 @@ public class CModelGameSimulate : CModelBase {
 	}
 
 	private void RunClient(GameEntity ent){
-		if((ent.sEnt.r.svFlags & SVFlags.BOT) == SVFlags.NONE){
+		if((ent.sEnt.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
 			return;
 		}
 		ent.client.pers.cmd.serverTime = time;
@@ -289,19 +294,13 @@ public class CModelGameSimulate : CModelBase {
 
 		}
 
-		StoreHistory(ent);
+		ent.client.StoreHistory(ent.sEnt, time);
 	}
 
 	private void MapRestart(){
 		mapRestart = true;
-		LoadMap();
 		
-		
-	}
-
-	private void LoadMap(){
-		// CAssetsManager.Instance.LoadAssetAsync();
-		Resources.Load("map");
+		map.Init();
 	}
 
 	private void DamageFeedback(GameEntity ent){
@@ -352,6 +351,9 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		UserCmd ucmd = ent.client.pers.cmd;
+		if(ucmd.forwardmove != 0 || ucmd.rightmove != 0){
+			CLog.Info("cmd move {0}, {1}", ucmd.forwardmove, ucmd.rightmove);
+		}
 		if(ucmd.serverTime > time + 200){
 			ucmd.serverTime = time + 200;
 		}
@@ -472,7 +474,7 @@ public class CModelGameSimulate : CModelBase {
 		PMove pm = new PMove();
 
 		pm.playerState = cl.playerState;
-		pm.cmd = ucmd;
+		ucmd.CopyTo(pm.cmd);
 		if(pm.playerState.pmType == PMoveType.DEAD){
 			// pm.tracemask
 		}else if((ent.sEnt.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
@@ -558,7 +560,7 @@ public class CModelGameSimulate : CModelBase {
 			int evt = playerState.events[seq] | ((playerState.entityEventSequence & 3) << 8);
 			int extEvent = playerState.externalEvent;
 			playerState.externalEvent = 0;
-			GameEntity t = TemEntity(playerState.origin, evt);
+			GameEntity t = TempEntity(playerState.origin, evt);
 			int idx = t.sEnt.s.entityIndex;
 			CUtils.PlayerStateToEntityState(playerState, ref t.sEnt.s, true);
 			t.sEnt.s.entityIndex = idx;
@@ -571,7 +573,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 	}
 
-	private GameEntity TemEntity(Vector3 origin, int evt)
+	private GameEntity TempEntity(Vector3 origin, int evt)
 	{
 		var e = Spawn();
 		e.sEnt.s.entityType = EntityType.EVENTS_COUNT + evt;
@@ -599,6 +601,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 		InitGEntity(ent);
 		ent.client = cl;
+		cl.Init(); //只有在用到的时候进行初始化
 
 		cl.pers.connected = ClientConnState.CONNECTED;
 		cl.pers.enterTime = time;
@@ -622,7 +625,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		cl.playerState.entityFlags = flags;
-		ClienSpawn(ent);
+		ClientSpawn(ent);
 
 		// if(cl.sess.sessionTeam != TeamType.TEAM_SPECTATOR && ())
 
@@ -649,7 +652,7 @@ public class CModelGameSimulate : CModelBase {
 
 		if(ent.client.pers.connected == ClientConnState.CONNECTED
 			&& ent.client.sess.sessionTeam != TeamType.TEAM_SPECTATOR){
-			tent = TemEntity(ent.client.playerState.origin, (int)EntityEventType.PLAYER_TELEPORT_OUT);
+			tent = TempEntity(ent.client.playerState.origin, (int)EntityEventType.PLAYER_TELEPORT_OUT);
 			tent.sEnt.s.clientNum = ent.sEnt.s.clientNum;
 
 		}
@@ -676,10 +679,10 @@ public class CModelGameSimulate : CModelBase {
 		ent.client.playerState.clientNum = System.Array.IndexOf(gEntities, ent); 
 	}
 
-	private void ClienSpawn(GameEntity ent){
+	private void ClientSpawn(GameEntity ent){
 		int index = System.Array.IndexOf(gEntities, ent);
 		var cl = ent.client;
-		GameEntity spawnPoint;
+		Vector3 spawnPoint;
 		Vector3 spawnOrigin = Vector3.zero;
 		Vector3 spawnAngles = Vector3.zero;
 
@@ -687,17 +690,20 @@ public class CModelGameSimulate : CModelBase {
 		cl.playerState.pmType = PMoveType.NORMAL;
 
 		if(cl.sess.sessionTeam == TeamType.TEAM_SPECTATOR || cl.playerState.pmType == PMoveType.SPECTATOR){
-			spawnPoint = SelectSpectatorSpawnPoint();
+			// spawnPoint = SelectSpectatorSpawnPoint();
+			spawnPoint = map.SpectatorSpawnPoint(spawnOrigin, spawnAngles);
 		}else{
 			if((ent.sEnt.r.svFlags & SVFlags.BOT) != SVFlags.NONE){
 				
 			}
 			if(!cl.pers.initialSpawn && cl.pers.localClient){
 				cl.pers.initialSpawn = true;
-				spawnPoint = SelectInitialSpawnPoint(spawnOrigin, spawnAngles);
+				// spawnPoint = SelectInitialSpawnPoint(spawnOrigin, spawnAngles);
+				spawnPoint = map.InitialSpawnPoint(spawnOrigin, spawnAngles);
 			}else
 			{
-				spawnPoint = SelectSpawnPoint(cl.playerState.origin, spawnOrigin, spawnAngles);
+				// spawnPoint = SelectSpawnPoint(cl.playerState.origin, spawnOrigin, spawnAngles);
+				spawnPoint = map.SpawnPoint(spawnOrigin, spawnAngles);
 			}
 		}
 
@@ -727,6 +733,7 @@ public class CModelGameSimulate : CModelBase {
 		}
 
 		cl.playerState.states[CConstVar.STAT_MAX_HEALTH] = cl.pers.maxHealth;
+		cl.playerState.states[CConstVar.STAT_HEALTH] = cl.pers.maxHealth;
 		cl.playerState.entityFlags = flags;
 
 		ent.client = clients[index];
@@ -747,11 +754,18 @@ public class CModelGameSimulate : CModelBase {
 		cl.inactivityTime = time + 100000000;
 		cl.latched_buttons = 0;
 
+		if(ent.client.sess.sessionTeam != TeamType.TEAM_SPECTATOR){
+			// UseTargets(ent, spawnPoint);
+			ent.SetPosition(spawnPoint);
+		}
+
 		cl.playerState.commandTime = time - 100;
 		ent.client.pers.cmd.serverTime = time;
 		ClientThink(index);
 
-		ClientEndFrame(ent);
+		if(ent.client.sess.spectatorState != SpectatorState.FOLLOW){
+			ClientEndFrame(ent);
+		}
 
 		CUtils.PlayerStateToEntityState(cl.playerState, ref ent.sEnt.s, true);
 
@@ -781,18 +795,6 @@ public class CModelGameSimulate : CModelBase {
 		return count;
 	}
 
-	private GameEntity SelectSpectatorSpawnPoint(){
-		return null;
-	}
-
-	private GameEntity SelectInitialSpawnPoint(Vector3 origin, Vector3 angles){
-		return null;
-	}
-
-	private GameEntity SelectSpawnPoint(Vector3 avoidPoint, Vector3 origin, Vector3 angles){
-		return null;
-	}
-
 	private void PlayerRestore(string guid, ref PlayerState ps){
 		int i;
 		if(guid.Length < 32){
@@ -815,20 +817,6 @@ public class CModelGameSimulate : CModelBase {
 		}
 	}
 
-	private void StoreHistory(GameEntity ent){
-
-		ent.client.historyHead++;
-		if(ent.client.historyHead >= CConstVar.NUM_CLIENT_HISTORY){
-			ent.client.historyHead = 0;
-		}
-
-		int head = ent.client.historyHead;
-
-		ent.client.history[head].mins = ent.sEnt.r.mins;
-		ent.client.history[head].maxs = ent.sEnt.r.maxs;
-		ent.client.history[head].currentOrigin = ent.sEnt.r.currentOrigin;
-		ent.client.history[head].time = time;
-	}
 
 	private void SetOrigin(GameEntity entity, Vector3 origin){
 		entity.sEnt.s.pos.SetTrBase(origin);
@@ -872,9 +860,7 @@ public class GameEntity{
 
 	public bool unlinkAfterEvent;
 
-	// public bool physics
-
-	public BaseNPC self;
+	// public bool physicss
 
 	public GameEntity(){
 		sEnt = new SharedEntity();
@@ -884,157 +870,18 @@ public class GameEntity{
 
 	}
 
-}
-
-public class GameClient{
-	public PlayerState playerState;
-
-	public GameClientPersistant pers;
-
-	public GameClientSession sess;
-
-	public bool readyToExit;
-
-	public bool noclip;
-
-	public int lastCmdTime;
-
-	public int buttons;
-
-	public int oldButtons;
-
-	public int latched_buttons;
-
-	public Vector3 oldOrigin;
-
-	public int lastkilled_client;
-
-	public int lasthurt_client;
-
-	public int lasthurt_mod;
-
-	public int attackTime;
-
-	public int respawnTime;
-
-	public int inactivityTime; //踢掉玩家，如果time > this
-
-	public bool inactivityWarning;
-
-	public int lastKillTime;
-	
-	public int timeResidual;
-
-	public bool isEliminated; //是否被杀
-
-	public int vote;
-
-	public int historyHead;
-
-	public ClientHistory[] history;
-
-	public ClientHistory saved;
-
-	public int frameOffset;
-
-	public int lastUpdateFrame; //从客户端得到的最后更新的帧
-
-	public GameClient(){
-		playerState = new PlayerState();
-		pers = new GameClientPersistant();
-		sess = new GameClientSession();
-		history = new ClientHistory[CConstVar.NUM_CLIENT_HISTORY];
-		for(int i = 0; i < CConstVar.NUM_CLIENT_HISTORY; i++){
-			history[i] = new ClientHistory();
-		}
-		saved = new ClientHistory();
+	public void SetPosition(Vector3 pos){
+		sEnt.r.currentOrigin = pos;
+		client.SetPosition(pos);
 	}
 
+	public void SetTarget(){
 
-}
-
-public class GameClientPersistant{
-	public ClientConnState connected;
-
-	public UserCmd cmd;
-
-	public bool localClient;
-
-	public bool initialSpawn;
-
-	public bool predictItemPickUp;
-
-	public bool pmoveFixed;
-
-	public string netname;
-
-	public int maxHealth;
-
-	public int enterTime;
-
-	public int voteCount;
-
-	public int teamVoteCount;
-
-	public bool teamInfo;
-
-//unlagged - client options
-	//unlagged
-	public int delag;
-
-	// public int debugDelag;
-
-	public int cmdTimeNudge;
-//unlagged - lag simulation #2
-	public int			latentSnaps;
-	public int			latentCmds;
-	public int			plOut;
-	public UserCmd[]	cmdqueue;
-	public int			cmdhead;
-//unlagged - lag simulation #2
-
-	public int realPing;
-
-	public int[] pingSamples;
-
-	public int sampleHead;
-
-	public int killStreak;
-
-	public int deathStreak;
-
-	public GameClientPersistant(){
-		pingSamples = new int[CConstVar.NUM_PING_SAMPLES];
-
-		cmdqueue = new UserCmd[CConstVar.MAX_LATENT_CMDS];
-		cmd = new UserCmd();
 	}
 
 }
 
-public class GameClientSession {
-	public TeamType sessionTeam;
 
-	public int spectorNum;
-
-	public SpectatorState spectatorState;
-
-	public int spectatorClient;
-
-	public int wins, losses;
-
-	public bool teamLeader;
-}
-
-public class ClientHistory{
-	public Vector3	mins;
-
-	public Vector3 maxs;
-
-	public Vector3 currentOrigin;
-
-	public int time;
-}
 
 public enum SpectatorState{
 	NOT,
