@@ -81,6 +81,15 @@ public class BaseEntity {
 		}
 	}
 
+	public BaseModel Model{
+		get{
+			return model;
+		}
+		set{
+			model = value;
+		}
+	}
+
 	public virtual void Init()
 	{
         model = new BaseModel();
@@ -154,10 +163,7 @@ public class BaseEntity {
 		this.teamID = teamID;
 	}
 
-	public void SetModel(BaseModel model)
-	{
-		this.model = model;
-	}
+	
 
 	public void AddEffects(string effectName, EffectAttachType attachType)
 	{

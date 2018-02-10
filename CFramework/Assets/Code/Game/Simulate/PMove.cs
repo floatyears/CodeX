@@ -5,6 +5,8 @@ using UnityEngine;
 public class PMove {
 	public PlayerState playerState;
 
+	public BaseModel agent;
+
 	public UserCmd cmd;
 
 	public int tracemask;
@@ -199,16 +201,16 @@ public class PMove {
 		float scale = CMDScale(cmd);
 		SetMovementDir();
 
-		impl.forward[2] = 0;
-		impl.right[2] = 0;
+		impl.forward[1] = 0;
+		impl.right[1] = 0;
 		impl.forward.Normalize();
 		impl.right.Normalize();
 
 		Vector3 wishvel = new Vector3();
-		for(int i = 0; i < 2; i++){
+		for(int i = 0; i < 3; i++){
 			wishvel[i] = impl.forward[i]*fmove + impl.right[i]*smove;
 		}
-		wishvel[2] = 0;
+		wishvel[1] = 0;
 
 		Vector3 wishdir = wishvel;
 		float wishspeed = wishdir.magnitude;
@@ -216,6 +218,8 @@ public class PMove {
 		wishspeed *= scale;
 
 		Accelerate(wishdir, wishspeed, pm_accelerate);
+
+		//以下部分可以用物理引擎来计算
 		if(impl.groundPlane){
 			ClipVelocity(ref playerState.velocity, Vector3.up, ref playerState.velocity, 1f);
 		}
@@ -225,11 +229,15 @@ public class PMove {
 
 		playerState.velocity.Normalize();
 		playerState.velocity = playerState.velocity * vel;
-		if(playerState.velocity[0] == 0 && playerState.velocity[1] == 0){
+		if(playerState.velocity[0] == 0 && playerState.velocity[2] == 0){
 			return;
 		}
 		
-		StepSlidMove(false);
+		//以下部分可以用物理引擎来计算
+		agent.Move(playerState.velocity);
+		playerState.origin = agent.position;
+		
+		// StepSlidMove(false);
 	}
 
 	private void ClipVelocity(ref Vector3 inVec, Vector3 normal, ref Vector3 outVec, float overbounce){
@@ -562,15 +570,15 @@ public class PMove {
 		// }
 		// if (right)
 		// {
-			right[0] = (-1*sr*sp*cy+-1*cr*-sy);
-			right[1] = (-1*sr*sp*sy+-1*cr*cy);
-			right[2] = -1*sr*cp;
+			up[0] = (-1*sr*sp*cy+-1*cr*-sy);
+			up[1] = (-1*sr*sp*sy+-1*cr*cy);
+			up[2] = -1*sr*cp;
 		// }
 		// if (up)
 		{
-			up[0] = (cr*sp*cy+-sr*-sy);
-			up[1] = (cr*sp*sy+-sr*cy);
-			up[2] = cr*cp;
+			right[0] = (cr*sp*cy+-sr*-sy);
+			right[1] = (cr*sp*sy+-sr*cy);
+			right[2] = cr*cp;
 		}
 	}
 

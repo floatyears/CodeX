@@ -33,6 +33,16 @@ public class CSceneManager : CModule {
 		SceneManager.sceneLoaded += OnSceneLoaded;
 		dicScene = new Dictionary<int, CSceneBase>();
 		loadSceneStack = new Stack<int>();
+		needUpdate = true;
+
+		//初始化测试数据
+		var tmp = new CDataTable();
+		tmp.Init();
+		var sd = new CTableScene();
+		sd.id = 1;
+		sd.name = "test";
+		tmp.AddData(sd);
+		CDatabase.Instance.AddData<CTableScene>(tmp);
 	}
 
 	public override void Update()
@@ -43,6 +53,10 @@ public class CSceneManager : CModule {
 			var sceneID = loadSceneStack.Pop();
 			loadSceneStack.Clear();
 			ChangeScene(sceneID);
+		}
+
+		if(curScene != null){
+			curScene.Update();
 		}
 		//if()
 	}
@@ -62,16 +76,13 @@ public class CSceneManager : CModule {
 			// CGameCore
 			var data = CDatabase.Instance.GetData<CTableScene>(sceneID);
 			
-			CAssetsManager.Instance.LoadAssetAsync(data.name, data.resPath, (asset)=>{
-
-				if(curScene != null)
-				{
+			// CAssetsManager.Instance.LoadAssetAsync(data.name, data.resPath, (asset)=>{
+				if(curScene != null){
 					curScene.Dispose();
 				}
 
 				CSceneBase scene;
-				if(!dicScene.TryGetValue(data.id, out scene))
-				{
+				if(!dicScene.TryGetValue(data.id, out scene)){
 					scene = new CSceneBase();
 					scene.Init();
 					dicScene.Add(data.id, scene);
@@ -79,9 +90,8 @@ public class CSceneManager : CModule {
 				scene.State = CSceneState.Loading;
 				curScene = scene;
 
-				UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(data.name);
-
-			});
+				// UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(data.name);
+			// });
 		}
 		
 	}
@@ -90,7 +100,7 @@ public class CSceneManager : CModule {
 	{
 		if(scene.name == curScene.Name)
 		{
-			curScene.State = CSceneState.Normal;
+			curScene.State = CSceneState.Active;
 			curScene.OnLoaded();
 		}
 	}
@@ -108,8 +118,9 @@ public class CSceneManager : CModule {
 public enum CSceneState
 {
 	None = 0,
-	Loading = 1,
-	Normal = 2,
-	Disposed = 3,
+	Inited = 1,
+	Loading = 2,
+	Active = 3,
+	Deactive = 4,
 
 }

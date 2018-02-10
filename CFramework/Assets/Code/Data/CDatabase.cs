@@ -28,12 +28,22 @@ public class CDatabase : CModule {
 		{
 			throw new UnityException("CDatabase is not inited!");
 		}
+		tables = new Dictionary<Type, CDataTable>();
 		needUpdate = false;
 	}
 
 	public T GetData<T>(int key) where T : CTableBase
 	{
 		return tables[typeof(T)].GetData<T>(key);
+	}
+
+	public void AddData<T>(CDataTable data) where T : CTableBase
+	{
+		if(tables.ContainsKey(typeof(T))){
+			tables[typeof(T)] = data;
+		}else{
+			tables.Add(typeof(T), data);
+		}
 	}
 
 	public override void Dispose()

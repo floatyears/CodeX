@@ -474,6 +474,7 @@ public class CModelGameSimulate : CModelBase {
 		PMove pm = new PMove();
 
 		pm.playerState = cl.playerState;
+		pm.agent = cl.agent.Model;
 		ucmd.CopyTo(pm.cmd);
 		if(pm.playerState.pmType == PMoveType.DEAD){
 			// pm.tracemask

@@ -97,7 +97,7 @@ public class CConstVar {
 
 	public static bool TruePing;
 
-	public static int Speed;
+	public static int Speed = 2;
 
 	public static int GIB_HEALTH = -40;
 

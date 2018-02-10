@@ -34,6 +34,8 @@ public class BaseModel {
         if (sourceID > 0){
             RefreshModel(sourceID);
         }
+        var obj = GameObject.Instantiate(Resources.Load("character")) as GameObject;
+        obj.transform.parent = _mainTrans;
     }
 
     //刷新模型
@@ -50,6 +52,10 @@ public class BaseModel {
         get{
             return _mainTrans.position;
         }
+    }
+
+    public void Move(Vector3 pos){
+        agent.MovePosition(agent.position + pos);
     }
 
     public void Dispose()

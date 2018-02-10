@@ -6,6 +6,7 @@ using UnityEngine;
 public class CDataTable {
 
 	public delegate void ForeachFunc(int index, CTableBase data);
+
 	//
 	public int id;
 
@@ -25,6 +26,22 @@ public class CDataTable {
 		dicData = new Dictionary<int, CTableBase>();
 		listData = new List<CTableBase>();
 		
+	}
+
+	public void AddData(CTableScene data){
+		if(dicData.ContainsKey(data.id)){
+			dicData[data.id] = data;
+			int len = listData.Count;
+			for(int i = 0; i < len; i++){
+				if(listData[i].id == data.id){
+					listData[i] = data;
+					break;
+				}
+			}
+		}else{
+			dicData.Add(data.id, data);
+			listData.Add(data);
+		}
 	}
 
 	public T GetData<T>(int key) where T : CTableBase

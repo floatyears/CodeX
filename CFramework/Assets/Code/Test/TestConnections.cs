@@ -37,7 +37,7 @@ public class TestConnections : MonoBehaviour {
 		// 	udp.BeginReceive(action, null);
 		// };
 		// udp.BeginReceive(action,null);
-		isServer = Server.Instance.ServerRunning;
+		if(Server.Instance != null) isServer = Server.Instance.ServerRunning;
 	}
 	
 	// Update is called once per frame
@@ -62,6 +62,9 @@ public class TestConnections : MonoBehaviour {
 		if(GUILayout.Button("重置",GUILayout.Height(40), GUILayout.Width(300))){
 			Server.Instance.ClearClients();
 			CDataModel.Connection.state = ConnectionState.DISCONNECTED;
+		}
+		if(GUILayout.Button("加载场景")){
+			CSceneManager.Instance.ChangeScene(1);
 		}
 		if(isServer){
 			if(GUILayout.Button("关闭服务器",GUILayout.Height(40), GUILayout.Width(300))){

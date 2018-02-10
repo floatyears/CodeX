@@ -35,9 +35,6 @@ public class CGameCore {
 		AddModule("DataModel", new CDataModel());
 		AddModule("UIManager", new CUIManager());
 		AddModule("SceneManager", new CSceneManager());
-
-		
-
 		
 		
 		fixedUpdateNum = fixedModules.Count;
