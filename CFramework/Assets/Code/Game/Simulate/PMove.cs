@@ -117,8 +117,8 @@ public class PMove {
 		}
 
 		pMove.playerState.commandTime = pMove.cmd.serverTime;
-		pMove.playerState.origin = impl.prevOrigin;
-		pMove.playerState.velocity = impl.prevVelocity;
+		impl.prevOrigin = pMove.playerState.origin;
+		impl.prevVelocity = pMove.playerState.velocity;
 
 		impl.frameTime = impl.msec * 0.001f;
 

@@ -11,6 +11,8 @@ public class MapData {
 	public void Init(){
 		var res = Resources.Load("map") as GameObject;
 		mapRoot = GameObject.Instantiate(res);
+		CUtils.SetLayer(mapRoot, LayerMask.NameToLayer("Simulate"));
+
 		mapRootTrans = mapRoot.transform;
 	}
 

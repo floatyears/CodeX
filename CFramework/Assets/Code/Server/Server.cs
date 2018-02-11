@@ -32,7 +32,7 @@ public class Server : CModule {
 	//server none static
 	private bool restarting;
 
-	private int serverID;
+	private int serverID = -2;
 
 	private int restartedServerId;
 
@@ -55,6 +55,7 @@ public class Server : CModule {
 
 	private int numEntities;
 
+	//这里保存的是game simulate的client中的playerstate引用
 	private PlayerState[] gameClients;
 
 	private int restartTime;
@@ -400,7 +401,7 @@ public class Server : CModule {
 
 	public void SV_ClientThink(ClientNode cl, ref UserCmd cmd){
 		cl.lastUserCmd = cmd;
-		CLog.Info("last ucmd time: {0}", cl.lastUserCmd.serverTime);
+		// CLog.Info("last ucmd time: {0}", cl.lastUserCmd.serverTime);
 		if(cl.state != ClientState.ACTIVE){
 			return;
 		}
@@ -462,7 +463,7 @@ public class Server : CModule {
 			}
 		}
 
-		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("statusResponse\n%s\n%s", "\\infostring$", status.ToString()));
+		CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("statusResponse\n%s\n%s", "\\infostring$", status.ToString()));
 		StringBuilderCache.Release(status);
 	}
 
@@ -504,7 +505,7 @@ public class Server : CModule {
 
 		if(CNetwork.IsLANAddress(from.Address)){
 			challenge.pingTime = time;
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "challengeResponse " + challenge.challenge + " \\port$"+CConstVar.LocalPort);
+			CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, "challengeResponse " + challenge.challenge + " \\port$"+CConstVar.ServerPort);
 			return;
 		}
 		// if(authorizeAddress.Address)
@@ -527,7 +528,7 @@ public class Server : CModule {
 		infoStr.Append("infoResponse\n");
 		infoStr.Append("\\").Append("challenge").Append("$").Append(CDataModel.CmdBuffer.Argv(1));
 		infoStr.Append("\\").Append("protocol").Append("$").Append(CConstVar.Protocol);
-		infoStr.Append("\\").Append("port").Append("$").Append(CConstVar.LocalPort);
+		infoStr.Append("\\").Append("port").Append("$").Append(CConstVar.ServerPort);
 		infoStr.Append("\\").Append("clients").Append("$").Append(count);
 		infoStr.Append("\\").Append("humans").Append("$").Append(humans);
 		infoStr.Append("\\").Append("hostname").Append("$").Append("test");
@@ -537,7 +538,7 @@ public class Server : CModule {
 		infoStr.Append("\\").Append("maxPing").Append("$").Append(CConstVar.maxPing);
 		infoStr.Append("\\").Append("serverID").Append("$").Append(CConstVar.serverID);
 
-		CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, infoStr.ToString());
+		CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, infoStr.ToString());
 
 		StringBuilderCache.Release(infoStr);
 	}
@@ -554,7 +555,7 @@ public class Server : CModule {
 		int version = System.Convert.ToInt32(CUtils.GetValueForKey(userinfo, "protocol"));
 
 		if(version != CConstVar.Protocol){
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("server protocol mismatches with client. server:%d, client:%d", CConstVar.Protocol, version));
+			CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("server protocol mismatches with client. server:%d, client:%d", CConstVar.Protocol, version));
 			return;
 		}
 
@@ -600,7 +601,7 @@ public class Server : CModule {
 			}
 
 			if(i == CConstVar.MAX_CHALLENGES){
-				CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("no or bad challenge for your address %s", from));
+				CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("no or bad challenge for your address %s", from));
 				return;
 			}
 
@@ -613,13 +614,13 @@ public class Server : CModule {
 			//局域网不判断ping
 			if(!CNetwork.IsLANAddress(from.Address)){
 				if(CConstVar.minPing > 0 && ping < CConstVar.minPing){
-					CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
+					CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
 					ch.wasrefused = true;
 					return;
 				}
 
 				if(CConstVar.maxPing > 0 && ping < CConstVar.maxPing){
-					CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
+					CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is for high pings only");
 					ch.wasrefused = true;
 					return;
 				}
@@ -642,7 +643,7 @@ public class Server : CModule {
 			newcl.userInfo = userinfo;
 
 			//发送连接消息给客户端
-			CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0} {1} {2}", chNum, CConstVar.LocalPort, CConstVar.serverID));
+			CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, string.Format("connectResponse {0} {1} {2}", chNum, CConstVar.ServerPort, CConstVar.serverID));
 
 			newcl.state = ClientState.CONNECTED;
 			newcl.lastSnapshotTime = 0;
@@ -722,7 +723,7 @@ public class Server : CModule {
 				}
 			}
 			else{
-				CNetwork.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is full");
+				CNetwork_Server.Instance.OutOfBandSend(NetSrc.SERVER, from, "server is full");
 				CLog.Info("Rejected a connection. {0}", from);
 				return;
 			}
@@ -1121,7 +1122,7 @@ public class Server : CModule {
 	//如果没有发送包，就返回-1
 	private int SVNetChanTransmitNextFragment(ClientNode cl){
 		if(cl.netChan.unsentFragments){
-			CNetwork.Instance.NetChanTransmitNextFrame(ref cl.netChan);
+			CNetwork_Server.Instance.NetChanTransmitNextFrame(ref cl.netChan);
 			return RateMsec(cl);
 		}else if(!cl.netChanQueue.IsEmpty){
 			SVNetChanTransmitNextFragment(cl);
@@ -1171,7 +1172,7 @@ public class Server : CModule {
 			client.netChanQueue.Enqueue(netChanBuffer);
 		}else{
 			//
-			CNetwork.Instance.NetChanTransmit(ref client.netChan, msg.CurSize, msg.Data);
+			CNetwork_Server.Instance.NetChanTransmit(ref client.netChan, msg.CurSize, msg.Data);
 		}
 	}
 
@@ -1223,7 +1224,7 @@ public class Server : CModule {
 		}
 
 		PlayerState ps = GetClientPlayer(client);//client.playerState;
-		frame.playerState = ps;
+		ps.CopyTo(frame.playerState);
 
 		int clientNum = frame.playerState.clientNum;
 		if(clientNum < 0 || clientNum > CConstVar.MAX_GENTITIES){

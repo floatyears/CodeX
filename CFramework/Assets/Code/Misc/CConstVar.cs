@@ -73,7 +73,11 @@ public class CConstVar {
 
 	public static int PrivateClients = 1;
 
+	//监听的起始端口，考虑到端口被占用的情况
 	public static int SERVER_PORT = 27960;
+
+	//实际的端口
+	public static int ServerPort = 0;
 
 	public static int NUM_SERVER_PORTS = 4;
 	

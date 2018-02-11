@@ -34,7 +34,7 @@ public class CSceneBase {
 
 	public virtual void OnLoaded()
 	{
-
+		
 	}
 
 	public virtual void Update()

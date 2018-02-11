@@ -80,8 +80,6 @@ public class CModelInputEvent : CModelBase {
 	{
 
 		//EventLoop:
-		int time = (int)(Time.realtimeSinceStartup*1000);
-		
 		ProcessMouseKeyEvent();
 		SysEvent ev;
 		IPEndPoint remote;

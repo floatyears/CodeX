@@ -32,7 +32,6 @@ public class CSocketUDP {
 
 	// private HuffmanMsg huffmanMsg;
 
-
 	public void Init()
 	{
 		recvSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -53,7 +52,8 @@ public class CSocketUDP {
 		
 		for(int i =0; i < 10; i++){
 			try{
-				CConstVar.LocalPort = localEP.Port = CConstVar.SERVER_PORT + i;
+				// CConstVar.LocalPort = 
+				localEP.Port = CConstVar.SERVER_PORT + i;
 				recvSocket.Bind(localEP);
 
 				// OpenSocks(CConstVar.LocalPort);
@@ -79,6 +79,15 @@ public class CSocketUDP {
 
 	}
 
+	public int GetLocalPort()
+	{
+		if(recvSocket != null){
+			return (recvSocket.LocalEndPoint as IPEndPoint).Port;
+		}else{
+			return 0;
+		}
+	}
+
 	public void OpenSocks(int port)
 	{
 		// this.ip = IPAddress.Parse(ip);
@@ -89,10 +98,6 @@ public class CSocketUDP {
 		var server = IPAddress.Parse(CConstVar.ServerAddress);
 
 		recvSocket.Connect(server, CConstVar.SERVER_PORT);
-	}
-
-	public int GetLocalPort(){
-		return (recvSocket.LocalEndPoint as IPEndPoint).Port;
 	}
 
 	public void BeginReceive()

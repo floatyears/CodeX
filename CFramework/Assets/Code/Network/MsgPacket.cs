@@ -192,7 +192,7 @@ public class MsgPacket{
 			if((bits & 7) != 0){
 				nbits = bits & 7;
 				for(i = 0; i < nbits; i++){
-					value |= (HuffmanMsg.GetBit(bytes, ref bit) << i);
+					value |= (HuffmanMsg.GetBit(bytes, ref this.bit) << i);
 				}
 				bits = bits - nbits;
 			}
@@ -207,7 +207,7 @@ public class MsgPacket{
 					}
 				}
 			}
-			curPos = (bit >> 3) + 1;
+			curPos = (this.bit >> 3) + 1;
 		}
 
 		if(sgn){
@@ -522,7 +522,7 @@ public class MsgPacket{
 		}
 
 		int startBit, endBit;
-		to = from;
+		from.CopyTo(to);
 		if(bit == 0){
 			startBit = curPos * 8 - CConstVar.GENTITYNUM_BITS;
 		}else{
@@ -546,32 +546,38 @@ public class MsgPacket{
 		int trunc;
 		for(i = 0; i < lc; i++){
 			field = PlayerState.PlayerStateFieldsInt[i];
-			if(from[field[0]] == to[field[0]]){
-				if(field[1] == 0){
-					//浮点数
-					if(ReadBits(1) == 0){
-						//
+
+			if(ReadBits(1) == 0){//字段没有变化
+				to[field[0]] = from[field[0]];
+			}else{
+				if(field[1] == 0){ //浮点数
+					if(ReadBits(1) == 0){ //没有变化
 						trunc = ReadBits(CConstVar.FLOAT_INT_BITS);
 						trunc -= CConstVar.FLOAT_INT_BIAS;
-						float a = (float)trunc;
-						to[i] = BitConverter.ToInt32(BitConverter.GetBytes(a), 0);
-					}else{
-						to[i] = ReadBits(32);
+						// float a = (float)trunc;
+						//这里直接解析为float，不使用类型转换
+						to[field[0]] = BitConverter.ToInt32(BitConverter.GetBytes(trunc), 0);
 						if(print > 0){
-							CLog.Info("read delta playerstate float:{0}:{1}",i, to[i]);
+							CLog.Info("read delta playerstate field float:{0}, value:{1}, bits:{2}",field[0], to[field[0]], field[1]);
+						}
+					}else{
+						to[field[0]] = BitConverter.ToInt32(BitConverter.GetBytes(ReadBits(32)), 0); //完整的浮点数
+						if(print > 0){
+							CLog.Info("read delta playerstate field float:{0}, value:{1}, bits:{2}",field[0], to[field[0]], field[1]);
 						}
 					}
-				}else{
-					to[i] = ReadBits(field[1]);
+				}else{ //整数
+					to[field[0]] = ReadBits(field[1]);
 					if(print > 0){
-						CLog.Info("read delta playerstate:{0}:{1}",i, to[i]);
+						CLog.Info("read delta playerstate field:{0}, value:{1}, bits:{2}",field[0], to[field[0]], field[1]);
 					}
 				}
 			}
 		}
 
 		for(i = lc; i < numFields; i++){
-			to[i] = from[i];
+			field = PlayerState.PlayerStateFieldsInt[i];
+			to[field[0]] = from[field[0]];
 		}
 
 		int bs = 0;
@@ -598,12 +604,12 @@ public class MsgPacket{
 		}
 
 		if(print > 0){
-			if(bs == 0){
+			if(bit == 0){
 				endBit = curPos * 8 - CConstVar.GENTITYNUM_BITS;
 			}else{
 				endBit = (curPos - 1) * 8 + bit - CConstVar.GENTITYNUM_BITS;
 			}
-			CLog.Info("{0} bits", endBit - startBit);
+			CLog.Info("delta player state end, len: {0} bits", endBit - startBit);
 		}
 
 	}
@@ -621,6 +627,9 @@ public class MsgPacket{
 		for(int i = 0; i < numFields; i++){
 			field = PlayerState.PlayerStateFieldsInt[i];
 			if(from[field[0]] != to[field[0]]){
+				if(field[0] == 6 || field[0] == 7 || field[0] == 8){
+					CLog.Info("origin change");
+				}
 				lc = i + 1;
 			}
 		}
@@ -631,24 +640,24 @@ public class MsgPacket{
 		for(int i = 0; i < lc; i++){
 			field = PlayerState.PlayerStateFieldsInt[i];
 			if(from[field[0]] == to[field[0]]){
-				WriteBits(0, 1);
+				WriteBits(0, 1); //没有变化
 				continue;
 			}
 
 			WriteBits(1,1);
-			if(field[1] == 0){
-				fullFloat = BitConverter.ToSingle(BitConverter.GetBytes(to[i]),0);
+			if(field[1] == 0){ //浮点
+				fullFloat = BitConverter.ToSingle(BitConverter.GetBytes(to[field[0]]),0);
 				trunc = (int)fullFloat;
 
-				if(trunc == fullFloat && trunc + CConstVar.FLOAT_INT_BIAS >= 0 &&
-					trunc + CConstVar.FLOAT_INT_BITS < (1 << CConstVar.FLOAT_INT_BITS)){
+				if(trunc == fullFloat && (trunc + CConstVar.FLOAT_INT_BIAS >= 0) &&
+					(trunc + CConstVar.FLOAT_INT_BIAS) < (1 << CConstVar.FLOAT_INT_BITS)){
 					//作为小的整数发送
 					WriteBits(0,1);
 					WriteBits(trunc + CConstVar.FLOAT_INT_BIAS, CConstVar.FLOAT_INT_BITS);
 				}else{
 					//发送完整的浮点值
 					WriteBits(1,1);
-					WriteBits(to[i], 32);
+					WriteBits(to[field[0]], 32);
 				}
 			}else{
 				WriteBits(to[field[0]],field[1]);
@@ -822,6 +831,10 @@ public class MsgPacket{
 
 	public void WriteShort(short value)
 	{
+		var tmp = 0x8000;
+		if (value < ((short)tmp) || value > (short)0x7fff){
+			CLog.Error("MSG_WriteShort: range error");
+		}
 		WriteBits(value, 16);
 	}
 

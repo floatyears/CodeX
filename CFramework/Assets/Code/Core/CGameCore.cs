@@ -28,6 +28,7 @@ public class CGameCore {
 		updateModules = new List<CModule>(20);
 		modules = new List<CModule>(10);
 		AddModule("Network", new CNetwork());
+		AddModule("NetworkSrv", new CNetwork_Server());
 		AddModule("AssetManager", new CAssetsManager());
 		AddModule("DataBase",  new CDatabase());
 		AddModule("ScriptManager", new CScriptManager());

@@ -264,7 +264,7 @@ public class CModelPlayer : CModelBase
 		var gamestate = CDataModel.GameState;
 		if(playerState.clientNum != oplayerState.clientNum){
 			gamestate.thisFrameTeleport = true;
-			oplayerState = playerState;
+			playerState.CopyTo(oplayerState);
 		}
 
 		if(playerState.damageEvent != oplayerState.damageEvent && playerState.damageCount > 0){
@@ -329,7 +329,7 @@ public class CModelPlayer : CModelBase
 		SnapShot prev = gamestate.snap;
 		SnapShot next = gamestate.nextSnap;
 
-		outP = gamestate.snap.playerState;
+		gamestate.snap.playerState.CopyTo(outP);
 
 		var cl = CDataModel.GameState.ClActive;
 		if(grabAngles){
@@ -722,6 +722,12 @@ public class PlayerState{
 		persistant = new int[CConstVar.MAX_PERSISTANT];
 	}
 
+	public void CopyTo(PlayerState ps){
+		for(int i = 1; i < 38; i++){
+			ps[i] = this[i];
+		}
+	}
+
 	public void Reset(){
 
 	}
@@ -735,6 +741,8 @@ public class PlayerState{
 	public static int[][] PlayerStateFieldsInt = new int[37][]
 	{
 		new int[2]{1,32},
+		new int[2]{35,16},//ping
+		new int[2]{36,32},//
 		new int[2]{6,0},
 		new int[2]{7,0},
 		new int[2]{3,8},
@@ -767,8 +775,6 @@ public class PlayerState{
 		new int[2]{25,8},//eventParams[1]
 		new int[2]{28,8},//clientNum
 		new int[2]{31,0},//viewangles
-		new int[2]{35,16},//ping
-		new int[2]{36,32},//
 		new int[2]{37,16},//entityEventSequence
 		new int[2]{18,32},//
 	};

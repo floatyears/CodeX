@@ -36,6 +36,9 @@ public class BaseModel {
         }
         var obj = GameObject.Instantiate(Resources.Load("character")) as GameObject;
         obj.transform.parent = _mainTrans;
+        obj.transform.localPosition = Vector3.zero;
+
+        CUtils.SetLayer(_mainObj, LayerMask.NameToLayer("Simulate"));
     }
 
     //刷新模型

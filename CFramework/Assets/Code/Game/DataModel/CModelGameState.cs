@@ -158,14 +158,16 @@ public class CModelGameState : CModelBase {
 
 		var conn = CDataModel.Connection;
 		if(conn.state != ConnectionState.ACTIVE){
-			if(conn.state >= ConnectionState.CONNECTED){
-				if(clientActive.newSnapshots){ //first snap shot
-					conn.state = ConnectionState.ACTIVE;
-					clientActive.newSnapshots = false;
+			if(conn.state != ConnectionState.PRIMED){
+				return;
+			}
 
-					clientActive.serverTimeDelta = clientActive.snap.serverTime - realTime;
-					clientActive.oldServerTime = clientActive.snap.serverTime;
-				}
+			if(clientActive.newSnapshots){ //first snap shot
+				conn.state = ConnectionState.ACTIVE;
+				clientActive.newSnapshots = false;
+
+				clientActive.serverTimeDelta = clientActive.snap.serverTime - realTime;
+				clientActive.oldServerTime = clientActive.snap.serverTime;
 			}
 
 			if(conn.state != ConnectionState.ACTIVE){
@@ -333,7 +335,7 @@ public class CModelGameState : CModelBase {
 			}
 		}
 
-		CLog.Info("playerstate:{0}", packet.CurPos);
+		CLog.Info("begin playerstate at pos:{0}", packet.CurPos);
 		if(old != null)
 		{
 			packet.ReadDeltaPlayerstate(old.playerState, newSnap.playerState);
@@ -342,7 +344,7 @@ public class CModelGameState : CModelBase {
 			packet.ReadDeltaPlayerstate(null, newSnap.playerState);
 		}
 
-		CLog.Info("packet entities:{0}", packet.CurPos);
+		CLog.Info("begin packet entities at pos:{0}", packet.CurPos);
 		ParseEntities(packet, old, newSnap);
 
 		//如果不合适，就弹出所有的内容，因为它已经被读出。
@@ -390,6 +392,10 @@ public class CModelGameState : CModelBase {
 
 	public void ParseGamestate(MsgPacket packet)
 	{
+		if(CDataModel.Connection.state == ConnectionState.CONNECTED){
+			CDataModel.Connection.state = ConnectionState.PRIMED;
+		}
+		
 		int i;
 		EntityState entityState;
 		int newNum;
@@ -782,7 +788,7 @@ public class CModelGameState : CModelBase {
 		if(playerState.clientNum != oplayerState.clientNum){
 			thisFrameTeleport = true;
 			//保证不会有任何非预料的过渡效果
-			oplayerState = playerState;
+			playerState.CopyTo(oplayerState);
 		}
 
 		//收到伤害的效果

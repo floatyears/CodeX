@@ -167,8 +167,6 @@ public class CDataModel : CModule {
 		for(int i = 0; i < len; i++){
 			updateList[i].Invoke();
 		}
-
-		CNetwork.Instance.FlushPacketQueue();
 	}
 	
 	

@@ -19,34 +19,34 @@ public class CNetwork : CModule{
 
 	public delegate void SendCallback(FlatBufferBuilder builder);
 
-	private static CNetwork instance;
+	protected static CNetwork instance;
 
-	private CSocket csocket;
+	protected CSocket csocket;
 
-	private CSocketUDP updSocket;
+	protected CSocketUDP updSocket;
 
-	private Stack<SendCallback> sendStack;
+	protected Stack<SendCallback> sendStack;
 
-	private List<FlatBufferBuilder> msgBuilders;
+	protected List<FlatBufferBuilder> msgBuilders;
 
-	private static CMessageID msgIDs;
+	protected static CMessageID msgIDs;
 
-	private const int builderLimit = 3;
+	protected const int builderLimit = 3;
 
-	private int incommingSequence;
+	protected int incommingSequence;
 
-	private int outgoingSequence;
+	protected int outgoingSequence;
 
-	private int dropped;
+	protected int dropped;
 
-	private int framgmentSequence;
+	protected int framgmentSequence;
 
 	/*----------LOOPBACK缓冲，用于本地玩家---------*/
 
-	private Loopback[] loopbacks;
+	protected Loopback[] loopbacks;
 
 	//
-	private CircularBuffer<PacketQueue> sendPacketQueue;
+	protected CircularBuffer<PacketQueue> sendPacketQueue;
 
 
 	public static CNetwork Instance
@@ -74,6 +74,7 @@ public class CNetwork : CModule{
 		updSocket.Init();
 		updSocket.BeginReceive();
 
+		CConstVar.LocalPort = updSocket.GetLocalPort();
 		//loopback
 		loopbacks = new Loopback[2];
 
@@ -113,21 +114,21 @@ public class CNetwork : CModule{
 
 		while(!updSocket.packetBuffer.IsEmpty){
 			var packet = updSocket.packetBuffer.Dequeue();
-			if(Server.Instance.ServerRunning){ //服务器接收到消息
-				Server.Instance.RunServerPacket(packet.remoteEP, packet);
-			}else{
+			// if(Server.Instance.ServerRunning){ //服务器接收到消息
+			// 	Server.Instance.RunServerPacket(packet.remoteEP, packet);
+			// }else{
 				var network = CNetwork.Instance;
 				if(network != null) {
 					network.PacketEvent(packet, packet.remoteEP);
 				}
-			}
+			// }
 		}
 
 		//写入packet
 		// WritePacket();
 
 		//udp 的处理
-		// FlushPacketQueue();
+		FlushPacketQueue();
 	}
 
 	/*-----------Flatbuffer相关-----------*/
@@ -138,7 +139,7 @@ public class CNetwork : CModule{
 		//CLog.Info(msg.MsgID.ToString());
 	}
 
-	private FlatBufferBuilder GetFreeBufferBuilder()
+	protected FlatBufferBuilder GetFreeBufferBuilder()
 	{
 		for(int i = 0; i < builderLimit; i++ )
 		{
@@ -183,9 +184,9 @@ public class CNetwork : CModule{
 	{
 		var connection = CDataModel.Connection;
 
-		if(Server.Instance.ServerRunning){
-			Server.Instance.SV_PacketPrcess(packet, from);
-		}else{
+		// if(Server.Instance.ServerRunning){
+		// 	Server.Instance.SV_PacketPrcess(packet, from);
+		// }else{
 
 			connection.lastPacketTime = CDataModel.GameState.realTime;
 			if(packet.CurSize >= 4 && packet.ReadFirstInt() == -1)
@@ -229,7 +230,7 @@ public class CNetwork : CModule{
 			{
 				WriteDemoMessage(packet, headerBytes);
 			}
-		}
+		// }
 	}
 
 	public static bool NetChanProcess(ref NetChan netChan, MsgPacket packet)
@@ -372,7 +373,7 @@ public class CNetwork : CModule{
 		return true;
 	}
 
-	private void ParseMessage(MsgPacket packet)
+	protected void ParseMessage(MsgPacket packet)
 	{
 		int cmd;
 		if(CConstVar.ShowNet == 1)
@@ -437,7 +438,7 @@ public class CNetwork : CModule{
 	//处理广播消息等。
 	//第一个字节用来区分game channel的消息（-1表示connectionless数据，1表示有数据）
 	//而在c#中并没有暴露底层的接口来支持显式发送oob，所以用第一位来表示是否是带外数据
-	private void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
+	protected void ConnectionlessPacket(IPEndPoint from, MsgPacket msg)
 	{
 		msg.BeginReadOOB();
 		msg.ReadInt(); //skip -1 //跳过前面的-1
@@ -497,12 +498,12 @@ public class CNetwork : CModule{
 
 	}
 
-	private void WriteDemoMessage(MsgPacket packet, int headerBytes)
+	protected void WriteDemoMessage(MsgPacket packet, int headerBytes)
 	{
 
 	}
 
-	private void ParseCommandString(MsgPacket packet)
+	protected void ParseCommandString(MsgPacket packet)
 	{
 		int seq = packet.ReadInt();
 		string s = packet.ReadString();
@@ -538,7 +539,7 @@ public class CNetwork : CModule{
 
 		int realTime = CDataModel.GameState.realTime;
 		//没有合适的gamstate状态，就1s发一个包
-		if(/*connection.state != ConnectionState.ACTIVE && connection.state != ConnectionState.PRIMED &&*/ realTime - connection.lastPacketSentTime < 1000){
+		if(connection.state <= ConnectionState.PRIMED && realTime - connection.lastPacketSentTime < 1000){
 			return false;
 		}
 
@@ -758,13 +759,13 @@ public class CNetwork : CModule{
 		Array.Copy(charArr, 0, a, 4, charArr.Length);
 
 		IPEndPoint newA = new IPEndPoint(address.Address,address.Port);
-		newA.Address = IPAddress.Broadcast;
+		// newA.Address = IPAddress.Broadcast;
 		
 		SendPacket(src, a.Length, a, newA);
 		// SendPacket(src, str)
 	}
 
-	private static void SendLoopPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
+	protected static void SendLoopPacket(NetSrc src, int length, byte[] data, IPEndPoint to){
 
 	}
 
@@ -815,7 +816,7 @@ public class CNetwork : CModule{
 
 	
 
-	private void QueuePacket(int length, byte[] data, IPEndPoint to, int delay){
+	protected void QueuePacket(int length, byte[] data, IPEndPoint to, int delay){
 		if(delay > 999) delay = 999;
 		var newPacket = new PacketQueue(to);
 		newPacket.packet.CurSize = length;
