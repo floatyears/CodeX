@@ -28,9 +28,17 @@ public class CModelInputEvent : CModelBase {
 
 	private KButton inLeft;
 
+	private KButton inMoveRight;
+
+	private KButton inMoveLeft;
+
 	private KButton inForward;
 
 	private KButton inBack;
+
+	private KButton inUp;
+
+	private KButton inDown;
 
 	private KButton inLookup;
 
@@ -69,6 +77,10 @@ public class CModelInputEvent : CModelBase {
 		inLeft = new KButton();
 		inForward = new KButton();
 		inBack = new KButton();
+		inMoveRight = new KButton();
+		inMoveLeft = new KButton();
+		inUp = new KButton();
+		inDown = new KButton();
 		inLookdown = new KButton();
 		inLookup = new KButton();
 		inStrafe = new KButton();
@@ -179,13 +191,20 @@ public class CModelInputEvent : CModelBase {
 		int forward = 0;
 		int side = 0;
 		int up = 0;
-		// if(inStrafe.active){
-		// 	side += (int)(moveSpeed * KeyState(inRight));
-		// 	side -= (int)(moveSpeed * KeyState(inLeft));
-		// }
+		if(inStrafe.active){
+			side += (int)(moveSpeed * KeyState(inRight));
+			side -= (int)(moveSpeed * KeyState(inLeft));
+		}
 
-		side += (int)(moveSpeed * KeyState(inRight));
-		side -= (int)(moveSpeed * KeyState(inLeft));
+		side += (int)(moveSpeed * KeyState(inMoveRight));
+		side -= (int)(moveSpeed * KeyState(inMoveLeft));
+
+		up += (int)(moveSpeed * KeyState(inUp));
+
+		forward += (int)(moveSpeed * KeyState(inForward));
+		forward -= (int)(moveSpeed * KeyState(inBack));
+
+		// up += moveSpeed * KeyState(inDown);
 		// if(side != 0){
 		// 	CLog.Info("move side : {0}", side);
 		// }
@@ -368,19 +387,43 @@ public class CModelInputEvent : CModelBase {
 		}
 
 		if(Input.GetKeyDown(KeyCode.A)){
-			inLeft.down[0] = (int)KeyCode.A;
-			KeyDown(inLeft);
+			inBack.down[0] = (int)KeyCode.A;
+			KeyDown(inBack);
 		}else if(Input.GetKeyUp(KeyCode.A)){
-			inLeft.down[0] = (int)KeyCode.A;
-			KeyUp(inLeft);
+			inBack.down[0] = (int)KeyCode.A;
+			KeyUp(inBack);
 		}
 
 		if(Input.GetKeyDown(KeyCode.D)){
-			inLeft.down[0] = (int)KeyCode.D;
-			KeyDown(inRight);
+			inForward.down[0] = (int)KeyCode.D;
+			KeyDown(inForward);
 		}else if(Input.GetKeyUp(KeyCode.D)){
-			inLeft.down[0] = (int)KeyCode.D;
+			inForward.down[0] = (int)KeyCode.D;
+			KeyUp(inForward);
+		}
+
+		if(Input.GetKeyDown(KeyCode.W)){
+			inLeft.down[0] = (int)KeyCode.W;
+			KeyDown(inLeft);
+		}else if(Input.GetKeyUp(KeyCode.W)){
+			inLeft.down[0] = (int)KeyCode.W;
+			KeyUp(inLeft);
+		}
+
+		if(Input.GetKeyDown(KeyCode.S)){
+			inRight.down[0] = (int)KeyCode.S;
+			KeyDown(inRight);
+		}else if(Input.GetKeyUp(KeyCode.S)){
+			inRight.down[0] = (int)KeyCode.S;
 			KeyUp(inRight);
+		}
+
+		if(Input.GetKeyDown(KeyCode.Space)){
+			inUp.down[0] = (int)KeyCode.Space;
+			KeyDown(inUp);
+		}else if(Input.GetKeyUp(KeyCode.Space)){
+			inUp.down[0] = (int)KeyCode.Space;
+			KeyUp(inUp);
 		}
 
 	}

@@ -145,6 +145,9 @@ public class CModelGameState : CModelBase {
 		clientActive = new ClientActive();
 		ClearState();
 
+		activeSnapshots = new SnapShot[2];
+		activeSnapshots[0] = new SnapShot();
+		activeSnapshots[1] = new SnapShot();
 		update = Update;
 	}
 
@@ -335,7 +338,7 @@ public class CModelGameState : CModelBase {
 			}
 		}
 
-		CLog.Info("begin playerstate at pos:{0}", packet.CurPos);
+		// CLog.Info("begin playerstate at pos:{0}", packet.CurPos);
 		if(old != null)
 		{
 			packet.ReadDeltaPlayerstate(old.playerState, newSnap.playerState);
@@ -344,7 +347,7 @@ public class CModelGameState : CModelBase {
 			packet.ReadDeltaPlayerstate(null, newSnap.playerState);
 		}
 
-		CLog.Info("begin packet entities at pos:{0}", packet.CurPos);
+		// CLog.Info("begin packet entities at pos:{0}", packet.CurPos);
 		ParseEntities(packet, old, newSnap);
 
 		//如果不合适，就弹出所有的内容，因为它已经被读出。
@@ -559,23 +562,23 @@ public class CModelGameState : CModelBase {
 	{
 		int newIndex;
 		EntityState oldState = new EntityState();
-		int oldIndex, lastIndex;
+		int oldParseIndex, oldEntIndex;
 
 		newframe.parseEntitiesIndex = clientActive.parseEntitiesIndex;
 		newframe.numEntities = 0;
 
 		//
-		oldIndex = 0;
+		oldParseIndex = 0;
 		// oldState = 
 		if(oldframe == null){
-			lastIndex = 99999;
+			oldEntIndex = 99999;
 		}else
 		{
-			if(oldIndex >= oldframe.numEntities){
-				lastIndex = 99999;
+			if(oldParseIndex >= oldframe.numEntities){
+				oldEntIndex = 99999;
 			}else{
-				oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
-				lastIndex = oldState.entityIndex;
+				oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldParseIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+				oldEntIndex = oldState.entityIndex;
 			}
 		}
 
@@ -593,25 +596,25 @@ public class CModelGameState : CModelBase {
 				break;
 			}
 
-			while(lastIndex < newIndex)
+			while(oldEntIndex < newIndex)
 			{
 				//来自旧数据包中的一个或者多个entity没有发生变化
 				if(CConstVar.ShowNet == 3){
-					CLog.Info("entity unchanged: %d", lastIndex);
+					CLog.Info("entity unchanged: %d", oldEntIndex);
 				}
-				DeltaEntity(packet, newframe, lastIndex, ref oldState, true);
+				DeltaEntity(packet, newframe, oldEntIndex, ref oldState, true);
 
-				oldIndex++;
+				oldParseIndex++;
 
-				if(oldIndex >= oldframe.numEntities){
-					lastIndex = 99999;
+				if(oldParseIndex >= oldframe.numEntities){
+					oldEntIndex = 99999;
 				}else{
-					oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
-					lastIndex = oldState.entityIndex;
+					oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldParseIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+					oldEntIndex = oldState.entityIndex;
 				}
 			}
 
-			if(lastIndex == newIndex)
+			if(oldEntIndex == newIndex)
 			{
 				//增量来自于前一帧
 				if(CConstVar.ShowNet == 3){
@@ -619,19 +622,19 @@ public class CModelGameState : CModelBase {
 				}
 				DeltaEntity(packet, newframe,newIndex, ref oldState, false);
 
-				oldIndex++;
+				oldParseIndex++;
 
-				if(oldIndex >= oldframe.numEntities){
-					lastIndex = 99999;
+				if(oldParseIndex >= oldframe.numEntities){
+					oldEntIndex = 99999;
 				}else{
-					oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex+oldIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
-					lastIndex = oldState.entityIndex;
+					oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex+oldParseIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+					oldEntIndex = oldState.entityIndex;
 				}
 				continue;
 			}
 
 			//上一帧中没有对应的数据
-			if(lastIndex > newIndex){
+			if(oldEntIndex > newIndex){
 				if(CConstVar.ShowNet == 3){
 					CLog.Info("base line entity: %d", newIndex);
 				}
@@ -641,21 +644,21 @@ public class CModelGameState : CModelBase {
 		}
 
 		//oldframe内剩下的entities都直接复制过去
-		//只有客户端新增了entity时，lastIndex == 99999
-		while(lastIndex != 99999)
+		//被标记为删除的entity，parseEntitiesIndex不会增加，然后被后续的entity覆盖
+		while(oldEntIndex != 99999)
 		{
 			if(CConstVar.ShowNet == 3){
-				CLog.Info("unchanged entity: %d", lastIndex);
+				CLog.Info("unchanged entity: %d", oldEntIndex);
 			}
-			DeltaEntity(packet, newframe, lastIndex, ref oldState, true);
+			DeltaEntity(packet, newframe, oldEntIndex, ref oldState, true);
 			
-			oldIndex++;
+			oldParseIndex++;
 
-			if(oldIndex >= oldframe.numEntities){
-				lastIndex = 99999;
+			if(oldParseIndex >= oldframe.numEntities){
+				oldEntIndex = 99999;
 			}else{
-				oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
-				lastIndex = oldState.entityIndex;
+				oldState = clientActive.parseEntities[(oldframe.parseEntitiesIndex + oldParseIndex) & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+				oldEntIndex = oldState.entityIndex;
 			}
 		}
 	}
@@ -682,7 +685,7 @@ public class CModelGameState : CModelBase {
 		GetCurrentSnapshotNum(ref n, ref latestSnapshotTime);
 		if(n != latestSnapshotNum){
 			if(n < latestSnapshotNum){
-				CLog.Error("ProcessSnapshots: n < gamestate.latestSnapshotNum");
+				CLog.Error("ProcessSnapshots: n < gamestate.latestSnapshotNum, n:{0}, latestSnapshotNum:{1}",n,lastPredictedCommand);
 			}
 			latestSnapshotNum = n;
 		}
@@ -754,8 +757,8 @@ public class CModelGameState : CModelBase {
 		oldFrame = snap;
 		snap = nextSnap;
 
-		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientNum].currentState, false);
-		clientEntities[snap.playerState.clientNum].interpolate = false;
+		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientIndex].currentState, false);
+		clientEntities[snap.playerState.clientIndex].interpolate = false;
 
 		for(i = 0; i < snap.numEntities; i++){
 			clientEntity = clientEntities[snap.entities[i].entityIndex];
@@ -785,7 +788,7 @@ public class CModelGameState : CModelBase {
 	//状态的变化，比较两帧之间的状态改变然后进行对应的处理
 	private void TransitionPlayerState(PlayerState playerState, ref PlayerState oplayerState){
 		//检查跟随模式的变化
-		if(playerState.clientNum != oplayerState.clientNum){
+		if(playerState.clientIndex != oplayerState.clientIndex){
 			thisFrameTeleport = true;
 			//保证不会有任何非预料的过渡效果
 			playerState.CopyTo(oplayerState);
@@ -835,7 +838,7 @@ public class CModelGameState : CModelBase {
 		ClientEntity clientEntity;
 		int evt = 0;
 		if(playerState.externalEvent > 0 && playerState.externalEvent != oplayerState.externalEvent){
-			clientEntity = clientEntities[playerState.clientNum];
+			clientEntity = clientEntities[playerState.clientIndex];
 			clientEntity.currentState.eventID = playerState.externalEvent;
 			clientEntity.currentState.eventParam = playerState.externalEventParam;
 			EntityEvent(clientEntity, clientEntity.lerpOrigin);
@@ -1075,7 +1078,7 @@ public class CModelGameState : CModelBase {
 			CLog.Info("ReadNextSnapshot: way out of range. %d > %d", latestSnapshotNum, processedSnapshotNum);
 		}
 
-		while(processedSnapshotNum > latestSnapshotNum){
+		while(processedSnapshotNum < latestSnapshotNum){
 			if(snap == activeSnapshots[0]){
 				dest = activeSnapshots[1];
 			}else{
@@ -1110,8 +1113,8 @@ public class CModelGameState : CModelBase {
 
 		nextSnap = snapshot;
 
-		CUtils.PlayerStateToEntityState(snapshot.playerState, ref clientEntities[snapshot.playerState.clientNum].nextState, false);
-		clientEntities[snap.playerState.clientNum].interpolate = true;
+		CUtils.PlayerStateToEntityState(snapshot.playerState, ref clientEntities[snapshot.playerState.clientIndex].nextState, false);
+		clientEntities[snap.playerState.clientIndex].interpolate = true;
 
 		for(num = 0; num < snapshot.numEntities; num++){
 			es = snapshot.entities[num];
@@ -1132,7 +1135,7 @@ public class CModelGameState : CModelBase {
 			nextFrameTeleport = false;
 		}
 
-		if(nextSnap.playerState.clientNum != snap.playerState.clientNum){
+		if(nextSnap.playerState.clientIndex != snap.playerState.clientIndex){
 			nextFrameTeleport = true;
 		}
 		if(((nextSnap.snapFlags ^ snap.snapFlags) & SnapFlags.SERVER_COUNT) != SnapFlags.NONE){
@@ -1188,7 +1191,7 @@ public class CModelGameState : CModelBase {
 		EntityState state;
 
 		snap = snapshot;
-		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientNum].currentState, false);
+		CUtils.PlayerStateToEntityState(snap.playerState,ref clientEntities[snap.playerState.clientIndex].currentState, false);
 		BuildSolidList();
 
 		ExecuteNewServerCommands(snap.serverCommandSequence);
@@ -1417,6 +1420,11 @@ public class SnapShot{
 	public int numServerCommands;
 
 	public int serverCommandSequence;
+
+	public SnapShot(){
+		playerState = new PlayerState();
+		entities = new EntityState[CConstVar.MAX_ENTITIES_IN_SNAPSHOT];
+	}
 
 }
 

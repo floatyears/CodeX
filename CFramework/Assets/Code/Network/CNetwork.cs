@@ -400,7 +400,7 @@ public class CNetwork : CModule{
 			}
 			cmd = packet.ReadByte();
 			if(cmd == (int)SVCCmd.EOF){
-				CLog.Info("END OF MESSAGE");
+				// CLog.Info("END OF MESSAGE");
 				break;
 			}
 

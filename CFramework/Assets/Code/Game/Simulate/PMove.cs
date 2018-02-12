@@ -193,6 +193,7 @@ public class PMove {
 
 		float fmove = cmd.forwardmove;
 		float smove = cmd.rightmove;
+		float upmove = cmd.upmove;
 
 		if(fmove != 0 || smove != 0){
 			CLog.Info("move {0}, {1}", fmove, smove);
@@ -229,6 +230,9 @@ public class PMove {
 
 		playerState.velocity.Normalize();
 		playerState.velocity = playerState.velocity * vel;
+		if(upmove > 0f){
+			agent.AddForce(new Vector3(0f,upmove/upmove,0f));
+		}
 		if(playerState.velocity[0] == 0 && playerState.velocity[2] == 0){
 			return;
 		}

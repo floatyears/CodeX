@@ -9,9 +9,9 @@ public class CConstVar {
 	//丢包的概率
 	public const int NET_DROP_SIM = 10;
 
-	public const int ShowPacket = 1;
+	public const int ShowPacket = 0;
 
-	public const int ShowNet = 2;
+	public const int ShowNet = 0;
 
 	public const int ShowMiss = 1;
 

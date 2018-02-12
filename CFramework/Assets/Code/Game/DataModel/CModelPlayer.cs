@@ -262,7 +262,7 @@ public class CModelPlayer : CModelBase
 
 	private void TransitionPlayerState(PlayerState playerState, PlayerState oplayerState){
 		var gamestate = CDataModel.GameState;
-		if(playerState.clientNum != oplayerState.clientNum){
+		if(playerState.clientIndex != oplayerState.clientIndex){
 			gamestate.thisFrameTeleport = true;
 			playerState.CopyTo(oplayerState);
 		}
@@ -488,7 +488,7 @@ public class PlayerState{
 
 	public int externalEventParam;
 
-	public int clientNum; //范围是0-MAX_CLIENT - 1
+	public int clientIndex; //范围是0-MAX_CLIENT - 1
 
 	public Vector3 viewangles;
 
@@ -575,7 +575,7 @@ public class PlayerState{
 				case 27:
 					return externalEventParam;
 				case 28:
-					return clientNum;
+					return clientIndex;
 				case 29:
 					return BitConverter.ToInt32(BitConverter.GetBytes(viewangles.x), 0);
 				case 30:
@@ -681,7 +681,7 @@ public class PlayerState{
 					externalEventParam = value;
 					break;
 				case 28:
-					clientNum = value;
+					clientIndex = value;
 					break;
 				case 29:
 					viewangles.x = value;

@@ -6,7 +6,11 @@ public class CSceneBase {
 
 	private string name;
 
-	private Camera camera;
+	private Transform camTrans;
+
+	private ClientActive clientActive;
+
+	private BaseEntity[] npcList;
 
 	public string Name{
 		get{
@@ -29,17 +33,27 @@ public class CSceneBase {
 	{
 		state = CSceneState.Inited;
 
-		camera = Camera.main;
+		camTrans = Camera.main.transform.parent;
+		npcList = new BaseEntity[CConstVar.MAX_ENTITIES_IN_SNAPSHOT];
 	}
 
 	public virtual void OnLoaded()
 	{
-		
+		clientActive = CDataModel.GameState.ClActive;
 	}
 
 	public virtual void Update()
 	{
-		camera.transform.position = CDataModel.GameState.ClActive.snap.playerState.origin;
+		camTrans.position = CDataModel.GameState.ClActive.snap.playerState.origin;
+
+		for(int i = 0; i < clientActive.snap.numEntities; i++){ //表示当前帧的entity
+			int idx = clientActive.snap.parseEntitiesIndex + i;
+			var ent = clientActive.parseEntities[idx & (CConstVar.MAX_PARSE_ENTITIES - 1)];
+			
+			
+		}
+		// clientActive.snap.parseEntitiesIndex
+		// clientActive.parseEntities[clientActive.snap.parseEntitiesIndex + clientActive.snap.numEntities]
 	}
 
 	public virtual void Dispose()

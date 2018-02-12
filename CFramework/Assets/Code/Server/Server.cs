@@ -49,6 +49,7 @@ public class Server : CModule {
 
 	private SvEntityState[] svEntities;
 
+	//与game simulate共享的entities
 	private SharedEntity[] gEntities;
 
 	private int gEntitySize;
@@ -792,11 +793,11 @@ public class Server : CModule {
 	//模块更新
 	public override void Update()
 	{
-		deltaTime += Time.deltaTime;
-		if(deltaTime < 1){
-			return;
-		}
-		deltaTime = 0;
+		// deltaTime += Time.deltaTime;
+		// if(deltaTime < 1){
+		// 	return;
+		// }
+		// deltaTime = 0;
 		//先发送缓冲的消息
 		int minMsec = FrameMsec();
 		int timeVal = 0;
@@ -861,6 +862,7 @@ public class Server : CModule {
 
 			//按照服务器的时间来进行update
 			CDataModel.GameSimulate.Update(time);
+			// CLog.Info("Server Update Time:{0}", Time.realtimeSinceStartup);
 		}
 
 		if(CConstVar.ComSpeeds > 0){
@@ -1226,7 +1228,7 @@ public class Server : CModule {
 		PlayerState ps = GetClientPlayer(client);//client.playerState;
 		ps.CopyTo(frame.playerState);
 
-		int clientNum = frame.playerState.clientNum;
+		int clientNum = frame.playerState.clientIndex;
 		if(clientNum < 0 || clientNum > CConstVar.MAX_GENTITIES){
 			CLog.Error("SvEntity for gEntity: bad gEnt");
 		}
@@ -1240,6 +1242,7 @@ public class Server : CModule {
 
 		AddEntitiesVisibleFromPoint(org, frame, entitiesIndex, false);
 
+		//entitiesIndex里面的entityIndex不一定是连续的，但是有序的，从小到大
 		entitiesIndex.Sort();
 
 		frame.numEntities = 0;
@@ -1253,7 +1256,6 @@ public class Server : CModule {
 			}
 			frame.numEntities++;
 		}
-
 	}
 
 	//
@@ -1273,24 +1275,24 @@ public class Server : CModule {
 
 			//entities能被标记为发送给一个客户端
 			if((ent.r.svFlags & SVFlags.SINGLE_CLIENT) != SVFlags.NONE){
-				if(ent.r.singleClinet != frame.playerState.clientNum){
+				if(ent.r.singleClinet != frame.playerState.clientIndex){
 					continue;
 				}
 			}
 
 			//entities可以标记为发送给每个人但是只有一个客户端
 			if((ent.r.svFlags & SVFlags.NOTSINGLE_CLIENT) != SVFlags.NONE){
-				if(ent.r.singleClinet == frame.playerState.clientNum){
+				if(ent.r.singleClinet == frame.playerState.clientIndex){
 					continue;
 				}
 			}
 
 			//entities可以标记为发送给指定掩码的客户端
 			if((ent.r.svFlags & SVFlags.CLIENT_MASK) != SVFlags.NONE){
-				if(frame.playerState.clientNum > 32){
+				if(frame.playerState.clientIndex > 32){
 					CLog.Error("SVFlags.CLIENT_MASK: clientNum >= 32");
 				}
-				if((~ent.r.singleClinet & (1 << frame.playerState.clientNum)) >0){
+				if((~ent.r.singleClinet & (1 << frame.playerState.clientIndex)) >0){
 					continue;
 				}
 			}
@@ -1442,6 +1444,7 @@ public class Server : CModule {
 				oldNum = oldEnt.Value.entityIndex;
 			}
 
+			//相等表示是同一个entity
 			if(newNum == oldNum){
 				msg.WriteDeltaEntity(oldEnt, newEnt, false);
 				oldIndex++;
@@ -1449,6 +1452,7 @@ public class Server : CModule {
 				continue;
 			}
 
+			//新增的entity排在前面，
 			if(newNum < oldNum){
 				oldEnt = svEntities[newNum].baseline;
 				msg.WriteDeltaEntity(oldEnt, newEnt, true);
@@ -1457,6 +1461,7 @@ public class Server : CModule {
 				continue;
 			}
 
+			//旧的entity消失了，写入一个字段表示此entity消失了
 			if(newNum > oldNum){
 				msg.WriteDeltaEntity(oldEnt, null, true);
 				oldIndex++;
@@ -1654,7 +1659,7 @@ public class Server : CModule {
 	}
 
 	public void GetUserCmd(int index, ref UserCmd cmd){
-		cmd = clients[index].lastUserCmd;
+		clients[index].lastUserCmd.CopyTo(cmd);
 	}
 
 	public void SetConfigString(int index, string buffer){

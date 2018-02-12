@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-//游戏模拟模块，只负责逻辑，不负责表现
+//游戏模拟模块，只负责逻辑，不负责表现。跟Server共享了两部分数据，一部分是GameClient中的PlayerState，一部分是GameEntity的SharedEntity(EntityShared和EntityState)
 public class CModelGameSimulate : CModelBase {
 
 	private bool inited = false;
@@ -567,7 +567,7 @@ public class CModelGameSimulate : CModelBase {
 			t.sEnt.s.entityIndex = idx;
 			t.sEnt.s.entityType = EntityType.EVENTS_COUNT + evt;
 			t.sEnt.s.entityFlags |= EntityType.PLAYER;
-			t.sEnt.s.otherEntityIdx = playerState.clientNum;
+			t.sEnt.s.otherEntityIdx = playerState.clientIndex;
 			t.sEnt.r.svFlags |= SVFlags.NOTSINGLE_CLIENT;
 			playerState.externalEvent = extEvent;
 			// int t = 
@@ -677,7 +677,7 @@ public class CModelGameSimulate : CModelBase {
 		ent.client.sess.spectatorState = SpectatorState.FREE;
 		ent.client.playerState.pmFlags &= ~PMoveFlags.FOLLOW;
 		ent.sEnt.r.svFlags &= ~ SVFlags.BOT;
-		ent.client.playerState.clientNum = System.Array.IndexOf(gEntities, ent); 
+		ent.client.playerState.clientIndex = System.Array.IndexOf(gEntities, ent); 
 	}
 
 	private void ClientSpawn(GameEntity ent){
@@ -743,7 +743,7 @@ public class CModelGameSimulate : CModelBase {
 		ent.sEnt.r.contents = CConstVar.CONTENTS_BODY;
 
 		ent.flags = 0;
-		cl.playerState.clientNum = index;
+		cl.playerState.clientIndex = index;
 
 		cl.playerState.origin = spawnOrigin;
 
@@ -879,7 +879,6 @@ public class GameEntity{
 	public void SetTarget(){
 
 	}
-
 }
 
 

@@ -28,6 +28,7 @@ public class BaseModel {
 
         //物理碰撞
         agent = _mainObj.AddComponent<Rigidbody>();
+        agent.freezeRotation = true;
         collider = _mainObj.AddComponent<BoxCollider>();
 
         //刷新模型资源
@@ -59,6 +60,10 @@ public class BaseModel {
 
     public void Move(Vector3 pos){
         agent.MovePosition(agent.position + pos);
+    }
+
+    public void AddForce(Vector3 force){
+        agent.AddForce(force, ForceMode.Impulse);
     }
 
     public void Dispose()

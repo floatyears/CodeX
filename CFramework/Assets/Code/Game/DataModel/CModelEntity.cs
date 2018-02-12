@@ -86,6 +86,7 @@ public class SvEntityState{
 unsafe public struct EntityState{
 	public int entityID;
 
+	//InitGEntity中赋值，表示gEntities中GameEntity的索引值。
 	public int entityIndex;
 
 	//entityType超过EntityEventType.Event_Count之后，就表示单纯的事件，而不代表一个entity
@@ -261,7 +262,7 @@ unsafe public struct EntityState{
 
 }
 
-public struct EntityShared
+public struct EntityShareData
 {
 	public EntityState unused;
 
@@ -289,7 +290,7 @@ public struct EntityShared
 public class SharedEntity
 {
 	public EntityState s;
-	public EntityShared r;
+	public EntityShareData r;
 }
 
 public enum EntityEventType

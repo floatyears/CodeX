@@ -87,7 +87,7 @@ public class CUtils {
 			state.entityType = EntityType.PLAYER;
 		}
 
-		state.entityIndex = playerState.clientNum;
+		state.entityIndex = playerState.clientIndex;
 		state.pos.trType = (int)TrajectoryType.INTERPOLATE;
 
 		state.pos.SetTrBase(playerState.origin);
@@ -108,7 +108,7 @@ public class CUtils {
 			state.pos.SetTrBase(tmp);
 		}
 		state.angles2[CConstVar.YAW] = playerState.movementDir;
-		state.clientNum = playerState.clientNum;
+		state.clientNum = playerState.clientIndex;
 
 		state.entityFlags = playerState.entityFlags;
 		if(playerState.states[CConstVar.STAT_HEALTH] <= 0){

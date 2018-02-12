@@ -116,7 +116,7 @@ public class CSocketUDP {
 		// IPEndPoint _remote = ar.AsyncState as IPEndPoint;
 		if(count > 0)
 		{
-			CLog.Info("udp socket recieved: {0}, from adr:{1}", count, tmp);
+			// CLog.Info("udp socket recieved: {0}, from adr:{1}", count, tmp);
 			
 #if CFRAMEWORK_DEBUG
 			try{

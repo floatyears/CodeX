@@ -26,6 +26,8 @@ public class BaseEntity {
 
 	protected int maxLevel;
 
+	protected EntityState entityData;
+
 	protected BaseEntity owner;
 
 	//npc自带的所有属性，升级所得以及各种永久性的改变，不包含各种外部加成导致的变换，以及属性联动带来的变化。
@@ -130,6 +132,13 @@ public class BaseEntity {
 		return false;
 	}
 
+	public void AttachData(EntityState ent){
+		if(guid != ent.entityIndex){ //表示当前的entityidx跟之前的不一样了，需要执行特殊操作
+
+		}else{
+			
+		}
+	}
 
 	public virtual void Update(float deltaTime)
 	{

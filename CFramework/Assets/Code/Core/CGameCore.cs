@@ -81,13 +81,15 @@ public class CGameCore {
 		{
 			updateModules[i].Update();
 		}
-	}
 
-	//fixed更新，比如帧同步这一块儿全是在FixedUpdate中更新
-	public void FixedUpdate() {
 		for(int i = 0; i < fixedUpdateNum; i++)
 		{
 			fixedModules[i].Update();
 		}
+	}
+
+	//fixed更新，比如帧同步这一块儿全是在FixedUpdate中更新
+	public void FixedUpdate() {
+		
 	}
 }
