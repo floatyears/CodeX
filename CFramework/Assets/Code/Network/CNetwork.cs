@@ -515,7 +515,8 @@ public class CNetwork : CModule{
 		connection.serverCommandSequence = seq;
 		
 		int index = seq & (CConstVar.MAX_RELIABLE_COMMANDS - 1);
-		connection.serverCommands[index] = s.ToCharArray();
+		s.ToCharArray().CopyTo(connection.serverCommands[index], 0);
+		connection.serverCommands[index][s.Length] = '\0';
 	}
 
 	/*-------------------UDP END------------------*/

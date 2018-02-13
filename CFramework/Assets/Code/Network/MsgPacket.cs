@@ -764,7 +764,7 @@ public class MsgPacket{
 		}
 		WriteBits(toEnt.entityIndex, CConstVar.GENTITYNUM_BITS);
 		WriteBits(0, 1); //没有被移除
-		WriteBits(1, 1); //没有增量更新
+		WriteBits(1, 1); //有增量更新
 
 		if(lc >= 256) CLog.Error("Too many changed properties of EntityState!");
 		WriteByte((byte)lc); //改变的属性
@@ -779,7 +779,7 @@ public class MsgPacket{
 			fromF = (int *)(startF + offset);
 			toF = (int *)(startT + offset);
 
-			if(*fromF != *toF){
+			if(*fromF == *toF){
 				WriteBits(0,1); //没有变化
 				continue;
 			}

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CModelGameBot : CDataModel {
+public class CModelGameBot : CModelBase {
 
 	
 	public void RemoveQueueBotBegine(int clientNum){

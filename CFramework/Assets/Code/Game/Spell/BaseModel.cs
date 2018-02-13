@@ -59,7 +59,8 @@ public class BaseModel {
     }
 
     public void Move(Vector3 pos){
-        agent.MovePosition(agent.position + pos);
+        // agent.MovePosition(agent.position + pos);
+        agent.velocity = pos * 10;
     }
 
     public void AddForce(Vector3 force){

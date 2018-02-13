@@ -488,6 +488,7 @@ public class PlayerState{
 
 	public int externalEventParam;
 
+	//在game simulate gEntities列表中的索引值
 	public int clientIndex; //范围是0-MAX_CLIENT - 1
 
 	public Vector3 viewangles;

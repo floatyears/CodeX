@@ -77,8 +77,9 @@ public class GameClient{
 		agent.Init();
 	}
 
+	//如果不是正在使用，那么就先销毁掉
 	public void Clear(){
-
+		agent.Dispose();
 	}
 
 	public void StoreHistory(SharedEntity sEnt, int time){
@@ -99,12 +100,6 @@ public class GameClient{
 		playerState.origin = pos;
 		agent.SetPosition(pos);
 	}
-
-	//如果不是正在使用，那么就先销毁掉
-	public void Dispose(){
-		agent.Dispose();
-	}
-
 
 }
 

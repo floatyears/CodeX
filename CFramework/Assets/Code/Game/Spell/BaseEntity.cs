@@ -138,6 +138,21 @@ public class BaseEntity {
 		}else{
 			
 		}
+
+		Vector3 tmp = Vector3.zero;
+		ent.pos.GetTrBase(ref tmp);
+		SetPosition(tmp);
+	}
+
+	public void AttachData(PlayerState ent){
+		if(guid != ent.clientIndex){ //表示当前的entityidx跟之前的不一样了，需要执行特殊操作
+
+		}else{
+			
+		}
+
+		SetPosition(ent.origin);
+		Camera.main.transform.parent.position = ent.origin;
 	}
 
 	public virtual void Update(float deltaTime)

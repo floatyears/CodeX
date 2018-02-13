@@ -184,14 +184,19 @@ public class Server : CModule {
 		for(i = 0; i < CConstVar.maxClient; i ++)
 		{
 			var cl = clients[i];
-			if(cl.state == ClientState.FREE){
+			if(cl.state <= ClientState.ZOMBIE){
 				continue;
 			}
 
-			if(!from.Address.Equals(cl.netChan.remoteAddress.Address) || cl.netChan.qport != from.Port )
-			{
-				continue;
+			try{
+				if(!from.Address.Equals(cl.netChan.remoteAddress.Address) || cl.netChan.qport != from.Port )
+				{
+					continue;
+				}
+			}catch(Exception e){
+				int a = 0;
 			}
+			
 
 			//一个IP对应多个客户端，用qport来区分
 			// if(cl.netChan.qport != qport)
@@ -207,12 +212,12 @@ public class Server : CModule {
 
 			if(SV_NetChanProcess(ref cl.netChan, packet))
 			{
-				if(cl.state != ClientState.ZOMBIE){
+				if(cl.state > ClientState.ZOMBIE){
 					cl.lastPacketTime = time;
 					SV_ExecuteClientMessage(cl, packet);
 				}
 			}
-			return;
+			// return;
 		}
 	}
 
@@ -401,7 +406,7 @@ public class Server : CModule {
 	}
 
 	public void SV_ClientThink(ClientNode cl, ref UserCmd cmd){
-		cl.lastUserCmd = cmd;
+		cmd.CopyTo(cl.lastUserCmd);
 		// CLog.Info("last ucmd time: {0}", cl.lastUserCmd.serverTime);
 		if(cl.state != ClientState.ACTIVE){
 			return;
@@ -854,6 +859,8 @@ public class Server : CModule {
 
 		CalcPings();
 
+		CheckTimeouts();
+
 		//如果帧率过低，就需要在同一帧里面多次模拟
 		int multiSimulation = 0;
 		while(timeResidual > fMsec){
@@ -862,15 +869,16 @@ public class Server : CModule {
 
 			//按照服务器的时间来进行update
 			CDataModel.GameSimulate.Update(time);
+
+			if(CConstVar.ComSpeeds > 0){
+				CConstVar.TimeGame = CDataModel.InputEvent.Milliseconds() - startTime;
+			}
+			
+			SendClientMessages();
 			// CLog.Info("Server Update Time:{0}", Time.realtimeSinceStartup);
 		}
 
-		if(CConstVar.ComSpeeds > 0){
-			CConstVar.TimeGame = CDataModel.InputEvent.Milliseconds() - startTime;
-		}
-
-		CheckTimeouts();
-		SendClientMessages();
+		
 	}
 
 	//释放
@@ -952,16 +960,17 @@ public class Server : CModule {
 			}
 
 			if(cl.state == ClientState.ZOMBIE && cl.lastPacketTime < zombiepoint){
-				cl.state = ClientState.FREE;
+				// cl.state = ClientState.FREE;
+				cl.Clear();
 				CLog.Info("Going from zombie to free for client {0}", i);
 				continue;
 			}
 
-			if(cl.state == ClientState.CONNECTED && cl.lastPacketTime < droppoint){
+			if(cl.state >= ClientState.CONNECTED && cl.lastPacketTime < droppoint){
 				//等待几帧再断开，防止调试出现的等待
 				if(++cl.timeoutCount > 5){
 					DropClient(cl, "time out");
-					cl.state = ClientState.FREE;
+					// cl.state = ClientState.FREE;
 				}
 			}else{
 				cl.timeoutCount = 0;
@@ -988,7 +997,7 @@ public class Server : CModule {
 	}
 
 	private void DropClient(ClientNode drop, string reason){
-		if(drop.state == ClientState.ZOMBIE){
+		if(drop.state <= ClientState.ZOMBIE){
 			return;
 		}
 
@@ -1077,10 +1086,11 @@ public class Server : CModule {
 
 		//发送消息到所有的客户端
 		for(int j = 0; j < CConstVar.MAX_CLIENTS; j++){
-			if(cl.state < ClientState.PRIMED){
+			var _cl = clients[j];
+			if(_cl.state < ClientState.PRIMED){
 				continue;
 			}
-			AddServerCommand(cl, string.Format(format, args));
+			AddServerCommand(_cl, string.Format(format, args));
 		}
 	}
 
@@ -1359,7 +1369,7 @@ public class Server : CModule {
 			oldFrame = null;
 			lastFrame = 0;
 		}else if(client.netChan.outgoingSequence - client.deltaMessage >= (CConstVar.PACKET_BACKUP - 3)){
-			CLog.Info("%s Delta request from out of data packet.", client.name);
+			CLog.Info("{0} Delta request from out of data packet.", client.name);
 			oldFrame = null;
 			lastFrame = 0;
 		}else{
@@ -1367,7 +1377,7 @@ public class Server : CModule {
 			lastFrame = client.netChan.outgoingSequence - client.deltaMessage;
 
 			if(oldFrame.firstEntity <= nextSnapshotEntities - numSnapshotEntities){
-				CLog.Info("%s Delta request from out of data entities.", client.name);
+				CLog.Info("{0} Delta request from out of data entities.", client.name);
 				oldFrame = null;
 				lastFrame = 0;
 			}
@@ -1486,7 +1496,7 @@ public class Server : CModule {
 				continue;
 			}
 
-			if(!IPAddress.IsLoopback(c.netChan.remoteAddress.Address) || CConstVar.LanForceRate && CNetwork.IsLANAddress(c.netChan.remoteAddress.Address)){
+			if(!(IPAddress.IsLoopback(c.netChan.remoteAddress.Address) || (CConstVar.LanForceRate && CNetwork.IsLANAddress(c.netChan.remoteAddress.Address)))){
 				if(time - c.lastSnapshotTime < c.snapshotMsec * CConstVar.timeScale){
 					continue;
 				}
@@ -1513,7 +1523,8 @@ public class Server : CModule {
 	public void ClearClients(){
 		for(int i = 0; i < CConstVar.MAX_CLIENTS; i++){
 			var c = clients[i];
-			c.state = ClientState.FREE;
+			DropClient(c,"server reset");
+			// c.state = ClientState.FREE;
 		}
 	}
 
@@ -1745,7 +1756,22 @@ public class ClientNode
 		}
 		lastUserCmd = new UserCmd();
 
+		messageAcknowledge = -1;
+		gamestateMessageNum = -1;
+
 		// playerState = new PlayerState();
+	}
+
+	public void Clear(){
+		state = ClientState.FREE;
+		reliableSequence = -1;
+		reliableAcknowledge = -1;
+		messageAcknowledge = -1;
+		reliableSent = -1;
+		gamestateMessageNum = -1;
+		challenge = 0;
+		lastUserCmd.serverTime = 0;
+		lastClientCommand = -1;
 	}
 }
 

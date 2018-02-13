@@ -29,7 +29,7 @@ public class CircularBuffer<T> {
 		if(IsFull)
 		{
 			tail = NextPos(tail);
-			CLog.Error("CircularBuffer<%s> is full, the tail item will be overrideed, and some error will occur!", typeof(T).GetType().ToString());
+			CLog.Error("CircularBuffer<{0}> is full, the tail item will be overrideed, and some error will occur!", typeof(T).Name);
 		}else{
 			length++;
 		}
@@ -45,7 +45,7 @@ public class CircularBuffer<T> {
 			return tmp;
 		}else
 		{
-			CLog.Error("CircularBuffer<%s> is Empty, Dequeue failed!", typeof(T).GetType().ToString());
+			CLog.Error("CircularBuffer<{0}> is Empty, Dequeue failed!", typeof(T).Name);
 			return default(T);
 		}
 	}
@@ -58,7 +58,7 @@ public class CircularBuffer<T> {
 			return tmp;
 		}else
 		{
-			CLog.Error("CircularBuffer<%s> is Empty, Peek failed!", typeof(T).GetType().ToString());
+			CLog.Error("CircularBuffer<{0}> is Empty, Peek failed!", typeof(T).Name);
 			return default(T);
 		}
 	}

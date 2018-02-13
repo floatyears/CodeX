@@ -221,9 +221,11 @@ public class CConstVar {
 
 	public const int Protocol = 8002;
 
-	public const int SV_TimeOut = 10000;
+	//10s内没有连接消息就断开
+	public const int SV_TimeOut = 10;
 
-	public const int SV_ZombieTime = 10000;
+	//10s后再销毁
+	public const int SV_ZombieTime = 10;
 
 	public const int MAX_OTHER_SERVERS = 10;
 

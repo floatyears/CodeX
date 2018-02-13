@@ -108,6 +108,7 @@ public class CDataModel : CModule {
 		AddModel<CModelGameState>(out gameState);
 		AddModel<CModelCMD>(out cmdBuffer);
 		AddModel<CModelGameSimulate>(out gameSimulate);
+		AddModel<CModelGameBot>(out gameBot);
 
 		needUpdate = true;
 	}

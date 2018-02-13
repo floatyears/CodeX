@@ -30,7 +30,7 @@ public class CSceneManager : CModule {
 	public override void Init()
 	{
 		instance = this;
-		SceneManager.sceneLoaded += OnSceneLoaded;
+		// SceneManager.sceneLoaded += OnSceneLoaded;
 		dicScene = new Dictionary<int, CSceneBase>();
 		loadSceneStack = new Stack<int>();
 		needUpdate = true;
@@ -63,7 +63,7 @@ public class CSceneManager : CModule {
 
 	public override void Dispose()
 	{
-		SceneManager.sceneLoaded -= OnSceneLoaded;
+		// SceneManager.sceneLoaded -= OnSceneLoaded;
 		instance = null;
 	}
 	public void ChangeScene(int sceneID)
@@ -90,6 +90,7 @@ public class CSceneManager : CModule {
 				scene.State = CSceneState.Loading;
 				curScene = scene;
 
+				OnSceneLoaded(scene);
 				// UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(data.name);
 			// });
 		}
@@ -100,6 +101,13 @@ public class CSceneManager : CModule {
 	{
 		if(scene.name == curScene.Name)
 		{
+			curScene.State = CSceneState.Active;
+			curScene.OnLoaded();
+		}
+	}
+
+	private void OnSceneLoaded(CSceneBase scene){
+		if(scene == curScene){
 			curScene.State = CSceneState.Active;
 			curScene.OnLoaded();
 		}

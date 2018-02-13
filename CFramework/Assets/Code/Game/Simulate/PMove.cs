@@ -234,6 +234,7 @@ public class PMove {
 			agent.AddForce(new Vector3(0f,upmove/upmove,0f));
 		}
 		if(playerState.velocity[0] == 0 && playerState.velocity[2] == 0){
+			playerState.origin = agent.position;
 			return;
 		}
 		

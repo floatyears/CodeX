@@ -662,6 +662,7 @@ public class CModelGameSimulate : CModelBase {
 		ent.sEnt.s.sourceID = 0;
 		ent.inuse = false;
 		ent.classname = "disconnected";
+		ent.client.Clear();
 		ent.client.pers.connected = ClientConnState.DISCONNECTED;
 		ent.client.playerState.persistant[CConstVar.PERS_TEAM] = (int)TeamType.TEAM_FREE;
 		ent.client.sess.sessionTeam = TeamType.TEAM_FREE;
