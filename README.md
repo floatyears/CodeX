@@ -5,6 +5,3 @@ This source code consists three main parts.
   - Spell: An Event based spell system, very scalable.
   - UDP Snapshots: Refer to Quake3's reliable UDP solutions, and this is a C# version, with a lot of C#/C++ pointer problems solved.
   
-
-# Finally the code has been migrated to other repo for private consideration.
-Maybe someday when all the code has been finished, it will go public.
